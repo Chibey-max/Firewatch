@@ -9,14 +9,17 @@ use serde::Deserialize;
 use thiserror::Error;
 
 pub mod cln;
+pub mod lnd;
+mod tls;
 
 pub use cln::{ClnClient, ClnConfig};
+pub use lnd::{LndClient, LndConfig};
 
 #[derive(Debug, Error)]
 pub enum ConnectorError {
     #[error("config: {0}")]
     Config(String),
-    #[error("request failed: {0}")]
+    #[error("request failed: {}", error_chain(.0))]
     Http(#[from] reqwest::Error),
     #[error("{method} refused (code {code}): {message}")]
     Rpc {
@@ -42,18 +45,21 @@ pub struct Config {
 #[serde(tag = "kind", rename_all = "lowercase")]
 pub enum NodeConfig {
     Cln(ClnConfig),
+    Lnd(LndConfig),
 }
 
 impl NodeConfig {
     pub fn name(&self) -> &str {
         match self {
             NodeConfig::Cln(c) => &c.name,
+            NodeConfig::Lnd(c) => &c.name,
         }
     }
 
     pub fn implementation(&self) -> Implementation {
         match self {
             NodeConfig::Cln(_) => Implementation::Cln,
+            NodeConfig::Lnd(_) => Implementation::Lnd,
         }
     }
 }
@@ -78,5 +84,18 @@ pub fn http_client() -> reqwest::Client {
 pub async fn fetch(node: &NodeConfig, http: &reqwest::Client) -> Result<NodeInfo, ConnectorError> {
     match node {
         NodeConfig::Cln(config) => ClnClient::new(config, http.clone())?.node_info().await,
+        NodeConfig::Lnd(config) => LndClient::new(config)?.node_info().await,
     }
+}
+
+/// reqwest's own message hides the cause (TLS, refused, timeout); include it.
+fn error_chain(e: &reqwest::Error) -> String {
+    let mut out = e.to_string();
+    let mut source = std::error::Error::source(e);
+    while let Some(cause) = source {
+        out.push_str(": ");
+        out.push_str(&cause.to_string());
+        source = cause.source();
+    }
+    out
 }

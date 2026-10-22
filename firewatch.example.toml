@@ -14,3 +14,11 @@ kind = "cln"
 name = "current-cln"
 url = "http://127.0.0.1:8183"
 rune_file = "/path/to/current-cln.rune"
+
+# LND: readonly.macaroon only; Firewatch refuses a macaroon that can write.
+[[nodes]]
+kind = "lnd"
+name = "alice"
+url = "https://127.0.0.1:8081"
+macaroon_file = "/path/to/readonly.macaroon"
+tls_cert = "/path/to/tls.cert"
