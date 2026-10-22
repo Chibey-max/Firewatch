@@ -2,3 +2,9 @@
 # real node config holds runes
 /firewatch.toml
 /firewatch.nsec
+# node credentials: never commit these, even for a regtest demo
+*.macaroon
+*.rune
+tls.cert
+tls.key
+.env
