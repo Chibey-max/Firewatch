@@ -1,0 +1,16 @@
+# Copy to firewatch.toml (git-ignored) and fill in your nodes.
+# Each rune must be restricted to getinfo and listconfigs; Firewatch refuses
+# any rune that can do more. Create one on the node with:
+#   lightning-cli createrune restrictions='[["method=getinfo","method=listconfigs"]]'
+
+[[nodes]]
+kind = "cln"
+name = "old-cln"
+url = "http://127.0.0.1:8182"   # clnrest; Polar maps it to a host port
+rune = "<restricted rune>"
+
+[[nodes]]
+kind = "cln"
+name = "current-cln"
+url = "http://127.0.0.1:8183"
+rune_file = "/path/to/current-cln.rune"
