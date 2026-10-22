@@ -11,8 +11,13 @@ path = "src/main.rs"
 
 [dependencies]
 anyhow.workspace = true
+axum.workspace = true
 clap.workspace = true
+firewatch-alerts = { path = "../firewatch-alerts" }
 firewatch-connectors = { path = "../firewatch-connectors" }
 firewatch-core = { path = "../firewatch-core" }
+serde.workspace = true
 serde_json.workspace = true
 tokio.workspace = true
+toml.workspace = true
+tower-http.workspace = true

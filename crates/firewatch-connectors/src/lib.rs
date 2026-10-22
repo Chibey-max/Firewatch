@@ -1,7 +1,6 @@
 //! Read-only node connectors. Each one turns a node into a
 //! [`firewatch_core::NodeInfo`] using credentials that cannot change it.
 
-use std::path::Path;
 use std::time::Duration;
 
 use firewatch_core::{Implementation, NodeInfo};
@@ -11,6 +10,8 @@ use thiserror::Error;
 pub mod cln;
 pub mod lnd;
 mod tls;
+
+pub use tls::install_crypto_provider;
 
 pub use cln::{ClnClient, ClnConfig};
 pub use lnd::{LndClient, LndConfig};
@@ -33,14 +34,6 @@ pub enum ConnectorError {
     Unexpected(String),
 }
 
-/// `firewatch.toml`: the nodes to watch.
-#[derive(Debug, Clone, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct Config {
-    #[serde(default)]
-    pub nodes: Vec<NodeConfig>,
-}
-
 #[derive(Debug, Clone, Deserialize)]
 #[serde(tag = "kind", rename_all = "lowercase")]
 pub enum NodeConfig {
@@ -61,15 +54,6 @@ impl NodeConfig {
             NodeConfig::Cln(_) => Implementation::Cln,
             NodeConfig::Lnd(_) => Implementation::Lnd,
         }
-    }
-}
-
-impl Config {
-    pub fn load(path: &Path) -> Result<Self, ConnectorError> {
-        let text = std::fs::read_to_string(path)
-            .map_err(|e| ConnectorError::Config(format!("reading {}: {e}", path.display())))?;
-        toml::from_str(&text)
-            .map_err(|e| ConnectorError::Config(format!("parsing {}: {e}", path.display())))
     }
 }
 

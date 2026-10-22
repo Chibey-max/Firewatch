@@ -89,3 +89,10 @@ impl ServerCertVerifier for PinnedCert {
             .supported_schemes()
     }
 }
+
+/// Picks aws-lc-rs as rustls' process-wide provider. Both aws-lc-rs and ring
+/// end up compiled in (via reqwest and the Nostr websocket stack), so rustls
+/// can't choose on its own. Call once at startup; repeat calls are no-ops.
+pub fn install_crypto_provider() {
+    let _ = rustls::crypto::aws_lc_rs::default_provider().install_default();
+}

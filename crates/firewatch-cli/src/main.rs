@@ -3,6 +3,9 @@
 //! Nodes come from `firewatch.toml` (live, read-only connectors) or from a
 //! JSON snapshot (a list of `NodeInfo`, e.g. `examples/nodes.json`).
 
+mod config;
+mod watch;
+
 use std::io::IsTerminal;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
@@ -10,8 +13,11 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
-use firewatch_connectors::Config;
+use firewatch_alerts::NostrAlerter;
+use firewatch_connectors::NodeConfig;
 use firewatch_core::{load_dir, Advisory, NodeInfo, NodeReport, Report, Status};
+
+use crate::config::Config;
 
 #[derive(Parser)]
 #[command(
@@ -47,12 +53,26 @@ enum Command {
         #[arg(long)]
         include_unverified: bool,
     },
+    /// Re-check every N seconds, alert on changes, and serve the dashboard API.
+    Watch {
+        #[arg(long, default_value = "firewatch.toml")]
+        config: PathBuf,
+        /// Also run advisories not yet verified against an official source.
+        #[arg(long)]
+        include_unverified: bool,
+    },
+    /// Send a test alert to check that it reaches your phone.
+    TestAlert {
+        #[arg(long, default_value = "firewatch.toml")]
+        config: PathBuf,
+    },
     /// Load and validate every advisory file, then list them.
     Validate,
 }
 
 #[tokio::main]
 async fn main() -> ExitCode {
+    firewatch_connectors::install_crypto_provider();
     match run().await {
         Ok(code) => code,
         Err(e) => {
@@ -92,13 +112,10 @@ async fn run() -> Result<ExitCode> {
             json,
             include_unverified,
         } => {
-            let advisories: Vec<Advisory> = advisories
-                .into_iter()
-                .filter(|a| include_unverified || a.verified)
-                .collect();
+            let advisories = select(advisories, include_unverified);
             let report = match nodes {
                 Some(path) => Report::build(&load_snapshot(&path)?, &advisories, now()),
-                None => check_live(&config, &advisories).await?,
+                None => check_live(&Config::load(&config)?.nodes, &advisories).await,
             };
             if json {
                 println!("{}", serde_json::to_string_pretty(&report)?);
@@ -111,25 +128,66 @@ async fn run() -> Result<ExitCode> {
                 Status::Affected => 3,
             }))
         }
+        Command::Watch {
+            config,
+            include_unverified,
+        } => {
+            watch::run(
+                Config::load(&config)?,
+                select(advisories, include_unverified),
+            )
+            .await?;
+            Ok(ExitCode::SUCCESS)
+        }
+        Command::TestAlert { config } => {
+            let config = Config::load(&config)?;
+            let nostr = config
+                .alerts
+                .nostr
+                .context("no [alerts.nostr] section in the config")?;
+            let alerter = NostrAlerter::connect(&nostr).await?;
+            let relays = alerter
+                .send("Firewatch test alert: if you can read this, alerts reach you.")
+                .await?;
+            println!(
+                "Sent from {} to {} relay(s): {}",
+                alerter.sender(),
+                relays,
+                alerter
+                    .relays()
+                    .iter()
+                    .map(|r| r.to_string())
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            );
+            Ok(ExitCode::SUCCESS)
+        }
     }
+}
+
+/// Only verified advisories run unless asked otherwise.
+fn select(advisories: Vec<Advisory>, include_unverified: bool) -> Vec<Advisory> {
+    advisories
+        .into_iter()
+        .filter(|a| include_unverified || a.verified)
+        .collect()
 }
 
 /// Reads every configured node. A node that can't be read is reported as
 /// "Can't tell" with its error, so one dead node doesn't hide the others.
-async fn check_live(config: &Path, advisories: &[Advisory]) -> Result<Report> {
-    let config = Config::load(config)?;
+pub(crate) async fn check_live(configs: &[NodeConfig], advisories: &[Advisory]) -> Report {
     let http = firewatch_connectors::http_client();
-    let mut nodes = Vec::with_capacity(config.nodes.len());
-    for node in &config.nodes {
+    let mut nodes = Vec::with_capacity(configs.len());
+    for node in configs {
         nodes.push(match firewatch_connectors::fetch(node, &http).await {
             Ok(info) => NodeReport::from_node(&info, advisories),
             Err(e) => NodeReport::unreachable(node.name(), node.implementation(), e.to_string()),
         });
     }
-    Ok(Report {
+    Report {
         checked_at: now(),
         nodes,
-    })
+    }
 }
 
 fn load_snapshot(path: &Path) -> Result<Vec<NodeInfo>> {
@@ -143,6 +201,17 @@ fn now() -> u64 {
         .duration_since(UNIX_EPOCH)
         .map(|d| d.as_secs())
         .unwrap_or(0)
+}
+
+/// One timestamped line on stderr (UTC).
+pub(crate) fn log(line: &str) {
+    let secs = now() % 86_400;
+    eprintln!(
+        "[{:02}:{:02}:{:02}] {line}",
+        secs / 3600,
+        secs / 60 % 60,
+        secs % 60
+    );
 }
 
 fn print_report(report: &Report) {

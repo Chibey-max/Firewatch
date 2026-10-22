@@ -22,3 +22,14 @@ name = "alice"
 url = "https://127.0.0.1:8081"
 macaroon_file = "/path/to/readonly.macaroon"
 tls_cert = "/path/to/tls.cert"
+
+[watch]
+interval_secs = 10            # seconds between checks
+listen = "127.0.0.1:7070"     # dashboard API; keep it on localhost
+# dashboard_dir = "dashboard/dist"   # serve a built dashboard at /
+
+# Private alerts: NIP-17 encrypted DMs to the operator's Nostr key.
+[alerts.nostr]
+recipient = "npub1..."                 # your key; alerts go only here
+secret_key_file = "firewatch.nsec"     # Firewatch's own key, created on first run
+relays = ["wss://relay.damus.io", "wss://nos.lol", "wss://relay.primal.net"]

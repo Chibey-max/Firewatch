@@ -1,3 +1,4 @@
 /target
 # real node config holds runes
 /firewatch.toml
+/firewatch.nsec
