@@ -45,15 +45,17 @@ export function plural(n: number, one: string, many: string): string {
   return `${n} ${n === 1 ? one : many}`
 }
 
-/** "github.com/ElementsProject/lightning" from a release URL. */
-export function sourceLabel(url: string): string {
+/** "github.com/ElementsProject/lightning" from a release URL; long paths are cut. */
+export function sourceLabel(url: string, max = 44): string {
+  let label = url
   try {
     const u = new URL(url)
     const path = u.pathname.split('/').filter(Boolean).slice(0, 2).join('/')
-    return path ? `${u.host}/${path}` : u.host
+    label = path ? `${u.host}/${path}` : u.host
   } catch {
-    return url
+    // not a URL: show it as given
   }
+  return label.length > max ? `${label.slice(0, max - 1)}…` : label
 }
 
 export function checkedAgo(checkedAt: number, now: number): string {
