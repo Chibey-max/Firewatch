@@ -1,0 +1,13 @@
+# Official Core Lightning binaries with Polar's entrypoint, so Polar can run
+# CLN versions newer than its built-in list (which stops at 25.12).
+#
+#   docker build -f demo/polar/Dockerfile.cln --build-arg CLN_VERSION=v26.06.7 \
+#     -t firewatch/clightning:26.06.7 demo/polar
+ARG CLN_VERSION
+FROM elementsproject/lightningd:${CLN_VERSION}
+COPY polar-entrypoint.sh /polar-entrypoint.sh
+RUN chmod +x /polar-entrypoint.sh
+VOLUME ["/home/clightning"]
+EXPOSE 9735 8080 10000 11001
+ENTRYPOINT ["/polar-entrypoint.sh"]
+CMD ["lightningd"]
