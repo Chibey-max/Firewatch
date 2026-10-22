@@ -46,6 +46,13 @@
     min-height: 100vh;
   }
 
+  /* Projectors and 1080p screens: use the width and scale everything up a step. */
+  @media (min-width: 1600px) {
+    html {
+      font-size: 18px;
+    }
+  }
+
   :focus-visible {
     outline: 3px solid var(--color-ink);
     outline-offset: 2px;

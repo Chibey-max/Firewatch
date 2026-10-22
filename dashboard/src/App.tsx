@@ -14,7 +14,7 @@ export default function App() {
   const now = useNow()
 
   return (
-    <div className="mx-auto max-w-[1480px] px-4 py-6 sm:px-8">
+    <div className="mx-auto max-w-[1480px] px-4 py-6 sm:px-8 min-[1600px]:max-w-[1800px]">
       {phase === 'fixture' && (
         <Notice tone="ink">
           Sample data from fixture “{fixture}”. Live checks are off.{' '}

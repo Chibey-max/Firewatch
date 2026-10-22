@@ -8,9 +8,10 @@ const rule: Record<Status, string> = {
   not_affected: 'border-safe',
 }
 
-function Chip({ children, tone }: { children: string; tone: 'red' | 'grey' | 'plain' }) {
+function Chip({ children, tone }: { children: string; tone: 'red' | 'green' | 'grey' | 'plain' }) {
   const tones = {
     red: 'bg-affected text-white',
+    green: 'bg-safe text-white',
     grey: 'bg-none/15 text-ink-2',
     plain: 'border border-rule text-ink-2',
   }
@@ -29,7 +30,7 @@ export function SourceLink({ url }: { url: string }) {
       href={url}
       target="_blank"
       rel="noopener noreferrer"
-      className="font-mono text-[0.85rem] text-ink-2 underline decoration-rule underline-offset-4 hover:text-ink hover:decoration-ink"
+      className="font-mono text-[0.85rem] whitespace-nowrap text-ink-2 underline decoration-rule underline-offset-4 hover:text-ink hover:decoration-ink"
     >
       {sourceLabel(url)} ↗
     </a>
@@ -53,6 +54,7 @@ export function FindingItem({ finding: f }: { finding: Finding }) {
         <Chip tone="plain">{severityName[f.severity]}</Chip>
         {f.exploited_in_wild && <Chip tone="red">Exploited in the wild</Chip>}
         {!f.verified && <Chip tone="grey">Not yet verified</Chip>}
+        {f.status === 'not_affected' && <Chip tone="green">Ruled out</Chip>}
       </div>
       <h3 className="mt-1 text-[1.05rem] leading-snug font-semibold">{f.title}</h3>
       <p className="mt-1 text-[0.95rem] leading-relaxed text-ink-2">
@@ -62,7 +64,7 @@ export function FindingItem({ finding: f }: { finding: Finding }) {
       {f.status === 'affected' && (
         <>
           <Label>Developers say</Label>
-          <blockquote className="relative pl-5 text-[1.05rem] leading-relaxed">
+          <blockquote className="relative max-w-[62ch] pl-5 text-[1.05rem] leading-relaxed">
             <span
               aria-hidden
               className="absolute top-[-0.35rem] left-0 font-display text-[2rem] leading-none font-extrabold text-affected"
@@ -88,7 +90,11 @@ export function FindingItem({ finding: f }: { finding: Finding }) {
       )}
 
       <p className="mt-3 flex flex-wrap items-baseline gap-x-3 gap-y-1 text-[0.9rem] text-ink-2">
-        <span>{f.fixed ? `Fixed in ${f.fixed}` : 'No fix released yet'}</span>
+        {/* Red findings already say "Fixed in …" in their reason. */}
+        {f.status !== 'affected' && (
+          <span>{f.fixed ? `Fixed in ${f.fixed}` : 'No fix released yet'}</span>
+        )}
+        {f.status === 'affected' && !f.fixed && <span>No fix released yet</span>}
         <SourceLink url={f.source} />
       </p>
     </li>

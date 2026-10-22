@@ -1,5 +1,5 @@
 {
-  "checked_at": 1792704001,
+  "checked_at": 1792705532,
   "nodes": [
     {
       "name": "old-cln",
@@ -84,7 +84,50 @@
       "network": "regtest",
       "status": "not_affected",
       "error": null,
-      "findings": []
+      "findings": [
+        {
+          "advisory_id": "FW-2026-007",
+          "title": "Gossip stall via malformed channel_announcement flood",
+          "severity": "low",
+          "exploited_in_wild": false,
+          "verified": true,
+          "fixed": "0.20.1",
+          "source": "https://security.lightning.engineering/2026/09/21/lnd-gossip-validation-barrier-stall.html",
+          "status": "not_affected",
+          "reason": "Version 0.21.4 includes the fix (fixed in 0.20.1).",
+          "manual_checks": [],
+          "action": "upgrade",
+          "steps": "Users should update to v0.20.1-beta or later on their release line."
+        },
+        {
+          "advisory_id": "FW-2026-008",
+          "title": "Gossip nil-map panic on zero-timestamp messages",
+          "severity": "low",
+          "exploited_in_wild": false,
+          "verified": true,
+          "fixed": "0.20.1",
+          "source": "https://security.lightning.engineering/2026/06/18/lnd-zero-timestamp-gossip-dos.html",
+          "status": "not_affected",
+          "reason": "Version 0.21.4 includes the fix (fixed in 0.20.1).",
+          "manual_checks": [],
+          "action": "upgrade",
+          "steps": "Users should update to a version >= v0.20.1-beta to be protected."
+        },
+        {
+          "advisory_id": "FW-2026-009",
+          "title": "Panic on malformed DNS seed response",
+          "severity": "low",
+          "exploited_in_wild": false,
+          "verified": true,
+          "fixed": "0.20.2, 0.21.1",
+          "source": "https://security.lightning.engineering/2026/09/21/lnd-dns-bootstrap-type-assertion-panic.html",
+          "status": "not_affected",
+          "reason": "Version 0.21.4 includes the fix (fixed in 0.20.2, 0.21.1).",
+          "manual_checks": [],
+          "action": "upgrade",
+          "steps": "Users should update to the patched release on their line."
+        }
+      ]
     }
   ]
 }

@@ -17,12 +17,14 @@ Open the app with a fixture to see sample data:
 
 | URL | Shows |
 |---|---|
+| `/?fixture=demo` | the `docs/DEMO.md` network before the demo: `old-cln` and `alice` red, FW-2026-009 ruled out on `alice` |
+| `/?fixture=demo-after` | after beats 4 and 5: `old-cln` upgraded (green), `current-cln` stopped (amber) |
 | `/?fixture=mixed` | one node affected, one not affected, one can't tell (includes an unverified advisory) |
 | `/?fixture=green` | every node after upgrading, including one with no known advisories |
 | `/?fixture=error` | one affected node and one that can't be read |
 | `/?fixture=empty` | no nodes configured |
 
-The fixtures in `src/fixtures/` come from the real CLI. Regenerate `report.mixed.json` from the repo root with:
+The fixtures in `src/fixtures/` come from the real CLI; `demo` and `demo-after` are the stage fallback if Polar fails. Regenerate `report.mixed.json` from the repo root with:
 
 ```sh
 cargo run -- check --nodes examples/nodes.json --json --include-unverified > dashboard/src/fixtures/report.mixed.json
