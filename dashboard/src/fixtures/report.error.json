@@ -1,0 +1,66 @@
+{
+  "checked_at": 1792704001,
+  "nodes": [
+    {
+      "name": "old-cln",
+      "implementation": "cln",
+      "version": "v26.06.7",
+      "network": "regtest",
+      "status": "affected",
+      "error": null,
+      "findings": [
+        {
+          "advisory_id": "FW-2026-003",
+          "title": "Vulnerabilities fixed in 26.06.8",
+          "severity": "critical",
+          "exploited_in_wild": true,
+          "verified": true,
+          "fixed": "26.06.8",
+          "source": "https://github.com/ElementsProject/lightning/releases/tag/v26.06.8",
+          "status": "affected",
+          "reason": "Version 26.06.7 is in the affected range < 26.06.8. Fixed in 26.06.8.",
+          "manual_checks": [],
+          "action": "upgrade",
+          "steps": "We strongly recommend upgrading to this release."
+        },
+        {
+          "advisory_id": "FW-2026-006",
+          "title": "Security fixes in channel reestablishment, splicing, HTLC handling during shutdown and onion handling",
+          "severity": "critical",
+          "exploited_in_wild": false,
+          "verified": true,
+          "fixed": "26.06.9",
+          "source": "https://github.com/ElementsProject/lightning/releases/tag/v26.06.9",
+          "status": "affected",
+          "reason": "Version 26.06.7 is in the affected range < 26.06.9. Fixed in 26.06.9.",
+          "manual_checks": [],
+          "action": "upgrade",
+          "steps": "We strongly encourage everyone to upgrade to 26.06.9 as soon as practical."
+        },
+        {
+          "advisory_id": "FW-2026-004",
+          "title": "Operators on 26.04 and earlier told to go offline before a patch existed",
+          "severity": "critical",
+          "exploited_in_wild": false,
+          "verified": false,
+          "fixed": null,
+          "source": "https://cryptobriefing.com/core-lightning-node-operators-offline-patch/",
+          "status": "not_affected",
+          "reason": "Version 26.06.7 is outside the affected range < 26.06.",
+          "manual_checks": [],
+          "action": "offline",
+          "steps": "UNVERIFIED: quote the official Core Lightning statement here before marking this advisory verified."
+        }
+      ]
+    },
+    {
+      "name": "offline-node",
+      "implementation": "cln",
+      "version": null,
+      "network": null,
+      "status": "cant_tell",
+      "error": "request failed: error sending request for url (http://127.0.0.1:9/v1/getinfo): client error (Connect): tcp connect error: Connection refused (os error 111)",
+      "findings": []
+    }
+  ]
+}

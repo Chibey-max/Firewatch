@@ -1,0 +1,90 @@
+{
+  "checked_at": 1792704001,
+  "nodes": [
+    {
+      "name": "old-cln",
+      "implementation": "cln",
+      "version": "v26.06.9",
+      "network": "regtest",
+      "status": "not_affected",
+      "error": null,
+      "findings": [
+        {
+          "advisory_id": "FW-2026-003",
+          "title": "Vulnerabilities fixed in 26.06.8",
+          "severity": "critical",
+          "exploited_in_wild": true,
+          "verified": true,
+          "fixed": "26.06.8",
+          "source": "https://github.com/ElementsProject/lightning/releases/tag/v26.06.8",
+          "status": "not_affected",
+          "reason": "Version 26.06.9 includes the fix (fixed in 26.06.8).",
+          "manual_checks": [],
+          "action": "upgrade",
+          "steps": "We strongly recommend upgrading to this release."
+        },
+        {
+          "advisory_id": "FW-2026-006",
+          "title": "Security fixes in channel reestablishment, splicing, HTLC handling during shutdown and onion handling",
+          "severity": "critical",
+          "exploited_in_wild": false,
+          "verified": true,
+          "fixed": "26.06.9",
+          "source": "https://github.com/ElementsProject/lightning/releases/tag/v26.06.9",
+          "status": "not_affected",
+          "reason": "Version 26.06.9 includes the fix (fixed in 26.06.9).",
+          "manual_checks": [],
+          "action": "upgrade",
+          "steps": "We strongly encourage everyone to upgrade to 26.06.9 as soon as practical."
+        }
+      ]
+    },
+    {
+      "name": "current-cln",
+      "implementation": "cln",
+      "version": "v26.06.9",
+      "network": "regtest",
+      "status": "not_affected",
+      "error": null,
+      "findings": [
+        {
+          "advisory_id": "FW-2026-003",
+          "title": "Vulnerabilities fixed in 26.06.8",
+          "severity": "critical",
+          "exploited_in_wild": true,
+          "verified": true,
+          "fixed": "26.06.8",
+          "source": "https://github.com/ElementsProject/lightning/releases/tag/v26.06.8",
+          "status": "not_affected",
+          "reason": "Version 26.06.9 includes the fix (fixed in 26.06.8).",
+          "manual_checks": [],
+          "action": "upgrade",
+          "steps": "We strongly recommend upgrading to this release."
+        },
+        {
+          "advisory_id": "FW-2026-006",
+          "title": "Security fixes in channel reestablishment, splicing, HTLC handling during shutdown and onion handling",
+          "severity": "critical",
+          "exploited_in_wild": false,
+          "verified": true,
+          "fixed": "26.06.9",
+          "source": "https://github.com/ElementsProject/lightning/releases/tag/v26.06.9",
+          "status": "not_affected",
+          "reason": "Version 26.06.9 includes the fix (fixed in 26.06.9).",
+          "manual_checks": [],
+          "action": "upgrade",
+          "steps": "We strongly encourage everyone to upgrade to 26.06.9 as soon as practical."
+        }
+      ]
+    },
+    {
+      "name": "lnd",
+      "implementation": "lnd",
+      "version": "0.21.4-beta commit=v0.21.4-beta",
+      "network": "regtest",
+      "status": "not_affected",
+      "error": null,
+      "findings": []
+    }
+  ]
+}
