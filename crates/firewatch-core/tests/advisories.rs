@@ -18,11 +18,15 @@ fn advisory(id: &str) -> Advisory {
 }
 
 fn node(implementation: Implementation, version: &str) -> NodeInfo {
+    on_network(implementation, version, "regtest")
+}
+
+fn on_network(implementation: Implementation, version: &str, network: &str) -> NodeInfo {
     NodeInfo {
         name: "test".into(),
         implementation,
         version: version.into(),
-        network: Some("regtest".into()),
+        network: Some(network.into()),
         config: None,
         features: None,
     }
@@ -41,6 +45,9 @@ const TESTED: &[&str] = &[
     "FW-2026-004",
     "FW-2026-005",
     "FW-2026-006",
+    "FW-2026-007",
+    "FW-2026-008",
+    "FW-2026-009",
 ];
 
 #[test]
@@ -56,7 +63,13 @@ fn all_have_tests() {
 fn verified_advisories_quote_real_sources() {
     for a in advisories().into_iter().filter(|a| a.verified) {
         assert!(!a.remediation.steps.contains("UNVERIFIED"), "{}", a.id);
-        assert!(a.source.starts_with("https://github.com/"), "{}", a.id);
+        assert!(
+            a.source.starts_with("https://github.com/")
+                || a.source
+                    .starts_with("https://security.lightning.engineering/"),
+            "{}",
+            a.id
+        );
     }
 }
 
@@ -113,4 +126,57 @@ fn fw_2026_006_cln_26_06_9() {
     assert_eq!(status("FW-2026-006", Cln, "v26.06.7"), Status::Affected);
     assert_eq!(status("FW-2026-006", Cln, "v26.06.8"), Status::Affected);
     assert_eq!(status("FW-2026-006", Cln, "v26.06.9"), Status::NotAffected);
+}
+
+#[test]
+fn fw_2026_007_lnd_gossip_stall() {
+    use Implementation::Lnd;
+    assert_eq!(
+        status("FW-2026-007", Lnd, "0.18.5-beta"),
+        Status::NotAffected
+    );
+    assert_eq!(status("FW-2026-007", Lnd, "0.19.0-beta"), Status::Affected);
+    assert_eq!(
+        status("FW-2026-007", Lnd, "0.20.0-beta commit=v0.20.0-beta"),
+        Status::Affected
+    );
+    assert_eq!(
+        status("FW-2026-007", Lnd, "0.20.1-beta"),
+        Status::NotAffected
+    );
+}
+
+#[test]
+fn fw_2026_008_lnd_zero_timestamp_panic() {
+    use Implementation::Lnd;
+    assert_eq!(status("FW-2026-008", Lnd, "0.16.4-beta"), Status::Affected);
+    assert_eq!(status("FW-2026-008", Lnd, "0.20.0-beta"), Status::Affected);
+    assert_eq!(
+        status("FW-2026-008", Lnd, "0.20.1-beta"),
+        Status::NotAffected
+    );
+}
+
+#[test]
+fn fw_2026_009_lnd_dns_seed_panic() {
+    use Implementation::Lnd;
+    let a = advisory("FW-2026-009");
+    let on = |version, network| {
+        evaluate(&on_network(Lnd, version, network), &a)
+            .unwrap()
+            .status
+    };
+    assert_eq!(
+        on("0.20.0-beta", "regtest"),
+        Status::NotAffected,
+        "no DNS seeds off mainnet"
+    );
+    assert_eq!(
+        on("0.20.0-beta", "mainnet"),
+        Status::CantTell,
+        "nobootstrap is in lnd.conf"
+    );
+    assert_eq!(on("0.21.0-beta", "mainnet"), Status::CantTell);
+    assert_eq!(on("0.20.2-beta", "mainnet"), Status::NotAffected);
+    assert_eq!(on("0.21.1-beta", "mainnet"), Status::NotAffected);
 }

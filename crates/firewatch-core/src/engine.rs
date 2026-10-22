@@ -67,8 +67,13 @@ pub fn evaluate(node: &NodeInfo, advisory: &Advisory) -> Option<Verdict> {
     };
 
     if !range.matches(&version) {
-        let reason = match advisory.fixed.as_deref().map(Version::parse) {
-            Some(Ok(fixed)) if version >= fixed => {
+        let has_fix = advisory
+            .fixed_versions()
+            .unwrap_or_default()
+            .iter()
+            .any(|fixed| version >= *fixed);
+        let reason = match (&advisory.fixed, has_fix) {
+            (Some(fixed), true) => {
                 format!("Version {version} includes the fix (fixed in {fixed}).")
             }
             _ => format!("Version {version} is outside the affected range {range}."),
@@ -152,8 +157,28 @@ fn check_condition(node: &NodeInfo, condition: &Condition) -> Outcome {
             Some(bits) if bits.contains(bit) || bits.contains(&(bit ^ 1)) => Outcome::True,
             Some(_) => Outcome::False(format!("feature bit {bit} is not set")),
         },
+        Condition::Network { networks } => match node.network.as_deref() {
+            None => Outcome::Unknown(format!(
+                "Could not read the node's network; this only applies on {}.",
+                networks.join(" or ")
+            )),
+            Some(network) if networks.iter().any(|n| same_network(n, network)) => Outcome::True,
+            Some(network) => Outcome::False(format!(
+                "it only applies on {}, and this node runs on {network}",
+                networks.join(" or ")
+            )),
+        },
         Condition::Manual { check_hint } => Outcome::Unknown(check_hint.clone()),
     }
+}
+
+/// CLN calls mainnet `bitcoin`; LND calls it `mainnet`.
+fn same_network(a: &str, b: &str) -> bool {
+    let canonical = |n: &str| match n.to_ascii_lowercase().as_str() {
+        "bitcoin" | "mainnet" => "mainnet".to_string(),
+        other => other.to_string(),
+    };
+    canonical(a) == canonical(b)
 }
 
 #[cfg(test)]
@@ -261,6 +286,17 @@ mod tests {
         assert_eq!(status(&n, &a), Status::Affected);
         n.features = Some(BTreeSet::from([12, 13]));
         assert_eq!(status(&n, &a), Status::NotAffected);
+    }
+
+    #[test]
+    fn network_condition() {
+        let a = advisory("[[conditions]]\nkind = \"network\"\nnetworks = [\"mainnet\"]\n");
+        let mut n = node("v26.06.7");
+        assert_eq!(status(&n, &a), Status::NotAffected, "regtest");
+        n.network = Some("bitcoin".into());
+        assert_eq!(status(&n, &a), Status::Affected, "CLN's name for mainnet");
+        n.network = None;
+        assert_eq!(status(&n, &a), Status::CantTell);
     }
 
     #[test]

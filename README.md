@@ -87,7 +87,7 @@ Firewatch never shows green when it is unsure.
 | `crates/firewatch-alerts` | NIP-17 Nostr DM alerts. |
 | `crates/firewatch-cli` | The `firewatch` binary: `check`, `watch` (loop and API), `test-alert`, `validate`. |
 | `advisories/` | One TOML file per advisory. Only `verified = true` advisories run by default. |
-| `demo/` | Polar images and the upgrade and reset scripts. |
+| `demo/` | Polar images, the upgrade and reset scripts, and the [demo runbook](docs/DEMO.md). |
 | `examples/nodes.json` | Node snapshots for working without a live network. |
 
 ## Advisory format
@@ -96,8 +96,8 @@ Firewatch never shows green when it is unsure.
 id = "FW-2026-003"
 implementation = "cln"                 # cln | lnd | ldk
 title = "Vulnerabilities fixed in 26.06.8"
-affected = "< 26.06.8"                 # comparators joined by commas: ">= 0.18.0, < 0.21.0"
-fixed = "26.06.8"                      # omit when no fix exists yet
+affected = "< 26.06.8"                 # ">= 0.18.0, < 0.21.0"; "||" for alternatives
+fixed = "26.06.8"                      # one per release line: "0.20.2, 0.21.1"; omit if no fix yet
 severity = "critical"                  # critical | high | medium | low
 exploited_in_wild = true
 source = "https://github.com/ElementsProject/lightning/releases/tag/v26.06.8"
@@ -105,7 +105,7 @@ reviewed_by = "Dave"
 verified = true
 
 [[conditions]]                         # every condition must hold for Affected
-kind = "version_range"                 # version_range | config_enabled | feature_bit | manual
+kind = "version_range"                 # version_range | config_enabled | feature_bit | network | manual
 
 [remediation]
 action = "upgrade"                     # upgrade | offline | disable_feature
@@ -122,6 +122,10 @@ option = "experimental-splicing"
 [[conditions]]
 kind = "feature_bit"                   # LND GetInfo; either bit of the even/odd pair
 bit = 62
+
+[[conditions]]
+kind = "network"                       # mainnet (CLN: bitcoin), testnet, signet, regtest
+networks = ["mainnet"]
 
 [[conditions]]
 kind = "manual"                        # always Can't tell

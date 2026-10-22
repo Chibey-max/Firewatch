@@ -54,17 +54,14 @@ cargo run -- check --nodes examples/nodes.json --json --include-unverified > rep
       "implementation": "lnd",
       "version": "0.20.0-beta commit=v0.20.0-beta",
       "network": "regtest",
-      "status": "cant_tell",
+      "status": "affected",
       "error": null,
       "findings": [
         {
-          "advisory_id": "FW-2026-005",
-          "status": "cant_tell",
-          "reason": "Version 0.20.0 is in the affected range < 0.21.0, but 1 condition can't be checked over RPC.",
-          "manual_checks": [
-            "Exposure depends on peer behaviour no RPC shows. Check whether you have cooperatively closed channels with peers you do not trust, ..."
-          ],
-          "verified": false,
+          "advisory_id": "FW-2026-009",
+          "status": "not_affected",
+          "reason": "Version 0.20.0 is in the affected range < 0.20.2 || >= 0.21.0-rc1, < 0.21.1, but it only applies on mainnet, and this node runs on regtest.",
+          "manual_checks": [],
           "...": "other fields as above"
         }
       ]
@@ -109,7 +106,7 @@ cargo run -- check --nodes examples/nodes.json --json --include-unverified > rep
 | `source` | URL | The developers' own notes. Always link it. |
 | `status` | status | |
 | `reason` | string | One sentence. Show it next to the colour. |
-| `manual_checks` | string[] | Non-empty for amber findings: what the operator should check by hand. |
+| `manual_checks` | string[] | Non-empty for amber findings: what the operator should check by hand. Show them as a checklist. |
 | `action` | `"upgrade" \| "offline" \| "disable_feature"` | |
 | `steps` | string | The developers' words, quoted. Show it in quotation marks, never reworded. |
 

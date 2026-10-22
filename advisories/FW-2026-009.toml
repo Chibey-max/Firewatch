@@ -1,0 +1,26 @@
+# Lightning Labs advisory, disclosed 2026-09-21, severity T3 (Low).
+# Affected: "< 0.20.2-beta and 0.21.0-beta"; patched: "0.20.2-beta, 0.21.1-beta".
+id = "FW-2026-009"
+implementation = "lnd"
+title = "Panic on malformed DNS seed response"
+affected = "< 0.20.2 || >= 0.21.0-rc1, < 0.21.1"
+fixed = "0.20.2, 0.21.1"
+severity = "low"
+exploited_in_wild = false
+source = "https://security.lightning.engineering/2026/09/21/lnd-dns-bootstrap-type-assertion-panic.html"
+reviewed_by = "Dave"
+verified = true
+
+# The DNS peer bootstrapper is "enabled by default on mainnet".
+[[conditions]]
+kind = "network"
+networks = ["mainnet"]
+
+# nobootstrap lives in lnd.conf, which RPC does not expose.
+[[conditions]]
+kind = "manual"
+check_hint = "Only exposed while DNS peer bootstrapping is on, the default on mainnet. Check lnd.conf: nobootstrap=true turns it off."
+
+[remediation]
+action = "upgrade"
+steps = "Users should update to the patched release on their line."

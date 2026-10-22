@@ -59,6 +59,9 @@ pub enum Condition {
     ConfigEnabled { option: String },
     /// A feature bit is set (either bit of the even/odd pair). LND: `GetInfo`.
     FeatureBit { bit: u32 },
+    /// The node runs on one of these networks. `mainnet` and CLN's `bitcoin`
+    /// are the same network.
+    Network { networks: Vec<String> },
     /// Depends on something no RPC exposes. Always "Can't tell".
     Manual { check_hint: String },
 }
@@ -87,7 +90,8 @@ pub struct Advisory {
     pub title: String,
     #[serde(with = "req_string")]
     pub affected: VersionReq,
-    /// `None` when no fix existed at the time of the advisory.
+    /// The first fixed release, or one per release line separated by commas
+    /// (`"0.20.2, 0.21.1"`). `None` when no fix existed at the time.
     #[serde(default)]
     pub fixed: Option<String>,
     pub severity: Severity,
@@ -161,13 +165,30 @@ impl Advisory {
         if self.remediation.steps.trim().is_empty() {
             return Err("remediation.steps must quote the source".into());
         }
-        if let Some(fixed) = &self.fixed {
-            let fixed = Version::parse(fixed).map_err(|e| format!("fixed: {e}"))?;
+        for fixed in self.fixed_versions()? {
             if self.affected.matches(&fixed) {
-                return Err("the fixed version is inside the affected range".into());
+                return Err(format!(
+                    "fixed version {fixed} is inside the affected range"
+                ));
+            }
+        }
+        for condition in &self.conditions {
+            if let Condition::Network { networks } = condition {
+                if networks.is_empty() {
+                    return Err("a network condition needs at least one network".into());
+                }
             }
         }
         Ok(())
+    }
+
+    /// The parsed `fixed` list; empty when there is no fix.
+    pub fn fixed_versions(&self) -> Result<Vec<Version>, String> {
+        self.fixed
+            .iter()
+            .flat_map(|f| f.split(','))
+            .map(|v| Version::parse(v.trim()).map_err(|e| format!("fixed: {e}")))
+            .collect()
     }
 }
 
@@ -261,6 +282,18 @@ mod tests {
     #[test]
     fn rejects_fixed_inside_affected_range() {
         let text = VALID.replace("fixed = \"26.06.8\"", "fixed = \"26.06.7\"");
+        assert!(matches!(load(&text), Err(LoadError::Invalid { .. })));
+    }
+
+    #[test]
+    fn accepts_one_fix_per_release_line() {
+        let text = VALID
+            .replace("< 26.06.8", "< 0.20.2 || >= 0.21.0-rc1, < 0.21.1")
+            .replace("fixed = \"26.06.8\"", "fixed = \"0.20.2, 0.21.1\"");
+        let a = load(&text).unwrap();
+        assert_eq!(a.fixed_versions().unwrap().len(), 2);
+
+        let text = text.replace("0.20.2, 0.21.1", "0.20.2, 0.21.0");
         assert!(matches!(load(&text), Err(LoadError::Invalid { .. })));
     }
 

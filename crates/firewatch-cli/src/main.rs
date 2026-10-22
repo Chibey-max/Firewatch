@@ -89,6 +89,11 @@ async fn run() -> Result<ExitCode> {
 
     match cli.command {
         Command::Validate => {
+            let width = advisories
+                .iter()
+                .map(|a| a.affected.to_string().len())
+                .max()
+                .unwrap_or(0);
             for a in &advisories {
                 let mark = if a.verified {
                     "verified  "
@@ -96,7 +101,7 @@ async fn run() -> Result<ExitCode> {
                     "UNVERIFIED"
                 };
                 println!(
-                    "{} {mark} {:<4} {:<12} {}",
+                    "{} {mark} {:<4} {:<width$} {}",
                     a.id,
                     a.implementation.as_str(),
                     a.affected.to_string(),

@@ -172,48 +172,53 @@ impl Comparator {
     }
 }
 
-/// A version range such as `< 26.06.8` or `>= 0.18.0, < 0.21.0`.
-/// Comma-separated comparators must all hold. Every comparator needs an
-/// explicit operator, so a bare `26.06.7` in an advisory is a load error.
+/// A version range such as `< 26.06.8`, `>= 0.18.0, < 0.21.0` or
+/// `< 0.20.2 || >= 0.21.0-rc1, < 0.21.1`. Comma-separated comparators must
+/// all hold; `||` separates alternatives, any of which may match. Every
+/// comparator needs an explicit operator, so a bare `26.06.7` in an advisory
+/// is a load error.
 #[derive(Debug, Clone)]
 pub struct VersionReq {
     raw: String,
-    comparators: Vec<Comparator>,
+    alternatives: Vec<Vec<Comparator>>,
 }
 
 impl VersionReq {
     pub fn parse(raw: &str) -> Result<Self, VersionError> {
         let invalid = |why| VersionError::InvalidRange(raw.to_string(), why);
-        let mut comparators = Vec::new();
-        for piece in raw.split(',') {
-            let piece = piece.trim();
-            let (op, rest) = if let Some(r) = piece.strip_prefix("<=") {
-                (Op::Le, r)
-            } else if let Some(r) = piece.strip_prefix(">=") {
-                (Op::Ge, r)
-            } else if let Some(r) = piece.strip_prefix('<') {
-                (Op::Lt, r)
-            } else if let Some(r) = piece.strip_prefix('>') {
-                (Op::Gt, r)
-            } else if let Some(r) = piece.strip_prefix('=') {
-                (Op::Eq, r)
-            } else {
-                return Err(invalid("each part needs an operator: <, <=, >, >= or ="));
-            };
-            let version = Version::parse(rest.trim()).map_err(|_| invalid("bad version"))?;
-            comparators.push(Comparator { op, version });
-        }
-        if comparators.is_empty() {
-            return Err(invalid("empty range"));
+        let mut alternatives = Vec::new();
+        for alternative in raw.split("||") {
+            let mut comparators = Vec::new();
+            for piece in alternative.split(',') {
+                let piece = piece.trim();
+                let (op, rest) = if let Some(r) = piece.strip_prefix("<=") {
+                    (Op::Le, r)
+                } else if let Some(r) = piece.strip_prefix(">=") {
+                    (Op::Ge, r)
+                } else if let Some(r) = piece.strip_prefix('<') {
+                    (Op::Lt, r)
+                } else if let Some(r) = piece.strip_prefix('>') {
+                    (Op::Gt, r)
+                } else if let Some(r) = piece.strip_prefix('=') {
+                    (Op::Eq, r)
+                } else {
+                    return Err(invalid("each part needs an operator: <, <=, >, >= or ="));
+                };
+                let version = Version::parse(rest.trim()).map_err(|_| invalid("bad version"))?;
+                comparators.push(Comparator { op, version });
+            }
+            alternatives.push(comparators);
         }
         Ok(VersionReq {
             raw: raw.trim().to_string(),
-            comparators,
+            alternatives,
         })
     }
 
     pub fn matches(&self, v: &Version) -> bool {
-        self.comparators.iter().all(|c| c.matches(v))
+        self.alternatives
+            .iter()
+            .any(|all| all.iter().all(|c| c.matches(v)))
     }
 }
 
@@ -304,8 +309,27 @@ mod tests {
     }
 
     #[test]
+    fn matches_alternatives() {
+        let r = VersionReq::parse("< 0.20.2 || >= 0.21.0-rc1, < 0.21.1").unwrap();
+        assert!(r.matches(&v("0.20.0-beta")));
+        assert!(r.matches(&v("0.21.0-beta.rc2")));
+        assert!(r.matches(&v("0.21.0-beta")));
+        assert!(!r.matches(&v("0.20.2-beta")));
+        assert!(!r.matches(&v("0.20.3-beta")));
+        assert!(!r.matches(&v("0.21.1-beta")));
+    }
+
+    #[test]
     fn rejects_bad_ranges() {
-        for bad in ["", "26.06.7", "< ", "<= banana", "< 26.06.8,"] {
+        for bad in [
+            "",
+            "26.06.7",
+            "< ",
+            "<= banana",
+            "< 26.06.8,",
+            "< 26.06.8 ||",
+            "|| < 1.0",
+        ] {
             assert!(VersionReq::parse(bad).is_err(), "{bad:?} should not parse");
         }
     }

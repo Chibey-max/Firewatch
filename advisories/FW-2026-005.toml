@@ -1,5 +1,7 @@
-# UNVERIFIED: news report only. Find the primary disclosure, quote the LND
-# fix in remediation.steps, then set verified = true.
+# UNVERIFIED: news report only. As of 2026-10-22 it is not listed on
+# https://security.lightning.engineering/ (LND's official advisories). Find
+# the primary disclosure, quote the LND fix in remediation.steps, then set
+# verified = true.
 id = "FW-2026-005"
 implementation = "lnd"
 title = "Cooperative close + one-block reorg lets a peer broadcast a revoked commitment"
