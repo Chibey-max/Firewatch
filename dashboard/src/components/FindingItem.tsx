@@ -1,6 +1,7 @@
 import { severityName, sourceLabel } from '../lib/format'
 import type { Finding, Status } from '../types/report'
 import { WithCode } from './Code'
+import { ManualChecklist } from './ManualChecklist'
 
 const rule: Record<Status, string> = {
   affected: 'border-affected',
@@ -79,13 +80,10 @@ export function FindingItem({ finding: f }: { finding: Finding }) {
       {f.status === 'cant_tell' && f.manual_checks.length > 0 && (
         <>
           <Label>Check by hand</Label>
-          <ul className="list-disc space-y-1 pl-5 text-[0.98rem] leading-relaxed marker:text-canttell">
-            {f.manual_checks.map((check) => (
-              <li key={check}>
-                <WithCode text={check} />
-              </li>
-            ))}
-          </ul>
+          <p id={`${f.advisory_id}-why`} className="mb-2 text-[0.92rem] text-canttell-ink">
+            Firewatch won't guess. Until these are confirmed, this stays amber.
+          </p>
+          <ManualChecklist id={f.advisory_id} checks={f.manual_checks} />
         </>
       )}
 

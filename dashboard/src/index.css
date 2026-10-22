@@ -27,7 +27,7 @@
   --color-canttell-tint: #f7ebd3;
   --color-safe: #1f7a4a;
   --color-safe-tint: #ddefe3;
-  --color-none: #6b7a74;
+  --color-none: #5f6d67; /* 4.7:1 on paper, for the small tally text */
 
   --font-display: 'Big Shoulders Display', 'Arial Narrow', sans-serif;
   --font-sans: 'Public Sans', system-ui, sans-serif;
