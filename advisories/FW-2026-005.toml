@@ -1,0 +1,20 @@
+# UNVERIFIED: news report only. Find the primary disclosure, quote the LND
+# fix in remediation.steps, then set verified = true.
+id = "FW-2026-005"
+implementation = "lnd"
+title = "Cooperative close + one-block reorg lets a peer broadcast a revoked commitment"
+affected = "< 0.21.0"
+fixed = "0.21.0"
+severity = "critical"
+exploited_in_wild = false
+source = "https://cryptoslate.com/old-lightning-nodes-may-be-exposed-to-a-full-channel-wipeout-after-lnd-fix-lands-later-than-disclosed/"
+reviewed_by = "Dave"
+verified = false
+
+[[conditions]]
+kind = "manual"
+check_hint = "Exposure depends on peer behaviour no RPC shows. Check whether you have cooperatively closed channels with peers you do not trust, and whether you run a version with the fix patched in separately."
+
+[remediation]
+action = "upgrade"
+steps = "UNVERIFIED: quote the LND release notes or disclosure here before marking this advisory verified."

@@ -1,0 +1,22 @@
+[
+  {
+    "name": "old-cln",
+    "implementation": "cln",
+    "version": "v26.06.7",
+    "network": "regtest",
+    "config": { "experimental-splicing": false }
+  },
+  {
+    "name": "current-cln",
+    "implementation": "cln",
+    "version": "v26.06.9",
+    "network": "regtest",
+    "config": { "experimental-splicing": false }
+  },
+  {
+    "name": "lnd",
+    "implementation": "lnd",
+    "version": "0.20.1-beta commit=v0.20.1-beta",
+    "network": "regtest"
+  }
+]

@@ -1,0 +1,18 @@
+# Range to confirm: "everything below the fixed release".
+id = "FW-2026-006"
+implementation = "cln"
+title = "Security fixes in channel reestablishment, splicing, HTLC handling during shutdown and onion handling"
+affected = "< 26.06.9"
+fixed = "26.06.9"
+severity = "critical"
+exploited_in_wild = false
+source = "https://github.com/ElementsProject/lightning/releases/tag/v26.06.9"
+reviewed_by = "Dave"
+verified = true
+
+[[conditions]]
+kind = "version_range"
+
+[remediation]
+action = "upgrade"
+steps = "We strongly encourage everyone to upgrade to 26.06.9 as soon as practical."

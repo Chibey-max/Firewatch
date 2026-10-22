@@ -1,0 +1,19 @@
+# Range to confirm: the release notes do not say which earlier versions are affected.
+id = "FW-2026-001"
+implementation = "ldk"
+title = "Splice fee over-allocation to a malicious peer"
+affected = "< 0.2.6"
+fixed = "0.2.6"
+severity = "medium"
+exploited_in_wild = false
+source = "https://github.com/lightningdevkit/rust-lightning/releases/tag/v0.2.6"
+reviewed_by = "Dave"
+verified = true
+
+[[conditions]]
+kind = "manual"
+check_hint = "This only applies if your app contributes to splices. Check whether your LDK app initiates or contributes to splices."
+
+[remediation]
+action = "upgrade"
+steps = "A malicious splice peer can no longer cause us to somewhat over-allocate fee when we contribute to a splice, with the over-allocation going to their output (#4905)."

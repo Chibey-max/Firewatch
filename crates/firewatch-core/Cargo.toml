@@ -1,0 +1,11 @@
+[package]
+name = "firewatch-core"
+description = "Shared types, version matching and verdict engine for Firewatch"
+edition.workspace = true
+license.workspace = true
+version.workspace = true
+
+[dependencies]
+serde.workspace = true
+thiserror.workspace = true
+toml.workspace = true

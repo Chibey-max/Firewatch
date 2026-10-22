@@ -1,0 +1,18 @@
+# UNVERIFIED: news report only. Find the official Core Lightning statement,
+# quote it in remediation.steps, then set verified = true.
+id = "FW-2026-004"
+implementation = "cln"
+title = "Operators on 26.04 and earlier told to go offline before a patch existed"
+affected = "< 26.06"
+severity = "critical"
+exploited_in_wild = false
+source = "https://cryptobriefing.com/core-lightning-node-operators-offline-patch/"
+reviewed_by = "Dave"
+verified = false
+
+[[conditions]]
+kind = "version_range"
+
+[remediation]
+action = "offline"
+steps = "UNVERIFIED: quote the official Core Lightning statement here before marking this advisory verified."

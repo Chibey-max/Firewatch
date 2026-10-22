@@ -1,0 +1,19 @@
+# Range to confirm: the release notes do not say which earlier versions are affected.
+id = "FW-2026-002"
+implementation = "ldk"
+title = "Bogus HTLC can leave ChannelManager unable to restart"
+affected = "< 0.2.6"
+fixed = "0.2.6"
+severity = "high"
+exploited_in_wild = false
+source = "https://github.com/lightningdevkit/rust-lightning/releases/tag/v0.2.6"
+reviewed_by = "Dave"
+verified = true
+
+[[conditions]]
+kind = "manual"
+check_hint = "This only applies if your app forwards payments. Check whether your LDK app forwards HTLCs."
+
+[remediation]
+action = "upgrade"
+steps = "When a bogus payment HTLC is received which is immediately rejected, after a second HTLC with the same `payment_hash` has been successfully forwarded, `ChannelManager` can no longer be left in a state where it would be rejected on deserialization."
