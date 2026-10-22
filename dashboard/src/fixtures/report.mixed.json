@@ -1,0 +1,135 @@
+{
+  "checked_at": 1792704001,
+  "nodes": [
+    {
+      "name": "old-cln",
+      "implementation": "cln",
+      "version": "v26.06.7",
+      "network": "regtest",
+      "status": "affected",
+      "error": null,
+      "findings": [
+        {
+          "advisory_id": "FW-2026-003",
+          "title": "Vulnerabilities fixed in 26.06.8",
+          "severity": "critical",
+          "exploited_in_wild": true,
+          "verified": true,
+          "fixed": "26.06.8",
+          "source": "https://github.com/ElementsProject/lightning/releases/tag/v26.06.8",
+          "status": "affected",
+          "reason": "Version 26.06.7 is in the affected range < 26.06.8. Fixed in 26.06.8.",
+          "manual_checks": [],
+          "action": "upgrade",
+          "steps": "We strongly recommend upgrading to this release."
+        },
+        {
+          "advisory_id": "FW-2026-006",
+          "title": "Security fixes in channel reestablishment, splicing, HTLC handling during shutdown and onion handling",
+          "severity": "critical",
+          "exploited_in_wild": false,
+          "verified": true,
+          "fixed": "26.06.9",
+          "source": "https://github.com/ElementsProject/lightning/releases/tag/v26.06.9",
+          "status": "affected",
+          "reason": "Version 26.06.7 is in the affected range < 26.06.9. Fixed in 26.06.9.",
+          "manual_checks": [],
+          "action": "upgrade",
+          "steps": "We strongly encourage everyone to upgrade to 26.06.9 as soon as practical."
+        },
+        {
+          "advisory_id": "FW-2026-004",
+          "title": "Operators on 26.04 and earlier told to go offline before a patch existed",
+          "severity": "critical",
+          "exploited_in_wild": false,
+          "verified": false,
+          "fixed": null,
+          "source": "https://cryptobriefing.com/core-lightning-node-operators-offline-patch/",
+          "status": "not_affected",
+          "reason": "Version 26.06.7 is outside the affected range < 26.06.",
+          "manual_checks": [],
+          "action": "offline",
+          "steps": "UNVERIFIED: quote the official Core Lightning statement here before marking this advisory verified."
+        }
+      ]
+    },
+    {
+      "name": "current-cln",
+      "implementation": "cln",
+      "version": "v26.06.9",
+      "network": "regtest",
+      "status": "not_affected",
+      "error": null,
+      "findings": [
+        {
+          "advisory_id": "FW-2026-003",
+          "title": "Vulnerabilities fixed in 26.06.8",
+          "severity": "critical",
+          "exploited_in_wild": true,
+          "verified": true,
+          "fixed": "26.06.8",
+          "source": "https://github.com/ElementsProject/lightning/releases/tag/v26.06.8",
+          "status": "not_affected",
+          "reason": "Version 26.06.9 includes the fix (fixed in 26.06.8).",
+          "manual_checks": [],
+          "action": "upgrade",
+          "steps": "We strongly recommend upgrading to this release."
+        },
+        {
+          "advisory_id": "FW-2026-004",
+          "title": "Operators on 26.04 and earlier told to go offline before a patch existed",
+          "severity": "critical",
+          "exploited_in_wild": false,
+          "verified": false,
+          "fixed": null,
+          "source": "https://cryptobriefing.com/core-lightning-node-operators-offline-patch/",
+          "status": "not_affected",
+          "reason": "Version 26.06.9 is outside the affected range < 26.06.",
+          "manual_checks": [],
+          "action": "offline",
+          "steps": "UNVERIFIED: quote the official Core Lightning statement here before marking this advisory verified."
+        },
+        {
+          "advisory_id": "FW-2026-006",
+          "title": "Security fixes in channel reestablishment, splicing, HTLC handling during shutdown and onion handling",
+          "severity": "critical",
+          "exploited_in_wild": false,
+          "verified": true,
+          "fixed": "26.06.9",
+          "source": "https://github.com/ElementsProject/lightning/releases/tag/v26.06.9",
+          "status": "not_affected",
+          "reason": "Version 26.06.9 includes the fix (fixed in 26.06.9).",
+          "manual_checks": [],
+          "action": "upgrade",
+          "steps": "We strongly encourage everyone to upgrade to 26.06.9 as soon as practical."
+        }
+      ]
+    },
+    {
+      "name": "lnd",
+      "implementation": "lnd",
+      "version": "0.20.1-beta commit=v0.20.1-beta",
+      "network": "regtest",
+      "status": "cant_tell",
+      "error": null,
+      "findings": [
+        {
+          "advisory_id": "FW-2026-005",
+          "title": "Cooperative close + one-block reorg lets a peer broadcast a revoked commitment",
+          "severity": "critical",
+          "exploited_in_wild": false,
+          "verified": false,
+          "fixed": "0.21.0",
+          "source": "https://cryptoslate.com/old-lightning-nodes-may-be-exposed-to-a-full-channel-wipeout-after-lnd-fix-lands-later-than-disclosed/",
+          "status": "cant_tell",
+          "reason": "Version 0.20.1 is in the affected range < 0.21.0, but 1 condition can't be checked over RPC.",
+          "manual_checks": [
+            "Exposure depends on peer behaviour no RPC shows. Check whether you have cooperatively closed channels with peers you do not trust, and whether you run a version with the fix patched in separately."
+          ],
+          "action": "upgrade",
+          "steps": "UNVERIFIED: quote the LND release notes or disclosure here before marking this advisory verified."
+        }
+      ]
+    }
+  ]
+}

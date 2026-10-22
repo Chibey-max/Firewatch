@@ -1,0 +1,48 @@
+// Mirrors crates/firewatch-core/src/report.rs. See docs/API.md for field notes.
+// When the Rust report changes, change this file in the same PR.
+
+export type Status = 'affected' | 'cant_tell' | 'not_affected'
+export type Severity = 'low' | 'medium' | 'high' | 'critical'
+export type Action = 'upgrade' | 'offline' | 'disable_feature'
+export type Implementation = 'cln' | 'lnd' | 'ldk'
+
+export interface Finding {
+  advisory_id: string
+  title: string
+  severity: Severity
+  exploited_in_wild: boolean
+  /** false only when the daemon runs with --include-unverified */
+  verified: boolean
+  /** null means no fix exists yet */
+  fixed: string | null
+  /** the developers' own notes */
+  source: string
+  status: Status
+  /** one sentence, always shown */
+  reason: string
+  /** non-empty for amber findings */
+  manual_checks: string[]
+  action: Action
+  /** the developers' words, quoted; never reworded */
+  steps: string
+}
+
+export interface NodeReport {
+  name: string
+  implementation: Implementation
+  /** null when the node couldn't be read */
+  version: string | null
+  network: string | null
+  /** worst status across findings; cant_tell when unreadable */
+  status: Status
+  /** set when the node couldn't be read */
+  error: string | null
+  /** worst first */
+  findings: Finding[]
+}
+
+export interface Report {
+  /** unix seconds */
+  checked_at: number
+  nodes: NodeReport[]
+}
