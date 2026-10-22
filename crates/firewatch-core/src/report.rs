@@ -13,7 +13,7 @@ pub struct Report {
     pub nodes: Vec<NodeReport>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct NodeReport {
     pub name: String,
     pub implementation: Implementation,
@@ -29,7 +29,7 @@ pub struct NodeReport {
     pub findings: Vec<Finding>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Finding {
     pub advisory_id: String,
     pub title: String,

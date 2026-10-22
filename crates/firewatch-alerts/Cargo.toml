@@ -1,0 +1,17 @@
+[package]
+name = "firewatch-alerts"
+description = "Private alerts for Firewatch (Nostr NIP-17 DMs)"
+edition.workspace = true
+license.workspace = true
+version.workspace = true
+
+[dependencies]
+firewatch-core = { path = "../firewatch-core" }
+nostr = { version = "0.45", features = ["std", "nip59", "os-rng"] }
+nostr-sdk = { version = "0.45", default-features = false, features = ["aws_lc_rs", "rustls-tls-webpki-roots"] }
+serde.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+rustls = { version = "0.23", default-features = false, features = ["aws_lc_rs", "std"] }
+tokio.workspace = true

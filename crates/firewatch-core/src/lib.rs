@@ -5,12 +5,14 @@
 //! JSON the CLI, alerts and dashboard all share.
 
 pub mod advisory;
+pub mod changes;
 pub mod engine;
 pub mod node;
 pub mod report;
 pub mod version;
 
 pub use advisory::{load_dir, Action, Advisory, Condition, Implementation, LoadError, Severity};
+pub use changes::{changes, Change};
 pub use engine::{evaluate, Status, Verdict};
 pub use node::NodeInfo;
 pub use report::{Finding, NodeReport, Report};
