@@ -15,7 +15,10 @@ use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
 use firewatch_alerts::NostrAlerter;
 use firewatch_connectors::NodeConfig;
-use firewatch_core::{load_dir, Advisory, NodeInfo, NodeReport, Report, Status};
+use firewatch_core::{
+    load_dir, short_commit, Advisory, BuildCheck, NodeInfo, NodeReport, ReleaseTable, Report,
+    Status,
+};
 
 use crate::config::Config;
 
@@ -29,6 +32,11 @@ struct Cli {
     /// Directory of advisory TOML files.
     #[arg(long, global = true, default_value = "advisories")]
     advisories: PathBuf,
+
+    /// Official release table for the build check. Required, like the
+    /// advisories; regenerate it with scripts/lnd-releases.sh.
+    #[arg(long, global = true, default_value = "releases/lnd.toml")]
+    releases: PathBuf,
 
     #[command(subcommand)]
     command: Command,
@@ -64,6 +72,9 @@ enum Command {
         /// who can reach it which nodes are vulnerable.
         #[arg(long)]
         allow_remote: bool,
+        /// Serve a built dashboard at `/`, overriding `dashboard_dir`.
+        #[arg(long)]
+        dashboard: Option<PathBuf>,
     },
     /// Send a test alert to check that it reaches your phone.
     TestAlert {
@@ -90,6 +101,7 @@ async fn run() -> Result<ExitCode> {
     let cli = Cli::parse();
     let advisories = load_dir(&cli.advisories)
         .with_context(|| format!("loading advisories from {}", cli.advisories.display()))?;
+    let releases = Some(load_releases(&cli.releases)?);
 
     match cli.command {
         Command::Validate => {
@@ -123,8 +135,20 @@ async fn run() -> Result<ExitCode> {
         } => {
             let advisories = select(advisories, include_unverified);
             let report = match nodes {
-                Some(path) => Report::build(&load_snapshot(&path)?, &advisories, now()),
-                None => check_live(&Config::load(&config)?.nodes, &advisories).await,
+                Some(path) => Report::build(
+                    &load_snapshot(&path)?,
+                    &advisories,
+                    releases.as_ref(),
+                    now(),
+                ),
+                None => {
+                    check_live(
+                        &Config::load(&config)?.nodes,
+                        &advisories,
+                        releases.as_ref(),
+                    )
+                    .await
+                }
             };
             if json {
                 println!("{}", serde_json::to_string_pretty(&report)?);
@@ -141,10 +165,16 @@ async fn run() -> Result<ExitCode> {
             config,
             include_unverified,
             allow_remote,
+            dashboard,
         } => {
+            let mut config = Config::load(&config)?;
+            if dashboard.is_some() {
+                config.watch.dashboard_dir = dashboard;
+            }
             watch::run(
-                Config::load(&config)?,
+                config,
                 select(advisories, include_unverified),
+                releases,
                 allow_remote,
             )
             .await?;
@@ -186,19 +216,43 @@ fn select(advisories: Vec<Advisory>, include_unverified: bool) -> Vec<Advisory> 
 
 /// Reads every configured node. A node that can't be read is reported as
 /// "Can't tell" with its error, so one dead node doesn't hide the others.
-pub(crate) async fn check_live(configs: &[NodeConfig], advisories: &[Advisory]) -> Report {
+pub(crate) async fn check_live(
+    configs: &[NodeConfig],
+    advisories: &[Advisory],
+    releases: Option<&ReleaseTable>,
+) -> Report {
     let http = firewatch_connectors::http_client();
-    let mut nodes = Vec::with_capacity(configs.len());
-    for node in configs {
-        nodes.push(match firewatch_connectors::fetch(node, &http).await {
-            Ok(info) => NodeReport::from_node(&info, advisories),
+    // All nodes at once, so one node timing out doesn't delay the rest.
+    let reads = futures::future::join_all(
+        configs
+            .iter()
+            .map(|node| firewatch_connectors::fetch(node, &http)),
+    )
+    .await;
+    let nodes = configs
+        .iter()
+        .zip(reads)
+        .map(|(node, read)| match read {
+            Ok(info) => NodeReport::from_node(&info, advisories, releases),
             Err(e) => NodeReport::unreachable(node.name(), node.implementation(), e.to_string()),
-        });
-    }
+        })
+        .collect();
     Report {
         checked_at: now(),
         nodes,
     }
+}
+
+/// The release table. A missing file stops the run, as a missing advisory
+/// directory does: without it an unofficial LND build would get normal
+/// verdicts, and nothing on screen would say the build check was off.
+fn load_releases(path: &Path) -> Result<ReleaseTable> {
+    ReleaseTable::load(path).with_context(|| {
+        format!(
+            "loading the release table from {} (regenerate it with scripts/lnd-releases.sh, or pass --releases)",
+            path.display()
+        )
+    })
 }
 
 fn load_snapshot(path: &Path) -> Result<Vec<NodeInfo>> {
@@ -248,6 +302,32 @@ fn print_report(report: &Report) {
             node.implementation,
             node.version.as_deref().unwrap_or("version unknown")
         );
+        match &node.build_check {
+            BuildCheck::Match => println!("    Build: the official release commit."),
+            BuildCheck::Mismatch {
+                release,
+                expected,
+                actual,
+                build,
+            } if expected.eq_ignore_ascii_case(actual) => println!(
+                "    Build: NOT a clean {release} release (official commit, but built as \"{}\").",
+                build.as_deref().unwrap_or_default()
+            ),
+            BuildCheck::Mismatch {
+                release,
+                expected,
+                actual,
+                ..
+            } => println!(
+                "    Build: NOT the official {release} release (commit {}, expected {}).",
+                short_commit(actual),
+                short_commit(expected)
+            ),
+            BuildCheck::UnknownRelease => {
+                println!("    Build: release not in Firewatch's table, so not verified.")
+            }
+            BuildCheck::NotChecked => {}
+        }
         if let Some(error) = &node.error {
             println!("    Could not read this node: {error}");
         } else if node.findings.is_empty() {

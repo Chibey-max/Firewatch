@@ -19,7 +19,7 @@ use axum::routing::{get, post};
 use axum::{Json, Router};
 use firewatch_alerts::{message, NostrAlerter};
 use firewatch_connectors::NodeConfig;
-use firewatch_core::{changes, Advisory, Change, NodeReport, Report};
+use firewatch_core::{changes, Advisory, Change, NodeReport, ReleaseTable, Report};
 use serde_json::json;
 use tokio::sync::{Mutex, RwLock};
 use tower_http::cors::CorsLayer;
@@ -35,6 +35,7 @@ const UNREACHABLE_AFTER: u32 = 3;
 struct App {
     nodes: Vec<NodeConfig>,
     advisories: Vec<Advisory>,
+    releases: Option<ReleaseTable>,
     alerter: Option<NostrAlerter>,
     latest: RwLock<Option<Report>>,
     /// Behind a lock, so two checks never race on "what changed".
@@ -90,7 +91,7 @@ impl Tracker {
 impl App {
     async fn run_check(&self) -> Report {
         let mut tracker = self.tracker.lock().await;
-        let report = check_live(&self.nodes, &self.advisories).await;
+        let report = check_live(&self.nodes, &self.advisories, self.releases.as_ref()).await;
 
         for text in tracker.alerts(&report) {
             log(&text.lines().take(2).collect::<Vec<_>>().join(" — "));
@@ -107,7 +108,12 @@ impl App {
     }
 }
 
-pub async fn run(config: Config, advisories: Vec<Advisory>, allow_remote: bool) -> Result<()> {
+pub async fn run(
+    config: Config,
+    advisories: Vec<Advisory>,
+    releases: Option<ReleaseTable>,
+    allow_remote: bool,
+) -> Result<()> {
     if config.nodes.is_empty() {
         anyhow::bail!("no [[nodes]] in the config");
     }
@@ -133,6 +139,7 @@ pub async fn run(config: Config, advisories: Vec<Advisory>, allow_remote: bool) 
     let app = Arc::new(App {
         nodes: config.nodes,
         advisories,
+        releases,
         alerter,
         latest: RwLock::new(None),
         tracker: Mutex::new(Tracker::default()),
@@ -239,6 +246,7 @@ mod tests {
                 network: None,
                 status,
                 error: None,
+                build_check: Default::default(),
                 findings: vec![Finding {
                     advisory_id: "FW-2026-003".into(),
                     title: "t".into(),

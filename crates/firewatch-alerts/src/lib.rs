@@ -219,6 +219,7 @@ mod tests {
             network: Some("regtest".into()),
             status: Status::Affected,
             error: None,
+            build_check: Default::default(),
             findings: vec![],
         }
     }

@@ -226,6 +226,7 @@ mod tests {
             network: Some("regtest".into()),
             config: None,
             features: None,
+            commit_hash: None,
         }
     }
 
