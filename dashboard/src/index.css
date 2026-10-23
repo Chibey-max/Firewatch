@@ -609,7 +609,7 @@
   box-shadow: var(--fw-shadow);
 }
 
-/* The phone's detail sheet and nav bar: denser than the panes, since the
+/* The phone's detail sheet, the tablet's dialog and the nav bar: denser than the panes, since the
    page passes right behind them. The sheet sits over a scrim that dims and
    softens the page. */
 .fw-sheet,
@@ -624,6 +624,11 @@
 .fw-sheet {
   border-bottom: 0;
   box-shadow: 0 -18px 50px -20px rgb(0 0 0 / 0.45);
+}
+/* The tablet's centred dialog: the same glass, edged all round. */
+.fw-sheet.fw-dialog {
+  border-bottom: 1px solid var(--fw-line);
+  box-shadow: 0 30px 80px -30px rgb(0 0 0 / 0.55);
 }
 .fw-bar {
   position: relative;
