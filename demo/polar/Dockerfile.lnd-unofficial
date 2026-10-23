@@ -1,0 +1,23 @@
+# LND built from the official tag plus one empty commit, so it reports the
+# official version number but not the official release commit. Firewatch's
+# build check should mark every finding on it "Can't tell".
+#
+#   docker build -f demo/polar/Dockerfile.lnd-unofficial \
+#     -t firewatch/lnd:0.20.0-unofficial demo/polar
+#
+# Then add it in Polar under Manage Images -> Custom Nodes (implementation LND)
+# and drag it onto the network as `lnd-unofficial`.
+ARG LND_VERSION=v0.20.0-beta
+ARG POLAR_IMAGE=polarlightning/lnd:0.20.0-beta
+
+FROM golang:1.25.3-bookworm AS build
+ARG LND_VERSION
+RUN git clone --depth 1 --branch "${LND_VERSION}" https://github.com/lightningnetwork/lnd /src
+WORKDIR /src
+RUN git -c user.name=firewatch -c user.email=demo@firewatch.invalid \
+      commit --allow-empty -m "firewatch demo: not an official release" \
+ && make release-install \
+ && /go/bin/lnd --version
+
+FROM ${POLAR_IMAGE}
+COPY --from=build /go/bin/lnd /go/bin/lncli /opt/lnd/
