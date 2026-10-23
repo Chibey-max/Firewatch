@@ -29,6 +29,13 @@ export interface Finding {
   steps: string
 }
 
+/** Whether the binary is the official release its version claims (LND only). Not on every daemon yet. */
+export type BuildCheck =
+  | { status: 'match' }
+  | { status: 'mismatch'; release: string; expected: string; actual: string }
+  | { status: 'unknown_release' }
+  | { status: 'not_checked' }
+
 export interface NodeReport {
   name: string
   implementation: Implementation
@@ -39,6 +46,8 @@ export interface NodeReport {
   status: Status
   /** set when the node couldn't be read */
   error: string | null
+  /** absent on daemons from before the build check */
+  build_check?: BuildCheck
   /** worst first */
   findings: Finding[]
 }

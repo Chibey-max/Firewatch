@@ -1,28 +1,34 @@
 import type { ReactNode } from 'react'
 
-/** A full-width strip above the header for the data's state: sample, stale or starting. */
-export function Notice({ tone, children }: { tone: 'ink' | 'amber'; children: ReactNode }) {
+/** A strip above the header for the data's state: sample, stale or starting. */
+export function Notice({ tone, children }: { tone: 'plain' | 'amber'; children: ReactNode }) {
   const tones = {
-    ink: 'bg-ink text-panel',
-    amber: 'bg-canttell-tint text-canttell-ink border border-canttell/40',
+    plain: 'border-line bg-surface text-fg-2',
+    amber: 'border-amber/40 bg-amber-soft text-fg',
   }
   return (
-    <div role="status" className={`mb-5 rounded-sm px-4 py-2 text-[0.92rem] ${tones[tone]}`}>
+    <div
+      role="status"
+      className={`mb-5 rounded-lg border px-4 py-2.5 text-[0.88rem] ${tones[tone]}`}
+    >
       {children}
     </div>
   )
 }
 
-/** Placeholder cards while the first report loads. */
-export function LoadingCards() {
+/** Placeholder rows while the first report loads. */
+export function Loading() {
   return (
-    <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,350px),1fr))] gap-5">
-      {[0, 1, 2].map((i) => (
-        <div
-          key={i}
-          className="h-[420px] animate-pulse rounded-md bg-panel/70 motion-reduce:animate-none"
-        />
-      ))}
+    <div className="grid gap-6 lg:grid-cols-[minmax(320px,400px)_1fr]">
+      <div className="space-y-2">
+        {[0, 1, 2].map((i) => (
+          <div
+            key={i}
+            className="h-[76px] animate-pulse rounded-lg bg-surface motion-reduce:animate-none"
+          />
+        ))}
+      </div>
+      <div className="h-[420px] animate-pulse rounded-xl bg-surface motion-reduce:animate-none" />
     </div>
   )
 }

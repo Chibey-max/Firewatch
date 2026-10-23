@@ -1,24 +1,53 @@
+import { useEffect, useState } from 'react'
 import { CheckControls } from './components/CheckControls'
 import { EmptyState } from './components/EmptyState'
 import { Header } from './components/Header'
-import { NodeCard } from './components/NodeCard'
-import { LoadingCards, Notice } from './components/Notice'
+import { NodeDetail } from './components/NodeDetail'
+import { NodeList } from './components/NodeList'
+import { Loading, Notice } from './components/Notice'
+import { ThemeToggle } from './components/ThemeToggle'
 import { isFixtureName } from './fixtures'
-import { clockTime } from './lib/format'
+import { clockTime, sortNodes } from './lib/format'
 import { useNow, useReport } from './lib/useReport'
+
+/** The selected node lives in the URL (#node=old-cln), so a presenter can link to it. */
+function nodeFromHash(): string | null {
+  return new URLSearchParams(window.location.hash.slice(1)).get('node')
+}
+
+function useSelectedNode(): [string | null, (name: string) => void] {
+  const [name, setName] = useState(nodeFromHash)
+  useEffect(() => {
+    const onHash = () => setName(nodeFromHash())
+    window.addEventListener('hashchange', onHash)
+    return () => window.removeEventListener('hashchange', onHash)
+  }, [])
+  const select = (next: string) => {
+    window.history.replaceState(null, '', `#node=${encodeURIComponent(next)}`)
+    setName(next)
+  }
+  return [name, select]
+}
+
+const code = 'rounded bg-fg/10 px-1.5 font-mono text-[0.9em] text-fg'
 
 export default function App() {
   const param = new URLSearchParams(window.location.search).get('fixture')
   const fixture = isFixtureName(param) ? param : null
   const { report, phase, receivedAt, checking, checkError, checkNow } = useReport(fixture)
   const now = useNow()
+  const [wanted, select] = useSelectedNode()
+
+  const nodes = report ? sortNodes(report.nodes) : []
+  // Fall back to the worst node when nothing (or a node that's gone) is selected.
+  const selected = nodes.find((n) => n.name === wanted) ?? nodes[0] ?? null
 
   return (
-    <div className="mx-auto max-w-[1480px] px-4 py-6 sm:px-8 min-[1600px]:max-w-[1800px]">
+    <div className="mx-auto max-w-[1440px] px-4 py-5 sm:px-8 min-[1600px]:max-w-[1720px]">
       {phase === 'fixture' && (
-        <Notice tone="ink">
+        <Notice tone="plain">
           Sample data from fixture “{fixture}”. Live checks are off.{' '}
-          <a href="./" className="font-semibold underline underline-offset-4">
+          <a href="./" className="font-semibold text-fg underline underline-offset-4">
             Show live data
           </a>
         </Notice>
@@ -30,8 +59,8 @@ export default function App() {
       )}
       {phase === 'offline' && report && receivedAt && (
         <Notice tone="amber">
-          Can't reach the Firewatch daemon. Showing the report received at {clockTime(receivedAt)};
-          it updates again once the daemon answers.
+          Can’t reach the Firewatch daemon. Showing the report from {clockTime(receivedAt)}; it
+          updates again once the daemon answers.
         </Notice>
       )}
 
@@ -43,42 +72,40 @@ export default function App() {
           checkError={checkError}
           onCheck={phase === 'fixture' ? null : checkNow}
         />
+        <ThemeToggle />
       </Header>
 
       <main className="mt-6">
         {report ? (
-          report.nodes.length === 0 ? (
-            <EmptyState />
-          ) : (
-            <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,350px),1fr))] items-start gap-5">
-              {report.nodes.map((node) => (
-                <NodeCard key={node.name} node={node} />
-              ))}
+          selected ? (
+            <div className="grid items-start gap-6 lg:grid-cols-[minmax(320px,400px)_1fr]">
+              <div className="lg:sticky lg:top-5">
+                <NodeList nodes={nodes} selected={selected.name} onSelect={select} />
+              </div>
+              <NodeDetail node={selected} />
             </div>
+          ) : (
+            <EmptyState title="No nodes to watch">
+              Add a node to <code className={code}>firewatch.toml</code>, then restart{' '}
+              <code className={code}>firewatch watch</code>.
+            </EmptyState>
           )
         ) : phase === 'offline' ? (
-          <div className="mx-auto mt-16 max-w-lg text-center">
-            <p className="font-display text-[2rem] font-bold">Can't reach the Firewatch daemon</p>
-            <p className="mt-2 text-[1.02rem] leading-relaxed text-ink-2">
-              Start it from the repo root with{' '}
-              <code className="font-mono text-ink">cargo run -- watch</code>, or{' '}
-              <a
-                href="?fixture=mixed"
-                className="font-semibold text-ink underline underline-offset-4"
-              >
-                view sample data
-              </a>
-              .
-            </p>
-          </div>
+          <EmptyState title="Can’t reach the Firewatch daemon">
+            Start it from the repo root with <code className={code}>cargo run -- watch</code>, or{' '}
+            <a href="?fixture=demo" className="font-semibold text-fg underline underline-offset-4">
+              view sample data
+            </a>
+            .
+          </EmptyState>
         ) : (
-          <LoadingCards />
+          <Loading />
         )}
       </main>
 
-      <footer className="mt-10 border-t border-rule pt-4 text-[0.88rem] text-ink-2">
-        Read-only: Firewatch can't change or spend from your nodes. Every fix is quoted from the
-        project's own release notes, with a link.
+      <footer className="mt-12 border-t border-line pt-4 text-[0.82rem] text-fg-3">
+        Read-only: Firewatch can’t change or spend from your nodes. Every fix is quoted from the
+        project’s own release notes, with a link.
       </footer>
     </div>
   )

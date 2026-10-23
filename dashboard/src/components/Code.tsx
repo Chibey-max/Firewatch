@@ -7,7 +7,7 @@ export function WithCode({ text }: { text: string }) {
     <>
       {parts.map((part, i) =>
         i % 2 === 1 ? (
-          <code key={i} className="rounded bg-ink/[.07] px-1 font-mono text-[0.88em]">
+          <code key={i} className="rounded bg-fg/10 px-1 font-mono text-[0.88em]">
             {part}
           </code>
         ) : (

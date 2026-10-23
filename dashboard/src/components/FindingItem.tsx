@@ -1,29 +1,7 @@
 import { severityName, sourceLabel } from '../lib/format'
-import type { Finding, Status } from '../types/report'
+import type { Finding } from '../types/report'
 import { WithCode } from './Code'
 import { ManualChecklist } from './ManualChecklist'
-
-const rule: Record<Status, string> = {
-  affected: 'border-affected',
-  cant_tell: 'border-canttell',
-  not_affected: 'border-safe',
-}
-
-function Chip({ children, tone }: { children: string; tone: 'red' | 'green' | 'grey' | 'plain' }) {
-  const tones = {
-    red: 'bg-affected text-white',
-    green: 'bg-safe text-white',
-    grey: 'bg-none/15 text-ink-2',
-    plain: 'border border-rule text-ink-2',
-  }
-  return (
-    <span
-      className={`rounded-sm px-1.5 py-px text-[0.78rem] font-semibold uppercase tracking-wide ${tones[tone]}`}
-    >
-      {children}
-    </span>
-  )
-}
 
 export function SourceLink({ url }: { url: string }) {
   return (
@@ -31,68 +9,80 @@ export function SourceLink({ url }: { url: string }) {
       href={url}
       target="_blank"
       rel="noopener noreferrer"
-      className="font-mono text-[0.85rem] whitespace-nowrap text-ink-2 underline decoration-rule underline-offset-4 hover:text-ink hover:decoration-ink"
+      className="whitespace-nowrap text-fg-2 underline decoration-line underline-offset-4 hover:text-fg hover:decoration-fg-2"
     >
       {sourceLabel(url)} ↗
     </a>
   )
 }
 
-function Label({ children }: { children: string }) {
+function Meta({ f }: { f: Finding }) {
   return (
-    <p className="mt-3 mb-1 text-[0.75rem] font-bold uppercase tracking-[0.12em] text-ink-2">
-      {children}
+    <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[0.8rem] text-fg-3">
+      <span className="font-mono">{f.advisory_id}</span>
+      <span aria-hidden>·</span>
+      <span>{severityName[f.severity]}</span>
+      {f.exploited_in_wild && (
+        <>
+          <span aria-hidden>·</span>
+          <span className="font-semibold text-red">Exploited in the wild</span>
+        </>
+      )}
+      {!f.verified && (
+        <>
+          <span aria-hidden>·</span>
+          <span className="rounded bg-neutral-soft px-1.5 text-neutral">Not yet verified</span>
+        </>
+      )}
     </p>
   )
 }
 
-/** One advisory that applies, or might apply, to this node. */
+/** One advisory on the selected node. What it shows depends on its verdict. */
 export function FindingItem({ finding: f }: { finding: Finding }) {
   return (
-    <li className={`border-l-4 py-1 pl-4 ${rule[f.status]}`}>
-      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-        <span className="font-mono text-[0.85rem] text-ink-2">{f.advisory_id}</span>
-        <Chip tone="plain">{severityName[f.severity]}</Chip>
-        {f.exploited_in_wild && <Chip tone="red">Exploited in the wild</Chip>}
-        {!f.verified && <Chip tone="grey">Not yet verified</Chip>}
-        {f.status === 'not_affected' && <Chip tone="green">Ruled out</Chip>}
-      </div>
-      <h3 className="mt-1 text-[1.05rem] leading-snug font-semibold">{f.title}</h3>
-      <p className="mt-1 text-[0.95rem] leading-relaxed text-ink-2">
-        <WithCode text={f.reason} />
-      </p>
+    <li className="rounded-lg border border-line bg-surface px-5 py-4">
+      <Meta f={f} />
+      <h4 className="mt-1.5 text-[1.02rem] leading-snug font-semibold">{f.title}</h4>
 
       {f.status === 'affected' && (
-        <>
-          <Label>Developers say</Label>
-          <blockquote className="relative max-w-[62ch] pl-5 text-[1.05rem] leading-relaxed">
-            <span
-              aria-hidden
-              className="absolute top-[-0.35rem] left-0 font-display text-[2rem] leading-none font-extrabold text-affected"
-            >
-              “
-            </span>
-            <WithCode text={f.steps} />
+        <figure className="mt-3">
+          <blockquote className="border-l-2 border-red pl-3.5 text-[0.98rem] leading-relaxed">
+            “<WithCode text={f.steps} />”
           </blockquote>
-        </>
+          <figcaption className="mt-1.5 pl-4 text-[0.8rem] text-fg-3">
+            The developers’ words
+          </figcaption>
+        </figure>
       )}
 
-      {f.status === 'cant_tell' && f.manual_checks.length > 0 && (
+      {f.status === 'cant_tell' && (
         <>
-          <Label>Check by hand</Label>
-          <p id={`${f.advisory_id}-why`} className="mb-2 text-[0.92rem] text-canttell-ink">
-            Firewatch won't guess. Until these are confirmed, this stays amber.
+          <p className="mt-2 text-[0.9rem] leading-relaxed text-fg-2">
+            <WithCode text={f.reason} />
           </p>
-          <ManualChecklist id={f.advisory_id} checks={f.manual_checks} />
+          {f.manual_checks.length > 0 && (
+            <div className="mt-3 rounded-md bg-amber-soft px-3.5 py-3">
+              <p
+                id={`${f.advisory_id}-why`}
+                className="mb-2 text-[0.85rem] font-semibold text-amber"
+              >
+                Check by hand. Firewatch won’t guess, so this stays amber.
+              </p>
+              <ManualChecklist id={f.advisory_id} checks={f.manual_checks} />
+            </div>
+          )}
         </>
       )}
 
-      <p className="mt-3 flex flex-wrap items-baseline gap-x-3 gap-y-1 text-[0.9rem] text-ink-2">
-        {/* Red findings already say "Fixed in …" in their reason. */}
-        {f.status !== 'affected' && (
-          <span>{f.fixed ? `Fixed in ${f.fixed}` : 'No fix released yet'}</span>
-        )}
-        {f.status === 'affected' && !f.fixed && <span>No fix released yet</span>}
+      {f.status === 'not_affected' && (
+        <p className="mt-2 text-[0.9rem] leading-relaxed text-fg-2">
+          <WithCode text={f.reason} />
+        </p>
+      )}
+
+      <p className="mt-3 flex flex-wrap items-baseline gap-x-4 gap-y-1 text-[0.85rem] text-fg-3">
+        <span>{f.fixed ? `Fixed in ${f.fixed}` : 'No fix released yet'}</span>
         <SourceLink url={f.source} />
       </p>
     </li>

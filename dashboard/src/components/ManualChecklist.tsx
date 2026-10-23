@@ -21,9 +21,9 @@ export function ManualChecklist({ id, checks }: { id: string; checks: string[] }
                 checked={done[i] ?? false}
                 onChange={(e) => setDone((d) => d.map((v, j) => (j === i ? e.target.checked : v)))}
                 aria-describedby={`${id}-why`}
-                className="mt-1 size-[1.1rem] shrink-0 accent-canttell"
+                className="mt-1 size-[1.1rem] shrink-0 accent-amber"
               />
-              <span className={done[i] ? 'text-ink-2 line-through decoration-canttell' : ''}>
+              <span className={done[i] ? 'text-fg-3 line-through decoration-amber' : ''}>
                 <WithCode text={check} />
               </span>
             </label>
@@ -31,7 +31,7 @@ export function ManualChecklist({ id, checks }: { id: string; checks: string[] }
         ))}
       </ul>
       {allDone && (
-        <p className="mt-2 text-[0.9rem] text-ink-2">
+        <p className="mt-2 text-[0.9rem] text-fg-3">
           Checked by hand. This stays amber here, because Firewatch can't confirm it itself.
         </p>
       )}

@@ -1,44 +1,90 @@
 @import 'tailwindcss';
 /* Self-hosted fonts so the dashboard works without venue internet. */
-@import '@fontsource/big-shoulders-display/700';
-@import '@fontsource/big-shoulders-display/800';
 @import '@fontsource/public-sans/400';
+@import '@fontsource/public-sans/500';
 @import '@fontsource/public-sans/600';
 @import '@fontsource/public-sans/700';
 @import '@fontsource/jetbrains-mono/400';
 @import '@fontsource/jetbrains-mono/500';
 
 /*
- * Firewatch tokens.
- * Colour is reserved for verdicts: red, amber and green never decorate.
- * Light "lookout paper" ground because projectors wash out dark themes.
+ * Firewatch tokens. Dark by default; a light theme for washed-out projectors.
+ * Red, amber and green only ever mean a verdict.
  */
-@theme {
-  --color-paper: #edf0ea;
-  --color-panel: #fafbf8;
-  --color-ink: #142420;
-  --color-ink-2: #4a5a54;
-  --color-rule: #cbd3cb;
+:root {
+  --fw-bg: #0d1012;
+  --fw-surface: #14181b;
+  --fw-surface-2: #1a1f23;
+  --fw-hover: #1f252a;
+  --fw-line: #262d32;
+  --fw-fg: #e9ecee;
+  --fw-fg-2: #a6b0b6;
+  --fw-fg-3: #7d878e;
+  --fw-red: #ff6a5c;
+  --fw-red-soft: rgb(255 106 92 / 0.13);
+  --fw-amber: #f4ae45;
+  --fw-amber-soft: rgb(244 174 69 / 0.13);
+  --fw-green: #4cc48c;
+  --fw-green-soft: rgb(76 196 140 / 0.12);
+  --fw-neutral: #8d979e;
+  --fw-neutral-soft: rgb(141 151 158 / 0.13);
+  --fw-button: #e9ecee;
+  --fw-button-fg: #0d1012;
+  color-scheme: dark;
+}
 
-  --color-affected: #c42a1c;
-  --color-affected-tint: #f8e3df;
-  --color-canttell: #c27a0e;
-  --color-canttell-ink: #8a5200;
-  --color-canttell-tint: #f7ebd3;
-  --color-safe: #1f7a4a;
-  --color-safe-tint: #ddefe3;
-  --color-none: #5f6d67; /* 4.7:1 on paper, for the small tally text */
+:root[data-theme='light'] {
+  --fw-bg: #f4f6f6;
+  --fw-surface: #ffffff;
+  --fw-surface-2: #f7f9f9;
+  --fw-hover: #eef1f2;
+  --fw-line: #dde2e5;
+  --fw-fg: #12171a;
+  --fw-fg-2: #4d5960;
+  --fw-fg-3: #66727a;
+  --fw-red: #c42a1c;
+  --fw-red-soft: rgb(196 42 28 / 0.09);
+  --fw-amber: #8a4e00;
+  --fw-amber-soft: rgb(194 122 14 / 0.12);
+  --fw-green: #13693a;
+  --fw-green-soft: rgb(26 127 69 / 0.1);
+  --fw-neutral: #555f66;
+  --fw-neutral-soft: rgb(95 107 114 / 0.1);
+  --fw-button: #12171a;
+  --fw-button-fg: #ffffff;
+  color-scheme: light;
+}
 
-  --font-display: 'Big Shoulders Display', 'Arial Narrow', sans-serif;
+@theme inline {
+  --color-bg: var(--fw-bg);
+  --color-surface: var(--fw-surface);
+  --color-surface-2: var(--fw-surface-2);
+  --color-hover: var(--fw-hover);
+  --color-line: var(--fw-line);
+  --color-fg: var(--fw-fg);
+  --color-fg-2: var(--fw-fg-2);
+  --color-fg-3: var(--fw-fg-3);
+  --color-red: var(--fw-red);
+  --color-red-soft: var(--fw-red-soft);
+  --color-amber: var(--fw-amber);
+  --color-amber-soft: var(--fw-amber-soft);
+  --color-green: var(--fw-green);
+  --color-green-soft: var(--fw-green-soft);
+  --color-neutral: var(--fw-neutral);
+  --color-neutral-soft: var(--fw-neutral-soft);
+  --color-button: var(--fw-button);
+  --color-button-fg: var(--fw-button-fg);
+
   --font-sans: 'Public Sans', system-ui, sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, monospace;
 }
 
 @layer base {
   html {
-    background: var(--color-paper);
-    color: var(--color-ink);
+    background: var(--fw-bg);
+    color: var(--fw-fg);
     font-family: var(--font-sans);
+    font-size: 15px;
     -webkit-font-smoothing: antialiased;
   }
 
@@ -46,27 +92,34 @@
     min-height: 100vh;
   }
 
-  /* Projectors and 1080p screens: use the width and scale everything up a step. */
+  /* Projectors and 1080p screens: scale everything up a step. */
   @media (min-width: 1600px) {
     html {
-      font-size: 18px;
+      font-size: 17px;
     }
   }
 
   :focus-visible {
-    outline: 3px solid var(--color-ink);
+    outline: 2px solid var(--fw-fg);
     outline-offset: 2px;
-    border-radius: 2px;
+    border-radius: 4px;
   }
 }
 
-/* The needle swing is the one animation on the page: it marks a change of verdict. */
-.dial-needle {
-  transition: transform 1s cubic-bezier(0.34, 1.4, 0.64, 1);
+/* A row whose verdict just changed glows once, so the change is noticed. */
+@keyframes fw-changed {
+  from {
+    box-shadow: inset 0 0 0 999px var(--flash);
+  }
+  to {
+    box-shadow: inset 0 0 0 999px transparent;
+  }
 }
-
+.fw-changed {
+  animation: fw-changed 1.6s ease-out;
+}
 @media (prefers-reduced-motion: reduce) {
-  .dial-needle {
-    transition: none;
+  .fw-changed {
+    animation: none;
   }
 }

@@ -13,7 +13,7 @@ export const severityName: Record<Severity, string> = {
   low: 'Low',
 }
 
-/** What the dial shows. "none" is a node no advisory applies to: not proof of safety. */
+/** A node's overall status. "none" is a node no advisory applies to: not proof of safety. */
 export type Reading = Status | 'none'
 
 export function readingOf(node: NodeReport): Reading {
@@ -106,4 +106,65 @@ export function checkedAgo(checkedAt: number, now: number): string {
 
 export function clockTime(ms: number): string {
   return new Date(ms).toLocaleTimeString(undefined, { hour12: false })
+}
+
+const rank: Record<Reading, number> = { affected: 0, cant_tell: 1, not_affected: 2, none: 3 }
+
+function exploited(node: NodeReport): number {
+  return node.findings.filter((f) => f.status === 'affected' && f.exploited_in_wild).length
+}
+
+/** Worst first: affected (exploited first), then can't tell, then the rest; ties by name. */
+export function sortNodes(nodes: NodeReport[]): NodeReport[] {
+  return [...nodes].sort(
+    (a, b) =>
+      rank[readingOf(a)] - rank[readingOf(b)] ||
+      exploited(b) - exploited(a) ||
+      a.name.localeCompare(b.name),
+  )
+}
+
+/** Nodes that are affected or can't be confirmed. */
+export function needsAction(nodes: NodeReport[]): number {
+  return nodes.filter((n) => n.status !== 'not_affected').length
+}
+
+/** One short line for a node's row: what its status rests on. */
+export function nodeSummary(node: NodeReport): string {
+  if (node.error) return "Couldn't read this node"
+  if (node.build_check?.status === 'mismatch') return "Build doesn't match the release"
+  const counts = countBy(node.findings)
+  const parts: string[] = []
+  if (counts.affected) parts.push(plural(counts.affected, 'advisory applies', 'advisories apply'))
+  if (exploited(node)) parts.push('exploited in the wild')
+  if (counts.cant_tell) parts.push(`${counts.cant_tell} to check by hand`)
+  if (parts.length) return parts.join(' · ')
+  if (node.findings.length === 0) return 'No advisory covers this node'
+  return `None of ${plural(node.findings.length, 'advisory', 'advisories')} apply`
+}
+
+/** Compare dotted version numbers ("26.06.9", "0.20.1-beta"); suffixes are ignored. */
+export function compareVersions(a: string, b: string): number {
+  const parts = (v: string) => (v.match(/\d+(\.\d+)*/)?.[0] ?? '').split('.').map(Number)
+  const [x, y] = [parts(a), parts(b)]
+  for (let i = 0; i < Math.max(x.length, y.length); i++) {
+    const d = (x[i] ?? 0) - (y[i] ?? 0)
+    if (d) return d
+  }
+  return 0
+}
+
+/**
+ * The release that carries every fix this node is affected by: the highest
+ * `fixed` among its red findings. Null when any of them has no fix yet, or
+ * lists fixes on several release lines (then each finding says its own).
+ */
+export function fixedTarget(node: NodeReport): string | null {
+  const fixes = node.findings.filter((f) => f.status === 'affected').map((f) => f.fixed)
+  if (fixes.length === 0 || fixes.some((f) => !f || f.includes(','))) return null
+  return (fixes as string[]).reduce((max, f) => (compareVersions(f, max) > 0 ? f : max))
+}
+
+export function shortHash(hash: string): string {
+  return hash.slice(0, 7)
 }

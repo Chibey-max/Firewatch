@@ -1,11 +1,10 @@
-export function EmptyState() {
+import type { ReactNode } from 'react'
+
+export function EmptyState({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <div className="mx-auto mt-16 max-w-md text-center">
-      <p className="font-display text-[2rem] font-bold">No nodes to watch</p>
-      <p className="mt-2 text-[1.02rem] leading-relaxed text-ink-2">
-        Add a node to <code className="font-mono text-ink">firewatch.toml</code>, then restart{' '}
-        <code className="font-mono text-ink">firewatch watch</code>.
-      </p>
+    <div className="mx-auto mt-20 max-w-md text-center">
+      <p className="text-[1.3rem] font-semibold">{title}</p>
+      <p className="mt-2 text-[0.98rem] leading-relaxed text-fg-2">{children}</p>
     </div>
   )
 }

@@ -1,6 +1,6 @@
 # Firewatch dashboard
 
-React + TypeScript + Vite + Tailwind. It reads the report from `firewatch watch` (see [`docs/API.md`](../docs/API.md)) and shows one dial per node.
+React + TypeScript + Vite + Tailwind. It reads the report from `firewatch watch` (see [`docs/API.md`](../docs/API.md)) and shows every node in a list, worst first, with the selected node's findings beside it. `#node=<name>` in the URL selects a node; `?theme=light` (or the toggle, remembered per browser) switches to the light theme for projectors.
 
 ## Run it
 

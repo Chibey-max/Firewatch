@@ -38,7 +38,7 @@ const browser = await puppeteer.launch({
   args: ['--hide-scrollbars', '--window-size=1920,1080'],
 })
 const page = await browser.newPage()
-await page.goto('http://127.0.0.1:5173/', { waitUntil: 'networkidle0' })
+await page.goto('http://127.0.0.1:5173/#node=old-cln', { waitUntil: 'networkidle0' })
 
 // The caption bar is the recorder's, not part of the app.
 await page.evaluate(() => {
@@ -64,7 +64,6 @@ await page.evaluate(() => {
 })
 const caption = (text) =>
   page.evaluate((t) => (document.getElementById('rec-text').textContent = t), text)
-const scrollTo = (top) => page.evaluate((y) => window.scrollTo({ top: y, behavior: 'smooth' }), top)
 
 const recorder = await page.screencast({ path: webm, fps: 30 })
 await caption('Firewatch checks each node against the developers’ own advisories.')
@@ -72,15 +71,13 @@ await sleep(5000)
 await caption(
   'old-cln runs Core Lightning 26.06.7: affected, and one advisory is exploited in the wild.',
 )
-await sleep(4000)
-await scrollTo(420)
 await sleep(5000)
 await caption('Every red finding quotes the developers’ fix and links their release notes.')
-await sleep(4000)
-await scrollTo(0)
-await sleep(2500)
+await sleep(5000)
+await page.click('::-p-text(stopped-cln)')
 await caption('stopped-cln can’t be read, so it stays amber. Firewatch never guesses green.')
 await sleep(5000)
+await page.click('::-p-text(old-cln)')
 await caption(
   'The operator upgrades old-cln to 26.06.9, by hand. Firewatch never touches the node.',
 )
@@ -88,7 +85,7 @@ await sleep(3000)
 sim('upgrade')
 await sleep(1500)
 await caption('Re-check now: old-cln turns green, and says why.')
-await page.click('button')
+await page.click('::-p-text(Re-check now)')
 await sleep(6000)
 await caption('Fixes ship in days. Firewatch makes sure you hear in minutes.')
 await sleep(4500)
