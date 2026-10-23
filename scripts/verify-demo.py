@@ -26,6 +26,9 @@ def live_report() -> dict:
         ["cargo", "run", "--quiet", "--release", "--", "check", "--config", config, "--json"],
         cwd=ROOT, capture_output=True, text=True,
     )
+    # check exits 0, 2 or 3 with a report; anything else is an error.
+    if out.returncode not in (0, 2, 3):
+        sys.exit(f"firewatch check failed (exit {out.returncode}):\n{out.stderr.strip()}")
     return json.loads(out.stdout)
 
 

@@ -65,7 +65,7 @@ demo/reset.sh            # old-cln back to 26.06.7 with its original data
 ## Likely questions about the data
 
 - **"Why is lnd-old amber on FW-2026-013?"** The bug only affects nodes where an app uses LND's `HtlcModifier` RPC to intercept invoice payments, such as Lightning Terminal running tapd. RPC can't tell which apps are connected, so Firewatch lists the hand check instead of guessing.
-- **"What if the version string lies?"** For LND, Firewatch compares the commit the binary was built from with the commit of the official release tag. On a mismatch every finding becomes Can't tell. Core Lightning doesn't report its commit, so for CLN this check is off.
+- **"What if the version string lies?"** For LND, Firewatch compares the commit the binary was built from with the commit of the official release tag, and checks that the build describes itself as that tag, so a patched build of the right commit is caught too. On a mismatch every finding becomes Can't tell. Core Lightning doesn't report its commit, so for CLN this check is off.
 - **"Why is alice red?"** LND 0.20.0-beta is affected by two Lightning Labs advisories, both version-only, both fixed in 0.20.1-beta. It's real: Polar's newest LND image is 0.20.0.
 - **"Why isn't the DNS-seed bug red?"** The DNS peer bootstrapper runs by default on mainnet only, and Firewatch reads the network over RPC. On mainnet the finding would be amber, because `nobootstrap` lives in `lnd.conf`, which RPC doesn't expose.
 - **"What about the LND cooperative-close reorg bug in the news?"** It isn't on Lightning Labs' advisory page, so it stays unverified (FW-2026-005) and doesn't run. Firewatch only alerts on what the developers themselves published.

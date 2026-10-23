@@ -16,7 +16,8 @@ use clap::{Parser, Subcommand};
 use firewatch_alerts::NostrAlerter;
 use firewatch_connectors::NodeConfig;
 use firewatch_core::{
-    load_dir, Advisory, BuildCheck, NodeInfo, NodeReport, ReleaseTable, Report, Status,
+    load_dir, short_commit, Advisory, BuildCheck, NodeInfo, NodeReport, ReleaseTable, Report,
+    Status,
 };
 
 use crate::config::Config;
@@ -32,8 +33,8 @@ struct Cli {
     #[arg(long, global = true, default_value = "advisories")]
     advisories: PathBuf,
 
-    /// Official release table for the build check. Skipped if the file is
-    /// missing; regenerate it with scripts/lnd-releases.sh.
+    /// Official release table for the build check. Required, like the
+    /// advisories; regenerate it with scripts/lnd-releases.sh.
     #[arg(long, global = true, default_value = "releases/lnd.toml")]
     releases: PathBuf,
 
@@ -100,7 +101,7 @@ async fn run() -> Result<ExitCode> {
     let cli = Cli::parse();
     let advisories = load_dir(&cli.advisories)
         .with_context(|| format!("loading advisories from {}", cli.advisories.display()))?;
-    let releases = load_releases(&cli.releases)?;
+    let releases = Some(load_releases(&cli.releases)?);
 
     match cli.command {
         Command::Validate => {
@@ -242,16 +243,16 @@ pub(crate) async fn check_live(
     }
 }
 
-/// The release table, or `None` (build check off) when the file is missing.
-fn load_releases(path: &Path) -> Result<Option<ReleaseTable>> {
-    if !path.exists() {
-        log(&format!(
-            "no release table at {}: build check off",
+/// The release table. A missing file stops the run, as a missing advisory
+/// directory does: without it an unofficial LND build would get normal
+/// verdicts, and nothing on screen would say the build check was off.
+fn load_releases(path: &Path) -> Result<ReleaseTable> {
+    ReleaseTable::load(path).with_context(|| {
+        format!(
+            "loading the release table from {} (regenerate it with scripts/lnd-releases.sh, or pass --releases)",
             path.display()
-        ));
-        return Ok(None);
-    }
-    Ok(Some(ReleaseTable::load(path)?))
+        )
+    })
 }
 
 fn load_snapshot(path: &Path) -> Result<Vec<NodeInfo>> {
@@ -307,10 +308,20 @@ fn print_report(report: &Report) {
                 release,
                 expected,
                 actual,
+                build,
+            } if expected.eq_ignore_ascii_case(actual) => println!(
+                "    Build: NOT a clean {release} release (official commit, but built as \"{}\").",
+                build.as_deref().unwrap_or_default()
+            ),
+            BuildCheck::Mismatch {
+                release,
+                expected,
+                actual,
+                ..
             } => println!(
                 "    Build: NOT the official {release} release (commit {}, expected {}).",
-                &actual[..actual.len().min(7)],
-                &expected[..expected.len().min(7)]
+                short_commit(actual),
+                short_commit(expected)
             ),
             BuildCheck::UnknownRelease => {
                 println!("    Build: release not in Firewatch's table, so not verified.")
