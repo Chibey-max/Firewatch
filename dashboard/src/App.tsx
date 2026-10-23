@@ -95,7 +95,7 @@ export default function App() {
       <Scene reading={scene} />
       {!wide &&
         (rail ? (
-          <SideRail inert={sheetOpen}>{controls}</SideRail>
+          <SideRail>{controls}</SideRail>
         ) : (
           <NavBar inert={sheetOpen} narrow={tablet}>
             {controls}
@@ -164,7 +164,7 @@ export default function App() {
           </div>
         </section>
       </div>
-      {!wide && <DetailSheet node={selected} onClose={close} />}
+      {!wide && <DetailSheet node={selected} onClose={close} beside={rail} />}
       <Toasts />
       {showFonts && <FontPicker />}
     </MotionConfig>

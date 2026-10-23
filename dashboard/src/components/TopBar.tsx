@@ -308,9 +308,10 @@ export function NavBar({
  * thumb rests when holding a tablet, with just the mark and the two
  * controls, so the content keeps the rest of the screen.
  */
-export function SideRail({ children, inert }: { children: ReactNode; inert?: boolean }) {
+export function SideRail({ children }: { children: ReactNode }) {
   return (
-    <header inert={inert} className="fixed top-1/2 right-5 z-30 -translate-y-1/2">
+    // Above the detail dialog's backdrop: the pill stays usable while it's open.
+    <header className="fixed top-1/2 right-5 z-50 -translate-y-1/2">
       <div className="fw-bar flex flex-col items-center gap-3 rounded-full px-1.5 py-3.5">
         <span className="grid size-10 place-items-center" title="Firewatch">
           <Logo />
