@@ -1,4 +1,7 @@
 # Firewatch
+
+[![CI](https://github.com/Chibey-max/Firewatch/actions/workflows/ci.yml/badge.svg)](https://github.com/Chibey-max/Firewatch/actions/workflows/ci.yml)
+
 Firewatch tells a Lightning node operator, within minutes, whether a published security flaw actually affects their node and exactly what to do about it.
 
 It is read-only by design: it holds no credential that can change or spend from a node, it never upgrades or shuts anything down, and it quotes the developers' own fix instead of writing one.
@@ -46,6 +49,16 @@ cargo run -p firewatch-alerts --example inbox -- <nsec>         # print DMs sent
 
 `watch` serves the latest report on `http://127.0.0.1:7070`. See [docs/API.md](docs/API.md) for the endpoints and the JSON format.
 
+## Dashboard
+
+`dashboard/` is the web page the operator watches: one dial per node (green, amber, red), each finding's reason, the developers' quoted fix and a link to their notes.
+
+```sh
+cd dashboard && npm install && npm run dev      # http://localhost:5173, reads the watch API
+```
+
+For the demo, build it once (`npm run build`) and set `dashboard_dir = "dashboard/dist"` under `[watch]`: `watch` then serves it at `http://127.0.0.1:7070`. Without a node network, `dashboard/dev/sim.sh` runs `watch` against simulated Core Lightning nodes, and `?fixture=demo` shows recorded sample data. See [dashboard/README.md](dashboard/README.md).
+
 ## Demo
 
 The demo runs on a [Polar](https://lightningpolar.com) regtest network named `Firewatch-demo`. It has an old Core Lightning (`old-cln`, 26.06.7), a current one (`current-cln`, 26.06.9) and an LND node (`alice`).
@@ -89,6 +102,8 @@ Firewatch never shows green when it is unsure.
 | `advisories/` | One TOML file per advisory. Only `verified = true` advisories run by default. |
 | `demo/` | Polar images, the upgrade and reset scripts, and the [demo runbook](docs/DEMO.md). |
 | `examples/nodes.json` | Node snapshots for working without a live network. |
+| `dashboard/` | The operator's web dashboard (React, TypeScript, Vite), its fixtures, the live sim and the backup-video recorder. |
+| `.github/workflows/ci.yml` | CI: Rust fmt, clippy and tests, and the dashboard's lint, format check and build. |
 
 ## Advisory format
 
