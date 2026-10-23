@@ -59,7 +59,7 @@ function Headline({ line }: { line: Line }) {
   const words = line.before.split(' ')
   const text = `${line.before} ${line.accent}${line.after}`
   return (
-    <h1 className="font-serif text-[clamp(2.1rem,3.3vw,3.25rem)] leading-[1.04] font-medium tracking-[-0.025em]">
+    <h1 className="fw-display text-[clamp(2.1rem,3.3vw,3.25rem)] leading-[1.04]">
       <span className="sr-only">{text}</span>
       <AnimatePresence mode="wait" initial={true}>
         <motion.span
@@ -78,7 +78,7 @@ function Headline({ line }: { line: Line }) {
           ))}
           <motion.span
             variants={word}
-            className={`relative inline-block italic ${accentColor[line.tone]}`}
+            className={`fw-accent relative inline-block ${accentColor[line.tone]}`}
           >
             {line.accent}
             <motion.span

@@ -1,12 +1,12 @@
 import { MotionConfig } from 'motion/react'
 import { useEffect, useState } from 'react'
 import { EmptyState, Loading } from './components/EmptyState'
+import { FontPicker } from './components/FontPicker'
 import { Hero } from './components/Hero'
 import { NodeDetail } from './components/NodeDetail'
 import { NodeList } from './components/NodeList'
 import { Scene } from './components/Scene'
 import { SurfaceMotion } from './components/SurfaceMotion'
-import { Sweep } from './components/Sweep'
 import { ThemeToggle } from './components/ThemeToggle'
 import { Toasts } from './components/Toasts'
 import { Brand, LiveChip, RecheckButton } from './components/TopBar'
@@ -45,6 +45,8 @@ const code = 'rounded-md bg-ink/8 px-1.5 py-0.5 font-mono text-[0.88em] text-ink
 export default function App() {
   const param = new URLSearchParams(window.location.search).get('fixture')
   const fixture = isFixtureName(param) ? param : null
+  // The type experiment's picker: open the page with ?fonts.
+  const showFonts = new URLSearchParams(window.location.search).has('fonts')
   const { report, phase, receivedAt, failures, checking, checkNow } = useReport(fixture)
   const now = useNow()
   const [wanted, select] = useSelectedNode()
@@ -53,7 +55,6 @@ export default function App() {
   // Fall back to the worst node when nothing (or a node that's gone) is selected.
   const selected = nodes.find((n) => n.name === wanted) ?? nodes[0] ?? null
   const scene = report ? worstReading(report.nodes) : phase === 'offline' ? 'cant_tell' : 'none'
-  const fresh = report?.checked_at ?? 0
 
   return (
     <MotionConfig reducedMotion="user">
@@ -66,7 +67,6 @@ export default function App() {
           data-surface
           className="fw-shell flex min-h-0 flex-col overflow-hidden rounded-[28px]"
         >
-          <Sweep key={`shell-${fresh}`} />
           <div className="flex flex-wrap items-center gap-2.5 p-5 pb-0 sm:p-6 sm:pb-0">
             <Brand />
             <LiveChip
@@ -98,7 +98,7 @@ export default function App() {
           <div id="detail" className="min-h-0 flex-1 scroll-mt-3 overflow-y-auto rounded-[28px]">
             {report ? (
               selected ? (
-                <NodeDetail node={selected} sweepKey={fresh} />
+                <NodeDetail node={selected} />
               ) : (
                 <EmptyState title="No nodes to watch">
                   Add a node to <code className={code}>firewatch.toml</code>, then restart{' '}
@@ -125,6 +125,7 @@ export default function App() {
       </div>
       <Toasts />
       <SurfaceMotion />
+      {showFonts && <FontPicker />}
     </MotionConfig>
   )
 }

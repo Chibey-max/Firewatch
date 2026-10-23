@@ -4,7 +4,7 @@ import { checkedAgo, clockTime } from '../lib/format'
 import { EASE } from '../lib/motion'
 import { POLL_MS, type Phase } from '../lib/useReport'
 import { Logo } from './Logo'
-import { MetalLayers } from './MetalLayers'
+import { LiquidRim } from './LiquidRim'
 
 function Dot({ tone, breathe }: { tone: string; breathe?: boolean }) {
   return (
@@ -132,10 +132,9 @@ export function LiveChip(props: {
 }
 
 /**
- * Re-check, as Firewatch's one liquid-metal button (after Mirror's): a 2px rim
- * of moving chrome around the face. The chrome idles, runs on hover, bursts on
- * a press and races while a check runs; the label says what's happening and
- * ends on a tick.
+ * Re-check: a pill of clear glass, like every other pane, with a rim of
+ * liquid metal. The metal idles, runs on hover, bursts on a press and races
+ * while a check runs; the label says what's happening and ends on a tick.
  */
 export function RecheckButton({
   onCheck,
@@ -172,9 +171,9 @@ export function RecheckButton({
       disabled={checking}
       layout
       transition={{ duration: 0.4, ease: EASE }}
-      className="group relative isolate flex h-11 items-center gap-3 rounded-full pr-1.5 pl-5 text-[0.9rem] font-semibold tracking-[-0.01em] text-[var(--fw-metal-label)] transition-transform duration-150 active:translate-y-px active:scale-[0.98] disabled:cursor-wait"
+      className="fw-glass group relative isolate flex h-11 items-center gap-3 rounded-full pr-1.5 pl-5 text-[0.9rem] font-semibold tracking-[-0.01em] text-ink transition-[transform,background-color] duration-200 hover:bg-surface-hover active:translate-y-px active:scale-[0.98] disabled:cursor-wait"
     >
-      <MetalLayers speed={speed} />
+      <LiquidRim speed={speed} />
       <AnimatePresence mode="popLayout" initial={false}>
         <motion.span
           key={label}
@@ -187,7 +186,7 @@ export function RecheckButton({
           {label}
         </motion.span>
       </AnimatePresence>
-      <span className="relative grid size-8 place-items-center rounded-full bg-[var(--fw-metal-label)]/10">
+      <span className="relative grid size-8 place-items-center rounded-full bg-ink/8">
         {done ? (
           <motion.svg
             viewBox="0 0 16 16"

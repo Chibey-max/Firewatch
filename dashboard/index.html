@@ -11,6 +11,8 @@
       try {
         var t = new URLSearchParams(location.search).get('theme') || localStorage.getItem('fw-theme')
         if (t === 'dark') document.documentElement.dataset.theme = 'dark'
+        var f = new URLSearchParams(location.search).get('font') || localStorage.getItem('fw-font')
+        if (f) document.documentElement.dataset.font = f
       } catch (e) {}
     </script>
   </head>

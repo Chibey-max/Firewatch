@@ -10,7 +10,7 @@ export function EmptyState({ title, children }: { title: string; children: React
       variants={rise}
       className="fw-glass-strong grid min-h-full place-content-center rounded-[28px] px-8 py-14 text-center"
     >
-      <p className="font-serif text-[1.6rem] font-medium tracking-[-0.01em]">{title}</p>
+      <p className="fw-display text-[1.6rem]">{title}</p>
       <p className="mx-auto mt-2.5 max-w-md text-[1rem] leading-relaxed text-ink-2">{children}</p>
     </motion.div>
   )

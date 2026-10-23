@@ -15,7 +15,6 @@ import { EASE, rise } from '../lib/motion'
 import type { Finding, NodeReport } from '../types/report'
 import { FindingItem } from './FindingItem'
 import { StatusPill } from './StatusPill'
-import { Sweep } from './Sweep'
 
 const list = { hidden: {}, show: { transition: { staggerChildren: 0.06, delayChildren: 0.12 } } }
 
@@ -179,10 +178,7 @@ function Detail({ node }: { node: NodeReport }) {
     <motion.div initial="hidden" animate="show" variants={list}>
       <motion.header variants={rise} className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0">
-          <h2
-            id="detail-title"
-            className="truncate font-serif text-[2.1rem] leading-tight font-medium tracking-[-0.02em]"
-          >
+          <h2 id="detail-title" className="fw-display truncate text-[2.1rem] leading-tight">
             {node.name}
           </h2>
           <p className="mt-1 text-[0.95rem] text-ink-2">
@@ -252,14 +248,13 @@ function Detail({ node }: { node: NodeReport }) {
 }
 
 /** The selected node; switching nodes crossfades the panel. */
-export function NodeDetail({ node, sweepKey }: { node: NodeReport; sweepKey: number }) {
+export function NodeDetail({ node }: { node: NodeReport }) {
   return (
     <article
       aria-labelledby="detail-title"
       data-surface
       className="fw-glass-strong relative min-h-full overflow-hidden rounded-[28px] p-6 sm:p-9"
     >
-      <Sweep key={sweepKey} />
       <AnimatePresence mode="wait" initial={false}>
         <motion.div
           key={node.name}

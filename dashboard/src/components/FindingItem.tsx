@@ -55,10 +55,10 @@ export function FindingItem({ finding: f }: { finding: Finding }) {
 
       {f.status === 'affected' && (
         <figure className="mt-3.5">
-          <blockquote className="relative pl-6 font-serif text-[1.12rem] leading-relaxed italic">
+          <blockquote className="fw-quote relative pl-6 text-[1.08rem] leading-relaxed">
             <span
               aria-hidden
-              className="absolute top-[-0.4rem] left-0 font-serif text-[2.2rem] leading-none text-red"
+              className="absolute top-[-0.4rem] left-0 font-[Georgia,serif] text-[2.2rem] leading-none text-red"
             >
               “
             </span>
