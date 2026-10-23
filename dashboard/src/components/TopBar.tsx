@@ -304,12 +304,13 @@ export function NavBar({
 }
 
 /**
- * The tablet's rail: a small pill pinned at the top right, just the mark
- * and the two controls, so the content keeps the rest of the screen.
+ * The tablet's rail: a small pill on the right edge at mid-height, where a
+ * thumb rests when holding a tablet, with just the mark and the two
+ * controls, so the content keeps the rest of the screen.
  */
 export function SideRail({ children, inert }: { children: ReactNode; inert?: boolean }) {
   return (
-    <header inert={inert} className="fixed top-5 right-5 z-30">
+    <header inert={inert} className="fixed top-1/2 right-5 z-30 -translate-y-1/2">
       <div className="fw-bar flex flex-col items-center gap-1.5 rounded-full p-1.5">
         <span className="grid size-10 place-items-center" title="Firewatch">
           <Logo />
