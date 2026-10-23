@@ -9,7 +9,8 @@
     "lint": "oxlint",
     "preview": "vite preview",
     "format": "prettier --write src",
-    "format:check": "prettier --check src"
+    "format:check": "prettier --check src",
+    "record:backup": "node dev/record-backup.mjs"
   },
   "dependencies": {
     "@fontsource/big-shoulders-display": "^5.3.0",
@@ -26,6 +27,7 @@
     "@vitejs/plugin-react": "^6.1.2",
     "oxlint": "^1.88.0",
     "prettier": "^3.9.10",
+    "puppeteer-core": "^24.43.1",
     "tailwindcss": "^4.3.3",
     "typescript": "~6.0.3",
     "vite": "^8.3.4"

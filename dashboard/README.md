@@ -43,6 +43,10 @@ The fixtures in `src/fixtures/` come from the real CLI; `demo` and `demo-after` 
 cargo run -- check --nodes examples/nodes.json --json --include-unverified > dashboard/src/fixtures/report.mixed.json
 ```
 
+## Backup demo video
+
+With `dev/sim.sh` and `npm run dev` running, `npm run record:backup` records the upgrade beat (red, upgrade, Re-check now, green) at 1920×1080 into `firewatch-backup-demo.mp4`. It drives the system Chrome (set `CHROME` to use another) and needs `ffmpeg`. Every frame carries a caption that the nodes are simulated. Re-record after UI changes.
+
 ## Build for the demo
 
 ```sh
