@@ -1,5 +1,5 @@
 {
-  "checked_at": 1792737485,
+  "checked_at": 1792753039,
   "nodes": [
     {
       "name": "old-cln",
@@ -8,6 +8,9 @@
       "network": "regtest",
       "status": "not_affected",
       "error": null,
+      "build_check": {
+        "status": "not_checked"
+      },
       "findings": [
         {
           "advisory_id": "FW-2026-003",
@@ -48,6 +51,9 @@
       "network": "regtest",
       "status": "not_affected",
       "error": null,
+      "build_check": {
+        "status": "not_checked"
+      },
       "findings": [
         {
           "advisory_id": "FW-2026-003",
@@ -88,6 +94,9 @@
       "network": "regtest",
       "status": "affected",
       "error": null,
+      "build_check": {
+        "status": "match"
+      },
       "findings": [
         {
           "advisory_id": "FW-2026-007",
@@ -203,6 +212,9 @@
       "network": "regtest",
       "status": "affected",
       "error": null,
+      "build_check": {
+        "status": "match"
+      },
       "findings": [
         {
           "advisory_id": "FW-2026-012",
@@ -307,6 +319,142 @@
           "status": "not_affected",
           "reason": "Version 0.18.5 is in the affected range < 0.20.2 || >= 0.21.0-rc1, < 0.21.1, but it only applies on mainnet, and this node runs on regtest.",
           "manual_checks": [],
+          "in_range": true,
+          "action": "upgrade",
+          "steps": "Users should update to the patched release on their line."
+        }
+      ]
+    },
+    {
+      "name": "lnd-unofficial",
+      "implementation": "lnd",
+      "version": "0.20.0-beta commit=v0.20.0-beta",
+      "network": "regtest",
+      "status": "cant_tell",
+      "error": null,
+      "build_check": {
+        "status": "mismatch",
+        "release": "v0.20.0-beta",
+        "expected": "b9ea7070c20ad2ca8514a47d9b4d560a501f0487",
+        "actual": "fc472ef100000000000000000000000000000000",
+        "build": "v0.20.0-beta"
+      },
+      "findings": [
+        {
+          "advisory_id": "FW-2026-010",
+          "title": "update_fee breach fee-burn exploit",
+          "severity": "high",
+          "exploited_in_wild": false,
+          "verified": true,
+          "fixed": "0.18.3",
+          "source": "https://security.lightning.engineering/2026/08/11/lnd-update-fee-breach-exploit.html",
+          "status": "cant_tell",
+          "reason": "This node reports version v0.20.0-beta, but its build (fc472ef) is not the official v0.20.0-beta release (b9ea707). Firewatch can't trust the version number.",
+          "manual_checks": [
+            "Confirm where this binary came from, or reinstall it from the official release."
+          ],
+          "in_range": false,
+          "action": "upgrade",
+          "steps": "Users should update to v0.18.3-beta or later to be protected."
+        },
+        {
+          "advisory_id": "FW-2026-011",
+          "title": "Pending commitment excessive HTLC failback exploit",
+          "severity": "high",
+          "exploited_in_wild": false,
+          "verified": true,
+          "fixed": "0.18.0",
+          "source": "https://security.lightning.engineering/2026/08/11/lnd-pending-commitment-failback-exploit.html",
+          "status": "cant_tell",
+          "reason": "This node reports version v0.20.0-beta, but its build (fc472ef) is not the official v0.20.0-beta release (b9ea707). Firewatch can't trust the version number.",
+          "manual_checks": [
+            "Confirm where this binary came from, or reinstall it from the official release."
+          ],
+          "in_range": false,
+          "action": "upgrade",
+          "steps": "Users should update to v0.18.0-beta or later to be protected."
+        },
+        {
+          "advisory_id": "FW-2026-012",
+          "title": "HTLC first-stage sweep failure due to wallet budget constraint",
+          "severity": "high",
+          "exploited_in_wild": false,
+          "verified": true,
+          "fixed": "0.19.0",
+          "source": "https://security.lightning.engineering/2026/08/11/lnd-htlc-sweep-budget-failure.html",
+          "status": "cant_tell",
+          "reason": "This node reports version v0.20.0-beta, but its build (fc472ef) is not the official v0.20.0-beta release (b9ea707). Firewatch can't trust the version number.",
+          "manual_checks": [
+            "Confirm where this binary came from, or reinstall it from the official release."
+          ],
+          "in_range": false,
+          "action": "upgrade",
+          "steps": "Users should update to v0.19.0-beta or later to be protected."
+        },
+        {
+          "advisory_id": "FW-2026-013",
+          "title": "Invoice marked settled after HTLC cancelled by interceptor",
+          "severity": "high",
+          "exploited_in_wild": false,
+          "verified": true,
+          "fixed": "0.19.0",
+          "source": "https://security.lightning.engineering/2026/09/21/lnd-tapd-cancelled-htlc-marked-settled.html",
+          "status": "cant_tell",
+          "reason": "This node reports version v0.20.0-beta, but its build (fc472ef) is not the official v0.20.0-beta release (b9ea707). Firewatch can't trust the version number.",
+          "manual_checks": [
+            "Confirm where this binary came from, or reinstall it from the official release."
+          ],
+          "in_range": false,
+          "action": "upgrade",
+          "steps": "lnd fix released in v0.19.0-beta"
+        },
+        {
+          "advisory_id": "FW-2026-007",
+          "title": "Gossip stall via malformed channel_announcement flood",
+          "severity": "low",
+          "exploited_in_wild": false,
+          "verified": true,
+          "fixed": "0.20.1",
+          "source": "https://security.lightning.engineering/2026/09/21/lnd-gossip-validation-barrier-stall.html",
+          "status": "cant_tell",
+          "reason": "This node reports version v0.20.0-beta, but its build (fc472ef) is not the official v0.20.0-beta release (b9ea707). Firewatch can't trust the version number.",
+          "manual_checks": [
+            "Confirm where this binary came from, or reinstall it from the official release."
+          ],
+          "in_range": true,
+          "action": "upgrade",
+          "steps": "Users should update to v0.20.1-beta or later on their release line."
+        },
+        {
+          "advisory_id": "FW-2026-008",
+          "title": "Gossip nil-map panic on zero-timestamp messages",
+          "severity": "low",
+          "exploited_in_wild": false,
+          "verified": true,
+          "fixed": "0.20.1",
+          "source": "https://security.lightning.engineering/2026/06/18/lnd-zero-timestamp-gossip-dos.html",
+          "status": "cant_tell",
+          "reason": "This node reports version v0.20.0-beta, but its build (fc472ef) is not the official v0.20.0-beta release (b9ea707). Firewatch can't trust the version number.",
+          "manual_checks": [
+            "Confirm where this binary came from, or reinstall it from the official release."
+          ],
+          "in_range": true,
+          "action": "upgrade",
+          "steps": "Users should update to a version >= v0.20.1-beta to be protected."
+        },
+        {
+          "advisory_id": "FW-2026-009",
+          "title": "Panic on malformed DNS seed response",
+          "severity": "low",
+          "exploited_in_wild": false,
+          "verified": true,
+          "fixed": "0.20.2, 0.21.1",
+          "source": "https://security.lightning.engineering/2026/09/21/lnd-dns-bootstrap-type-assertion-panic.html",
+          "status": "cant_tell",
+          "reason": "This node reports version v0.20.0-beta, but its build (fc472ef) is not the official v0.20.0-beta release (b9ea707). Firewatch can't trust the version number.",
+          "manual_checks": [
+            "Confirm where this binary came from, or reinstall it from the official release."
+          ],
           "in_range": true,
           "action": "upgrade",
           "steps": "Users should update to the patched release on their line."

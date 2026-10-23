@@ -23,11 +23,15 @@ tmp = sys.argv[1]
 old = {"name": "old-cln", "implementation": "cln", "version": "v26.06.7", "network": "regtest",
        "config": {"experimental-splicing": False}}
 cur = dict(old, name="current-cln", version="v26.06.9")
+# Official release commits (releases/lnd.toml), so the build check reads "match".
 alice = {"name": "alice", "implementation": "lnd", "version": "0.20.0-beta commit=v0.20.0-beta",
-         "network": "regtest"}
-lnd_old = dict(alice, name="lnd-old", version="0.18.5-beta commit=v0.18.5-beta")
-json.dump([old, cur, alice, lnd_old], open(f"{tmp}/demo.json", "w"))
-json.dump([dict(old, version="v26.06.9"), cur, alice, lnd_old], open(f"{tmp}/after.json", "w"))
+         "network": "regtest", "commit_hash": "b9ea7070c20ad2ca8514a47d9b4d560a501f0487"}
+lnd_old = dict(alice, name="lnd-old", version="0.18.5-beta commit=v0.18.5-beta",
+               commit_hash="4ccf4fc24c750d098cf24566ef4bbc0311c7d476")
+# DEMO.md's optional lnd-unofficial: claims 0.20.0 but was built from another commit.
+unofficial = dict(alice, name="lnd-unofficial", commit_hash="fc472ef1" + "0" * 32)
+json.dump([old, cur, alice, lnd_old, unofficial], open(f"{tmp}/demo.json", "w"))
+json.dump([dict(old, version="v26.06.9"), cur, alice, lnd_old, unofficial], open(f"{tmp}/after.json", "w"))
 nodes = json.load(open("examples/nodes.json"))
 nodes[0]["version"] = "v26.06.9"
 nodes[2]["version"] = "0.21.4-beta commit=v0.21.4-beta"
