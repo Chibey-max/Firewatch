@@ -9,10 +9,10 @@ import { NodeList } from './components/NodeList'
 import { Scene } from './components/Scene'
 import { ThemeToggle } from './components/ThemeToggle'
 import { Toasts } from './components/Toasts'
-import { Brand, LiveChip, NavBar, RecheckButton } from './components/TopBar'
+import { Brand, LiveChip, NavBar, RecheckButton, SideRail } from './components/TopBar'
 import { isFixtureName } from './fixtures'
 import { sortNodes, worstReading } from './lib/format'
-import { useWide } from './lib/useMedia'
+import { useMedia, useWide } from './lib/useMedia'
 import { useNow, useReport } from './lib/useReport'
 
 /** The selected node lives in the URL (#node=old-cln), so a presenter can link to it. */
@@ -63,6 +63,9 @@ export default function App() {
   const { report, phase, receivedAt, failures, checking, checkNow } = useReport(fixture)
   const now = useNow()
   const wide = useWide()
+  const tablet = useMedia('(min-width: 640px)')
+  // Tablets get a side rail; ?nav=top tries the phone's bar there instead.
+  const rail = tablet && !wide && new URLSearchParams(window.location.search).get('nav') !== 'top'
   const { wanted, select, close } = useSelectedNode(wide)
 
   const nodes = report ? sortNodes(report.nodes) : []
@@ -77,7 +80,11 @@ export default function App() {
   const controls = (
     <>
       {phase !== 'fixture' && (
-        <RecheckButton onCheck={checkNow} checking={checking} compact={!wide} />
+        <RecheckButton
+          onCheck={checkNow}
+          checking={checking}
+          size={wide ? 'full' : rail ? 'icon' : 'compact'}
+        />
       )}
       <ThemeToggle />
     </>
@@ -86,13 +93,20 @@ export default function App() {
   return (
     <MotionConfig reducedMotion="user">
       <Scene reading={scene} />
-      {!wide && <NavBar inert={sheetOpen}>{controls}</NavBar>}
+      {!wide &&
+        (rail ? (
+          <SideRail inert={sheetOpen}>{controls}</SideRail>
+        ) : (
+          <NavBar inert={sheetOpen} narrow={tablet}>
+            {controls}
+          </NavBar>
+        ))}
       {/* Two panes of glass over the lookout: the shell (headline and nodes)
           and the slab (the selected node). On large screens each scrolls on
           its own and the page stays put; on a phone the slab is a sheet. */}
       <div
         inert={sheetOpen}
-        className="mx-auto grid max-w-[1720px] gap-5 p-3 sm:p-5 lg:h-[100dvh] lg:grid-cols-[minmax(400px,500px)_1fr] lg:p-6 min-[1600px]:grid-cols-[560px_1fr]"
+        className={`mx-auto grid max-w-[1720px] gap-5 p-3 sm:p-5 ${rail ? 'sm:pl-[108px]' : ''} lg:h-[100dvh] lg:grid-cols-[minmax(400px,500px)_1fr] lg:p-6 min-[1600px]:grid-cols-[560px_1fr]`}
       >
         <aside className="fw-shell flex min-h-0 flex-col overflow-hidden rounded-[28px]">
           <div className="flex flex-wrap items-center gap-2.5 p-5 pb-0 sm:p-6 sm:pb-0">

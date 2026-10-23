@@ -135,16 +135,17 @@ export function LiveChip(props: {
  * Re-check: a pill of clear glass, like every other pane, with a rim of
  * liquid metal. The metal idles, runs on hover, bursts on a press and races
  * while a check runs; the label says what's happening and ends on a tick.
+ * `compact` is the phone bar's shorter pill; `icon` is the tablet rail's
+ * round button, whose icon alone spins and ticks.
  */
 export function RecheckButton({
   onCheck,
   checking,
-  compact = false,
+  size = 'full',
 }: {
   onCheck: () => Promise<boolean>
   checking: boolean
-  /** The nav bar's shorter pill. */
-  compact?: boolean
+  size?: 'full' | 'compact' | 'icon'
 }) {
   const reduce = useReducedMotion()
   const [done, setDone] = useState(false)
@@ -162,7 +163,17 @@ export function RecheckButton({
     setTimeout(() => setBurst(false), 300)
   }
   const speed = reduce ? 0 : burst ? 2.4 : checking ? 1.8 : hover ? 1 : 0.45
-  const label = checking ? 'Checking…' : done ? 'Checked' : compact ? 'Re-check' : 'Re-check now'
+  const label = checking
+    ? 'Checking…'
+    : done
+      ? 'Checked'
+      : size === 'compact'
+        ? 'Re-check'
+        : 'Re-check now'
+  const icon = size === 'icon'
+  const shape = icon
+    ? 'size-12 justify-center'
+    : `h-11 pr-1.5 ${size === 'compact' ? 'gap-2.5 pl-4' : 'gap-3 pl-5'}`
 
   return (
     <motion.button
@@ -172,22 +183,26 @@ export function RecheckButton({
       onPointerLeave={() => setHover(false)}
       onPointerDown={press}
       disabled={checking}
+      aria-label={icon ? label : undefined}
+      title={icon ? 'Re-check now' : undefined}
       layout
       transition={{ duration: 0.4, ease: EASE }}
-      className={`fw-glass group relative isolate flex items-center rounded-full pr-1.5 h-11 ${compact ? 'gap-2.5 pl-4' : 'gap-3 pl-5'} text-[0.9rem] font-semibold tracking-[-0.01em] text-ink transition-[transform,background-color] duration-200 hover:bg-surface-hover active:translate-y-px active:scale-[0.98] disabled:cursor-wait`}
+      className={`fw-glass group relative isolate flex items-center rounded-full ${shape} text-[0.9rem] font-semibold tracking-[-0.01em] text-ink transition-[transform,background-color] duration-200 hover:bg-surface-hover active:translate-y-px active:scale-[0.98] disabled:cursor-wait`}
     >
       <LiquidRim speed={speed} />
       <AnimatePresence mode="popLayout" initial={false}>
-        <motion.span
-          key={label}
-          className="relative"
-          initial={{ opacity: 0, y: 6 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -6 }}
-          transition={{ duration: 0.25, ease: EASE }}
-        >
-          {label}
-        </motion.span>
+        {!icon && (
+          <motion.span
+            key={label}
+            className="relative"
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -6 }}
+            transition={{ duration: 0.25, ease: EASE }}
+          >
+            {label}
+          </motion.span>
+        )}
       </AnimatePresence>
       <span className="relative grid size-8 place-items-center rounded-full bg-ink/8">
         {done ? (
@@ -262,15 +277,46 @@ export function Brand() {
  * The phone's bar: the wordmark, and the page's controls within thumb reach
  * at the top, pinned while the list scrolls under it.
  */
-export function NavBar({ children, inert }: { children: ReactNode; inert?: boolean }) {
+export function NavBar({
+  children,
+  inert,
+  narrow = false,
+}: {
+  children: ReactNode
+  inert?: boolean
+  /** On a tablet: the phone's width, centred, instead of the full page. */
+  narrow?: boolean
+}) {
   return (
     // The pinning lives on the header; the glass sets its own position.
-    <header inert={inert} className="sticky top-3 z-30 mx-3 mt-3 sm:top-5 sm:mx-5 sm:mt-5">
+    <header
+      inert={inert}
+      className={`sticky top-3 z-30 mx-3 mt-3 sm:top-5 sm:mt-5 ${narrow ? 'sm:mx-auto sm:w-[366px]' : 'sm:mx-5'}`}
+    >
       <div className="fw-bar flex h-[60px] items-center justify-between gap-3 rounded-full pr-2 pl-4">
         <span className="flex min-w-0 items-center gap-2.5">
           <Wordmark />
         </span>
         <div className="flex items-center gap-2">{children}</div>
+      </div>
+    </header>
+  )
+}
+
+/**
+ * The tablet's rail: a slim pane pinned down the left edge with the mark at
+ * the top and the controls at the bottom, so the content keeps the full
+ * height of the screen.
+ */
+export function SideRail({ children, inert }: { children: ReactNode; inert?: boolean }) {
+  return (
+    <header inert={inert} className="fixed top-5 bottom-5 left-5 z-30 w-[68px]">
+      <div className="fw-bar flex h-full flex-col items-center rounded-[34px] py-5">
+        <Logo />
+        <span className="mt-5 text-[0.8rem] font-semibold tracking-[0.2em] text-ink-2 uppercase [writing-mode:vertical-rl]">
+          Firewatch
+        </span>
+        <div className="mt-auto flex flex-col items-center gap-3">{children}</div>
       </div>
     </header>
   )

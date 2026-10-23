@@ -1,11 +1,12 @@
 # Firewatch dashboard
 
-React + TypeScript + Vite + Tailwind. It reads the report from `firewatch watch` (see [`docs/API.md`](../docs/API.md)) and shows every node in a list, worst first, with the selected node's findings beside it, on panes of glass over a mountain photo. Below 1024px wide the controls move to a bar pinned at the top, and a node's findings open over the list: as a sheet from the bottom on a phone (a drag down closes it), as a dialog in the middle of the page from 640px. Back, Escape or the backdrop closes either.
+React + TypeScript + Vite + Tailwind. It reads the report from `firewatch watch` (see [`docs/API.md`](../docs/API.md)) and shows every node in a list, worst first, with the selected node's findings beside it, on panes of glass over a mountain photo. Below 1024px wide the controls move to a bar pinned at the top on a phone, or a slim rail down the left on a tablet, and a node's findings open over the list: as a sheet from the bottom on a phone (a drag down closes it), as a dialog in the middle of the page from 640px. Back, Escape or the backdrop closes either.
 
 | URL / control                              | Does                                                                                                     |
 | ------------------------------------------ | -------------------------------------------------------------------------------------------------------- |
 | `#node=<name>`                             | selects a node (a presenter can link straight to one; below 1024px it opens that node's sheet or dialog) |
 | `?theme=dark`, or the sun/moon toggle      | the dark theme; the toggle opens it in a circle from the button and is remembered per browser            |
+| `?nav=top`                                 | on a tablet (640–1023px), the phone's compact bar centred at the top instead of the side rail            |
 | `?font=<set>`, or the picker with `?fonts` | type experiment: `satoshi` (default), `space`, `unbounded`, `inter`, `sora`, `editorial`                 |
 
 Motion uses the `motion` library and turns off under the system's reduced-motion setting. The photos are in `public/bg/` (credits in its README); Satoshi is self-hosted in `public/fonts/satoshi/`.
