@@ -1,6 +1,14 @@
 # Firewatch dashboard
 
-React + TypeScript + Vite + Tailwind. It reads the report from `firewatch watch` (see [`docs/API.md`](../docs/API.md)) and shows every node in a list, worst first, with the selected node's findings beside it. `#node=<name>` in the URL selects a node; `?theme=dark` (or the toggle, remembered per browser) switches to the dark theme. Motion uses the `motion` library and turns off under the system's reduced-motion setting.
+React + TypeScript + Vite + Tailwind. It reads the report from `firewatch watch` (see [`docs/API.md`](../docs/API.md)) and shows every node in a list, worst first, with the selected node's findings beside it, on panes of glass over a mountain photo.
+
+| URL / control | Does |
+|---|---|
+| `#node=<name>` | selects a node (a presenter can link straight to one) |
+| `?theme=dark`, or the sun/moon toggle | the dark theme; the toggle opens it in a circle from the button and is remembered per browser |
+| `?font=<set>`, or the picker with `?fonts` | type experiment: `satoshi` (default), `space`, `unbounded`, `inter`, `sora`, `editorial` |
+
+Motion uses the `motion` library and turns off under the system's reduced-motion setting. The photos are in `public/bg/` (credits in its README); Satoshi is self-hosted in `public/fonts/satoshi/`.
 
 ## Run it
 
@@ -30,30 +38,40 @@ Open the app with a fixture to see sample data:
 
 | URL | Shows |
 |---|---|
-| `/?fixture=demo` | the `docs/DEMO.md` network: `old-cln`, `alice` and `lnd-old` red, FW-2026-013 amber on `lnd-old`, FW-2026-009 ruled out on regtest |
+| `/?fixture=demo` | the `docs/DEMO.md` network: `old-cln`, `alice` and `lnd-old` red, FW-2026-013 amber on `lnd-old`, FW-2026-009 ruled out on regtest, and the optional `lnd-unofficial` amber on its build |
 | `/?fixture=demo-after` | the same network after `old-cln` is upgraded to 26.06.9 (green) |
 | `/?fixture=mixed` | one node affected, one not affected, one can't tell (includes an unverified advisory) |
-| `/?fixture=green` | every node after upgrading, including one with no known advisories |
+| `/?fixture=green` | every node after upgrading |
 | `/?fixture=error` | one affected node and one that can't be read |
 | `/?fixture=empty` | no nodes configured |
 
-The fixtures in `src/fixtures/` come from the real CLI; `demo` and `demo-after` are the stage fallback if Polar fails. Regenerate `report.mixed.json` from the repo root with:
+The fixtures in `src/fixtures/` come from the real CLI; `demo` and `demo-after` are the stage fallback if Polar fails. After any change to the report or the advisories, regenerate all of them from the repo root:
 
 ```sh
-cargo run -- check --nodes examples/nodes.json --json --include-unverified > dashboard/src/fixtures/report.mixed.json
+dashboard/dev/regen-fixtures.sh
 ```
+
+## Tests
+
+```sh
+npm test             # Vitest: the logic behind what the operator sees, run against the fixtures
+```
+
+CI runs them with the lint, format check and build.
 
 ## Backup demo video
 
-With `dev/sim.sh` and `npm run dev` running, `npm run record:backup` records the upgrade beat (red, upgrade, Re-check now, green) at 1920×1080 into `firewatch-backup-demo.mp4`. It drives the system Chrome (set `CHROME` to use another) and needs `ffmpeg`. Every frame carries a caption that the nodes are simulated. Re-record after UI changes.
+With `dev/sim.sh` and `npm run dev` running, `npm run record:backup` records the upgrade beat (red, upgrade, Re-check now, green) at 1920×1080 into `firewatch-backup-demo.mp4`. It drives the system Chrome (set `CHROME` to use another) and needs `ffmpeg`. Every frame carries a caption that the nodes are simulated. It refuses to record a page without its styles (after many quick edits the dev server can serve an empty stylesheet: restart `npm run dev` after `rm -rf node_modules/.vite`). Re-record after UI changes.
 
 ## Build for the demo
+
+`scripts/demo-up.sh` (repo root) builds the dashboard and serves it from `firewatch watch` at `http://127.0.0.1:7070`. By hand:
 
 ```sh
 npm run build        # outputs dashboard/dist
 ```
 
-Then set `dashboard_dir = "dashboard/dist"` under `[watch]` in `firewatch.toml`, and the daemon serves the dashboard at `http://127.0.0.1:7070`.
+then run `firewatch watch --dashboard dashboard/dist`, or set `dashboard_dir = "dashboard/dist"` under `[watch]` in `firewatch.toml`.
 
 ## Contract
 

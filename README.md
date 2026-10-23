@@ -86,7 +86,7 @@ cargo run -p firewatch-alerts --example inbox -- <nsec>         # print DMs sent
 cd dashboard && npm install && npm run dev      # http://localhost:5173, reads the watch API
 ```
 
-For the demo, build it once (`npm run build`) and set `dashboard_dir = "dashboard/dist"` under `[watch]`: `watch` then serves it at `http://127.0.0.1:7070`. Without a node network, `dashboard/dev/sim.sh` runs `watch` against simulated Core Lightning nodes, and `?fixture=demo` shows recorded sample data. See [dashboard/README.md](dashboard/README.md).
+For the demo, `scripts/demo-up.sh` builds it and serves it from `watch` at `http://127.0.0.1:7070` (by hand: `npm run build`, then `watch --dashboard dashboard/dist`). Without a node network, `dashboard/dev/sim.sh` runs `watch` against simulated Core Lightning nodes, and `?fixture=demo` shows recorded sample data. See [dashboard/README.md](dashboard/README.md).
 
 ## Demo
 
