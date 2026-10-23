@@ -10,7 +10,7 @@ It is read-only by design: it holds no credential that can change or spend from 
 
 ```sh
 scripts/demo-up.sh                              # build everything, check the nodes, start the demo
-cargo test --workspace                          # 69 tests: engine, connectors, alerts, one per advisory
+cargo test --workspace                          # 77 tests: engine, connectors, alerts, one per advisory
 cargo run -- validate                           # load and list every advisory
 cargo run -- check                              # check the live nodes in firewatch.toml once
 cargo run -- check --nodes examples/nodes.json  # check a JSON snapshot instead
@@ -54,14 +54,16 @@ When a node can't be read, the report says why in plain words: the node isn't ru
 
 ## Build check
 
-A version number is only text a binary prints. LND also reports the commit it was built from, so Firewatch compares it with the commit the official release tag points to, from [releases/lnd.toml](releases/lnd.toml):
+A version number is only text a binary prints. LND also reports the commit it was built from, so Firewatch compares it with the commit the official release tag points to, from [releases/lnd.toml](releases/lnd.toml). Core Lightning reports no commit, only what `git describe` adds to its version when it isn't built as a release:
 
 | `build_check` | Meaning |
 |---|---|
 | `match` | The binary is the official release its version claims. Verdicts are normal. |
 | `mismatch` | Same version number, but a different commit, or the official commit built with changes (LND's `commit=` says `-dirty` or isn't an official tag). The version can't be trusted, so **every** finding on the node becomes Can't tell. |
+| `unreleased` | Core Lightning built from a commit after a release tag (`v26.06.7-12-gabc1234`). It may hold changes or fixes the release doesn't, so **every** finding becomes Can't tell. |
+| `modified` | Core Lightning built from a release tag with local changes (`v26.06.7-modded`). A clean source build often gets `-modded` too, when the build only regenerates files ([ElementsProject/lightning#7152](https://github.com/ElementsProject/lightning/issues/7152)), so red findings stay red, and Not affected becomes Can't tell: never green when unsure. |
 | `unknown_release` | The version isn't in the table, for example a release newer than it. Verdicts are normal. |
-| `not_checked` | No commit reported (Core Lightning) or no table. |
+| `not_checked` | Core Lightning released as tagged (`v26.06.9`), or LND without a commit or table. |
 
 Refresh the table with `scripts/lnd-releases.sh`; it only replaces the file when the fetch succeeds. `--releases <file>` points at another one. The table is required: Firewatch stops if it's missing, rather than giving an unofficial build normal verdicts.
 
@@ -194,6 +196,6 @@ A file that fails to parse or validate stops the load, so a broken advisory is n
 
 - Firewatch covers only the advisories in its database; it does not discover new vulnerabilities.
 - Conditions that depend on `lnd.conf` options not exposed over RPC return Can't tell, not a verdict.
-- The build check covers LND only: Core Lightning doesn't report the commit it was built from.
+- For Core Lightning, the build check only sees what the version string admits (`-<n>-g<hash>`, `-modded`): it reports no commit, so a build that claims a clean tag can't be verified.
 - It serves self-hosted node operators, not users of custodial or LSP-managed phone wallets.
 - The advisory database is maintained by people; a missed advisory is a missed alert.
