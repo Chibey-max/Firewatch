@@ -1,12 +1,12 @@
 # Firewatch dashboard
 
-React + TypeScript + Vite + Tailwind. It reads the report from `firewatch watch` (see [`docs/API.md`](../docs/API.md)) and shows every node in a list, worst first, with the selected node's findings beside it, on panes of glass over a mountain photo.
+React + TypeScript + Vite + Tailwind. It reads the report from `firewatch watch` (see [`docs/API.md`](../docs/API.md)) and shows every node in a list, worst first, with the selected node's findings beside it, on panes of glass over a mountain photo. Below 1024px wide the controls move to a bar pinned at the top, and a node's findings open in a sheet over the list (Back, Escape, the backdrop or a drag down closes it).
 
-| URL / control | Does |
-|---|---|
-| `#node=<name>` | selects a node (a presenter can link straight to one) |
-| `?theme=dark`, or the sun/moon toggle | the dark theme; the toggle opens it in a circle from the button and is remembered per browser |
-| `?font=<set>`, or the picker with `?fonts` | type experiment: `satoshi` (default), `space`, `unbounded`, `inter`, `sora`, `editorial` |
+| URL / control                              | Does                                                                                          |
+| ------------------------------------------ | --------------------------------------------------------------------------------------------- |
+| `#node=<name>`                             | selects a node (a presenter can link straight to one; on a phone it opens that node's sheet)  |
+| `?theme=dark`, or the sun/moon toggle      | the dark theme; the toggle opens it in a circle from the button and is remembered per browser |
+| `?font=<set>`, or the picker with `?fonts` | type experiment: `satoshi` (default), `space`, `unbounded`, `inter`, `sora`, `editorial`      |
 
 Motion uses the `motion` library and turns off under the system's reduced-motion setting. The photos are in `public/bg/` (credits in its README); Satoshi is self-hosted in `public/fonts/satoshi/`.
 
@@ -36,14 +36,14 @@ The simulated endpoints only answer `getinfo` and `listconfigs` (`dev/fake_cln.p
 
 Open the app with a fixture to see sample data:
 
-| URL | Shows |
-|---|---|
-| `/?fixture=demo` | the `docs/DEMO.md` network: `old-cln`, `alice` and `lnd-old` red, FW-2026-013 amber on `lnd-old`, FW-2026-009 ruled out on regtest, and the optional `lnd-unofficial` amber on its build |
-| `/?fixture=demo-after` | the same network after `old-cln` is upgraded to 26.06.9 (green) |
-| `/?fixture=mixed` | one node affected, one not affected, one can't tell (includes an unverified advisory) |
-| `/?fixture=green` | every node after upgrading |
-| `/?fixture=error` | one affected node and one that can't be read |
-| `/?fixture=empty` | no nodes configured |
+| URL                    | Shows                                                                                                                                                                                    |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/?fixture=demo`       | the `docs/DEMO.md` network: `old-cln`, `alice` and `lnd-old` red, FW-2026-013 amber on `lnd-old`, FW-2026-009 ruled out on regtest, and the optional `lnd-unofficial` amber on its build |
+| `/?fixture=demo-after` | the same network after `old-cln` is upgraded to 26.06.9 (green)                                                                                                                          |
+| `/?fixture=mixed`      | one node affected, one not affected, one can't tell (includes an unverified advisory)                                                                                                    |
+| `/?fixture=green`      | every node after upgrading                                                                                                                                                               |
+| `/?fixture=error`      | one affected node and one that can't be read                                                                                                                                             |
+| `/?fixture=empty`      | no nodes configured                                                                                                                                                                      |
 
 The fixtures in `src/fixtures/` come from the real CLI; `demo` and `demo-after` are the stage fallback if Polar fails. After any change to the report or the advisories, regenerate all of them from the repo root:
 

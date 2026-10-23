@@ -284,11 +284,16 @@ function Detail({ node }: { node: NodeReport }) {
  * fades out where it is while the new fades in over it (popLayout lifts the
  * leaving content out of the flow), so there is never an empty moment.
  */
-export function NodeDetail({ node }: { node: NodeReport }) {
+/** `bare` drops the pane's own glass, for when it sits inside the phone sheet. */
+export function NodeDetail({ node, bare = false }: { node: NodeReport; bare?: boolean }) {
   return (
     <article
       aria-labelledby="detail-title"
-      className="fw-glass-strong relative min-h-full overflow-hidden rounded-[28px] p-6 sm:p-9"
+      className={
+        bare
+          ? 'relative px-5 pt-2 pb-10 sm:px-8'
+          : 'fw-glass-strong relative min-h-full overflow-hidden rounded-[28px] p-6 sm:p-9'
+      }
     >
       <AnimatePresence mode="popLayout" initial={false}>
         <motion.div

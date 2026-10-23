@@ -76,23 +76,26 @@ function Headline({ line }: { line: Line }) {
               {w}{' '}
             </motion.span>
           ))}
-          <motion.span
-            variants={word}
-            className={`fw-accent relative inline-block ${accentColor[line.tone]}`}
-          >
-            {line.accent}
+          {/* The key word and its full stop never part across a line. */}
+          <span className="whitespace-nowrap">
             <motion.span
-              className={`absolute right-0 -bottom-1 left-0 h-[3px] origin-left rounded-full opacity-60 ${underline[line.tone]}`}
-              variants={{
-                hidden: { scaleX: 0 },
-                show: { scaleX: 1, transition: { duration: 1.1, ease: EASE, delay: 0.35 } },
-                exit: { opacity: 0 },
-              }}
-            />
-          </motion.span>
-          <motion.span variants={word} className="inline-block">
-            {line.after}
-          </motion.span>
+              variants={word}
+              className={`fw-accent relative inline-block ${accentColor[line.tone]}`}
+            >
+              {line.accent}
+              <motion.span
+                className={`absolute right-0 -bottom-1 left-0 h-[3px] origin-left rounded-full opacity-60 ${underline[line.tone]}`}
+                variants={{
+                  hidden: { scaleX: 0 },
+                  show: { scaleX: 1, transition: { duration: 1.1, ease: EASE, delay: 0.35 } },
+                  exit: { opacity: 0 },
+                }}
+              />
+            </motion.span>
+            <motion.span variants={word} className="inline-block">
+              {line.after}
+            </motion.span>
+          </span>
         </motion.span>
       </AnimatePresence>
     </h1>

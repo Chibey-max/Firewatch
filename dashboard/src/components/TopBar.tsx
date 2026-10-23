@@ -1,5 +1,5 @@
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { checkedAgo, clockTime } from '../lib/format'
 import { EASE } from '../lib/motion'
 import { POLL_MS, type Phase } from '../lib/useReport'
@@ -139,9 +139,12 @@ export function LiveChip(props: {
 export function RecheckButton({
   onCheck,
   checking,
+  compact = false,
 }: {
   onCheck: () => Promise<boolean>
   checking: boolean
+  /** The nav bar's shorter pill. */
+  compact?: boolean
 }) {
   const reduce = useReducedMotion()
   const [done, setDone] = useState(false)
@@ -159,7 +162,7 @@ export function RecheckButton({
     setTimeout(() => setBurst(false), 300)
   }
   const speed = reduce ? 0 : burst ? 2.4 : checking ? 1.8 : hover ? 1 : 0.45
-  const label = checking ? 'Checking…' : done ? 'Checked' : 'Re-check now'
+  const label = checking ? 'Checking…' : done ? 'Checked' : compact ? 'Re-check' : 'Re-check now'
 
   return (
     <motion.button
@@ -171,7 +174,7 @@ export function RecheckButton({
       disabled={checking}
       layout
       transition={{ duration: 0.4, ease: EASE }}
-      className="fw-glass group relative isolate flex h-11 items-center gap-3 rounded-full pr-1.5 pl-5 text-[0.9rem] font-semibold tracking-[-0.01em] text-ink transition-[transform,background-color] duration-200 hover:bg-surface-hover active:translate-y-px active:scale-[0.98] disabled:cursor-wait"
+      className={`fw-glass group relative isolate flex items-center rounded-full pr-1.5 h-11 ${compact ? 'gap-2.5 pl-4' : 'gap-3 pl-5'} text-[0.9rem] font-semibold tracking-[-0.01em] text-ink transition-[transform,background-color] duration-200 hover:bg-surface-hover active:translate-y-px active:scale-[0.98] disabled:cursor-wait`}
     >
       <LiquidRim speed={speed} />
       <AnimatePresence mode="popLayout" initial={false}>
@@ -237,12 +240,38 @@ export function RecheckButton({
   )
 }
 
+function Wordmark() {
+  return (
+    <>
+      <Logo />
+      <span className="text-[0.98rem] font-semibold tracking-[0.01em]">Firewatch</span>
+    </>
+  )
+}
+
 /** The wordmark pill. */
 export function Brand() {
   return (
     <div className="fw-glass flex h-10 items-center gap-2.5 rounded-full pr-4 pl-3.5">
-      <Logo />
-      <span className="text-[0.98rem] font-semibold tracking-[0.01em]">Firewatch</span>
+      <Wordmark />
     </div>
+  )
+}
+
+/**
+ * The phone's bar: the wordmark, and the page's controls within thumb reach
+ * at the top, pinned while the list scrolls under it.
+ */
+export function NavBar({ children, inert }: { children: ReactNode; inert?: boolean }) {
+  return (
+    // The pinning lives on the header; the glass sets its own position.
+    <header inert={inert} className="sticky top-3 z-30 mx-3 mt-3 sm:top-5 sm:mx-5 sm:mt-5">
+      <div className="fw-bar flex h-[60px] items-center justify-between gap-3 rounded-full pr-2 pl-4">
+        <span className="flex min-w-0 items-center gap-2.5">
+          <Wordmark />
+        </span>
+        <div className="flex items-center gap-2">{children}</div>
+      </div>
+    </header>
   )
 }

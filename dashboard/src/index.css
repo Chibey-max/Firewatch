@@ -609,6 +609,32 @@
   box-shadow: var(--fw-shadow);
 }
 
+/* The phone's detail sheet and nav bar: denser than the panes, since the
+   page passes right behind them. The sheet sits over a scrim that dims and
+   softens the page. */
+.fw-sheet,
+.fw-bar {
+  border: 1px solid var(--fw-line);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--fw-sheen) 45%, transparent), transparent 18%),
+    color-mix(in srgb, var(--fw-surface-solid) 72%, var(--fw-bg));
+  -webkit-backdrop-filter: blur(calc(var(--fw-blur) * 3)) saturate(1.2);
+  backdrop-filter: blur(calc(var(--fw-blur) * 3)) saturate(1.2);
+}
+.fw-sheet {
+  border-bottom: 0;
+  box-shadow: 0 -18px 50px -20px rgb(0 0 0 / 0.45);
+}
+.fw-bar {
+  position: relative;
+  box-shadow: var(--fw-shadow);
+}
+.fw-scrim {
+  background: rgb(8 10 14 / 0.38);
+  -webkit-backdrop-filter: blur(2px);
+  backdrop-filter: blur(2px);
+}
+
 /* --- Liquid metal --- */
 
 /* Cuts a layer down to a thin ring along its rounded edge, so a liquid-metal
