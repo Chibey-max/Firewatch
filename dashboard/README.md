@@ -11,6 +11,19 @@ npm run dev          # http://localhost:5173, proxies /api to 127.0.0.1:7070
 
 Start the daemon from the repo root in another terminal: `cargo run -- watch`.
 
+### Live, without Polar
+
+`dev/sim.sh` runs the real `firewatch watch` against two simulated Core Lightning endpoints (`old-cln` on v26.06.7, `current-cln` on v26.06.9) plus one address with nothing on it, so every state comes from real checks:
+
+```sh
+dashboard/dev/sim.sh            # terminal 1, from the repo root; Ctrl+C stops it
+cd dashboard && npm run dev     # terminal 2
+dashboard/dev/sim.sh upgrade    # old-cln now reports v26.06.9: press Re-check now
+dashboard/dev/sim.sh reset      # back to v26.06.7
+```
+
+The simulated endpoints only answer `getinfo` and `listconfigs` (`dev/fake_cln.py`). They are not Lightning nodes; use Polar for the real demo.
+
 ### Without the daemon
 
 Open the app with a fixture to see sample data:
