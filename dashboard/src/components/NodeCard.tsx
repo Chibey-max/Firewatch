@@ -1,9 +1,11 @@
 import {
   countBy,
+  describeError,
   implementationName,
   plural,
   readingOf,
   readingWord,
+  ruledOutByCondition,
   splitVersion,
   type Reading,
 } from '../lib/format'
@@ -27,16 +29,19 @@ function summary(node: NodeReport, reading: Reading): string {
   const exploited = node.findings.filter(
     (f) => f.status === 'affected' && f.exploited_in_wild,
   ).length
+  const conditional = node.findings.filter(ruledOutByCondition).length
+  const ruledOutNote = conditional ? ` · ${conditional} ruled out by a condition` : ''
   switch (reading) {
     case 'affected':
       return (
         `${plural(counts.affected, 'advisory applies', 'advisories apply')}` +
-        (exploited ? ` · ${exploited} exploited in the wild` : '')
+        (exploited ? ` · ${exploited} exploited in the wild` : '') +
+        ruledOutNote
       )
     case 'cant_tell':
       return `${plural(counts.cant_tell, 'advisory', 'advisories')} can't be confirmed over RPC`
     case 'not_affected':
-      return `Checked ${plural(node.findings.length, 'advisory', 'advisories')}, none apply`
+      return `Checked ${plural(node.findings.length, 'advisory', 'advisories')}, none apply${ruledOutNote}`
     case 'none':
       return "Nothing in Firewatch's list applies. That isn't proof it's safe."
   }
@@ -45,8 +50,9 @@ function summary(node: NodeReport, reading: Reading): string {
 export function NodeCard({ node }: { node: NodeReport }) {
   const reading = readingOf(node)
   const version = node.version ? splitVersion(node.version) : null
-  const open = node.findings.filter((f) => f.status !== 'not_affected')
-  const ruledOut = node.findings.filter((f) => f.status === 'not_affected')
+  // Shown: anything not green, plus green findings a condition ruled out.
+  const shown = node.findings.filter((f) => f.status !== 'not_affected' || ruledOutByCondition(f))
+  const folded = node.findings.filter((f) => !shown.includes(f))
 
   return (
     <article
@@ -96,22 +102,25 @@ export function NodeCard({ node }: { node: NodeReport }) {
 
         {node.error && (
           <div className="mt-5 rounded-sm bg-canttell-tint px-4 py-3">
-            <p className="text-[0.98rem] font-semibold text-canttell-ink">
+            {describeError(node.error) && (
+              <p className="text-[1.02rem] font-semibold text-ink">{describeError(node.error)}</p>
+            )}
+            <p className="mt-1 text-[0.95rem] text-canttell-ink">
               Firewatch won't guess, so this node stays amber until it can be read.
             </p>
             <p className="mt-1.5 font-mono text-[0.8rem] break-words text-ink-2">{node.error}</p>
           </div>
         )}
 
-        {open.length > 0 && (
+        {shown.length > 0 && (
           <ul className="mt-5 space-y-5 border-t border-rule pt-5">
-            {open.map((f) => (
+            {shown.map((f) => (
               <FindingItem key={f.advisory_id} finding={f} />
             ))}
           </ul>
         )}
 
-        <NotAffectedGroup findings={ruledOut} />
+        <NotAffectedGroup findings={folded} />
       </div>
     </article>
   )

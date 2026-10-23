@@ -27,7 +27,7 @@
   --color-canttell-tint: #f7ebd3;
   --color-safe: #1f7a4a;
   --color-safe-tint: #ddefe3;
-  --color-none: #6b7a74;
+  --color-none: #5f6d67; /* 4.7:1 on paper, for the small tally text */
 
   --font-display: 'Big Shoulders Display', 'Arial Narrow', sans-serif;
   --font-sans: 'Public Sans', system-ui, sans-serif;
@@ -44,6 +44,13 @@
 
   body {
     min-height: 100vh;
+  }
+
+  /* Projectors and 1080p screens: use the width and scale everything up a step. */
+  @media (min-width: 1600px) {
+    html {
+      font-size: 18px;
+    }
   }
 
   :focus-visible {
