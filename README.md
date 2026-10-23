@@ -20,6 +20,8 @@ Add `--include-unverified` to `check` or `watch` to also run advisories not yet 
 
 `watch` listens on localhost only. It refuses any other `listen` address unless you pass `--allow-remote`, because the report says which nodes are vulnerable. `--dashboard <dir>` serves a built dashboard at `/`.
 
+A web page open in your browser can reach localhost too, so `watch` also turns away what a hostile site could send: a request whose `Host` isn't `localhost`, `127.0.0.1` or `[::1]` (DNS rebinding), and a request whose `Origin` is another site (reading the report, or a cross-site `POST /api/check`). With `--allow-remote`, open the dashboard by the machine's IP address; names other than localhost are still refused.
+
 `check` exits with `0` when nothing applies, `2` when something can't be told, `3` when a node is affected, and `1` on error.
 
 ## Configuration

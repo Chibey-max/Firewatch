@@ -1,6 +1,10 @@
 # Dashboard API
 
-`firewatch watch` serves this API, by default on `http://127.0.0.1:7070`. All responses are JSON, and CORS is open, so a dev server on another port (for example Vite on `:5173`) can call it directly.
+`firewatch watch` serves this API, by default on `http://127.0.0.1:7070`. All responses are JSON.
+
+**Who may call it.** Only pages served from this machine. The dashboard is same-origin: served by `watch --dashboard`, or in development through Vite's `/api` proxy. A page on another localhost port (for example with `VITE_API_BASE=http://127.0.0.1:7070`) gets CORS for `GET` and `POST`. Everything else gets `403 {"error": "..."}`:
+- a `Host` that isn't `localhost`, `127.0.0.1` or `[::1]`, which guards against DNS rebinding. With `--allow-remote`, IP addresses are accepted too.
+- an `Origin` that is neither localhost nor the server itself, which blocks other sites from reading the report or triggering `POST /api/check`.
 
 | Method | Path | Returns |
 |---|---|---|
