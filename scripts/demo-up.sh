@@ -25,7 +25,14 @@ echo "==> Building the dashboard"
   npm run --silent build >/dev/null )
 
 echo "==> Checking every node in $CONFIG"
-report="$(./target/release/firewatch check --config "$CONFIG" --json 2>/dev/null || true)"
+# check exits 0, 2 or 3 with a report; anything else is an error, already
+# printed above (a bad config, a missing release table, ...).
+status=0
+report="$(./target/release/firewatch check --config "$CONFIG" --json)" || status=$?
+case "$status" in
+  0|2|3) ;;
+  *) die "firewatch check failed (exit $status). Fix the error above, then run this again." ;;
+esac
 python3 -I - "$report" <<'PY' || die "Fix the nodes above (start the network in Polar?), then run this again."
 import json, sys
 report = json.loads(sys.argv[1])
@@ -44,8 +51,12 @@ PY
 listen="$(python3 -I -c 'import sys, tomllib; print(tomllib.load(open(sys.argv[1], "rb")).get("watch", {}).get("listen", "127.0.0.1:7070"))' "$CONFIG")"
 url="http://$listen"
 
-# Open the dashboard once the first check has finished.
-( until curl -sf "$url/api/report" >/dev/null; do sleep 0.5; done
+# Open the dashboard once the first check has finished. `exec` keeps this
+# shell's PID, so $$ is the watch process: stop waiting if it exits.
+( until curl -sf "$url/api/report" >/dev/null; do
+    kill -0 $$ 2>/dev/null || exit 0
+    sleep 0.5
+  done
   echo "==> Dashboard: $url"
   [ -n "${NO_OPEN:-}" ] || { command -v xdg-open >/dev/null && xdg-open "$url" >/dev/null 2>&1; } || true ) &
 
