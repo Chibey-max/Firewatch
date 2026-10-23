@@ -1,0 +1,20 @@
+# Lightning Labs advisory, published 2026-08-11, severity T1 (High).
+# Affected: "< 0.18.0-beta"; patched: "0.18.0-beta". Evidence: docs/sources/FW-2026-011.md
+id = "FW-2026-011"
+implementation = "lnd"
+title = "Pending commitment excessive HTLC failback exploit"
+affected = "< 0.18.0"
+fixed = "0.18.0"
+severity = "high"
+exploited_in_wild = false
+source = "https://security.lightning.engineering/2026/08/11/lnd-pending-commitment-failback-exploit.html"
+reviewed_by = "Dave"
+verified = true
+
+# Needs only a direct channel with the victim.
+[[conditions]]
+kind = "version_range"
+
+[remediation]
+action = "upgrade"
+steps = "Users should update to v0.18.0-beta or later to be protected."
