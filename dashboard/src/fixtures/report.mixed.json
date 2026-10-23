@@ -1,5 +1,5 @@
 {
-  "checked_at": 1792735521,
+  "checked_at": 1792737458,
   "nodes": [
     {
       "name": "old-cln",
@@ -38,21 +38,6 @@
           "in_range": true,
           "action": "upgrade",
           "steps": "We strongly encourage everyone to upgrade to 26.06.9 as soon as practical."
-        },
-        {
-          "advisory_id": "FW-2026-004",
-          "title": "Operators on 26.04 and earlier told to go offline before a patch existed",
-          "severity": "critical",
-          "exploited_in_wild": false,
-          "verified": false,
-          "fixed": null,
-          "source": "https://cryptobriefing.com/core-lightning-node-operators-offline-patch/",
-          "status": "not_affected",
-          "reason": "Version 26.06.7 is outside the affected range < 26.06.",
-          "manual_checks": [],
-          "in_range": false,
-          "action": "offline",
-          "steps": "UNVERIFIED: quote the official Core Lightning statement here before marking this advisory verified."
         }
       ]
     },
@@ -78,21 +63,6 @@
           "in_range": false,
           "action": "upgrade",
           "steps": "We strongly recommend upgrading to this release."
-        },
-        {
-          "advisory_id": "FW-2026-004",
-          "title": "Operators on 26.04 and earlier told to go offline before a patch existed",
-          "severity": "critical",
-          "exploited_in_wild": false,
-          "verified": false,
-          "fixed": null,
-          "source": "https://cryptobriefing.com/core-lightning-node-operators-offline-patch/",
-          "status": "not_affected",
-          "reason": "Version 26.06.9 is outside the affected range < 26.06.",
-          "manual_checks": [],
-          "in_range": false,
-          "action": "offline",
-          "steps": "UNVERIFIED: quote the official Core Lightning statement here before marking this advisory verified."
         },
         {
           "advisory_id": "FW-2026-006",
@@ -135,6 +105,66 @@
           "in_range": true,
           "action": "upgrade",
           "steps": "UNVERIFIED: quote the LND release notes or disclosure here before marking this advisory verified."
+        },
+        {
+          "advisory_id": "FW-2026-010",
+          "title": "update_fee breach fee-burn exploit",
+          "severity": "high",
+          "exploited_in_wild": false,
+          "verified": true,
+          "fixed": "0.18.3",
+          "source": "https://security.lightning.engineering/2026/08/11/lnd-update-fee-breach-exploit.html",
+          "status": "not_affected",
+          "reason": "Version 0.20.1 includes the fix (fixed in 0.18.3).",
+          "manual_checks": [],
+          "in_range": false,
+          "action": "upgrade",
+          "steps": "Users should update to v0.18.3-beta or later to be protected."
+        },
+        {
+          "advisory_id": "FW-2026-011",
+          "title": "Pending commitment excessive HTLC failback exploit",
+          "severity": "high",
+          "exploited_in_wild": false,
+          "verified": true,
+          "fixed": "0.18.0",
+          "source": "https://security.lightning.engineering/2026/08/11/lnd-pending-commitment-failback-exploit.html",
+          "status": "not_affected",
+          "reason": "Version 0.20.1 includes the fix (fixed in 0.18.0).",
+          "manual_checks": [],
+          "in_range": false,
+          "action": "upgrade",
+          "steps": "Users should update to v0.18.0-beta or later to be protected."
+        },
+        {
+          "advisory_id": "FW-2026-012",
+          "title": "HTLC first-stage sweep failure due to wallet budget constraint",
+          "severity": "high",
+          "exploited_in_wild": false,
+          "verified": true,
+          "fixed": "0.19.0",
+          "source": "https://security.lightning.engineering/2026/08/11/lnd-htlc-sweep-budget-failure.html",
+          "status": "not_affected",
+          "reason": "Version 0.20.1 includes the fix (fixed in 0.19.0).",
+          "manual_checks": [],
+          "in_range": false,
+          "action": "upgrade",
+          "steps": "Users should update to v0.19.0-beta or later to be protected."
+        },
+        {
+          "advisory_id": "FW-2026-013",
+          "title": "Invoice marked settled after HTLC cancelled by interceptor",
+          "severity": "high",
+          "exploited_in_wild": false,
+          "verified": true,
+          "fixed": "0.19.0",
+          "source": "https://security.lightning.engineering/2026/09/21/lnd-tapd-cancelled-htlc-marked-settled.html",
+          "status": "not_affected",
+          "reason": "Version 0.20.1 includes the fix (fixed in 0.19.0).",
+          "manual_checks": [],
+          "in_range": false,
+          "action": "upgrade",
+          "steps": "lnd fix released in v0.19.0-beta"
         },
         {
           "advisory_id": "FW-2026-007",

@@ -1,5 +1,5 @@
 {
-  "checked_at": 1792735521,
+  "checked_at": 1792737458,
   "nodes": [
     {
       "name": "old-cln",
@@ -38,21 +38,6 @@
           "in_range": true,
           "action": "upgrade",
           "steps": "We strongly encourage everyone to upgrade to 26.06.9 as soon as practical."
-        },
-        {
-          "advisory_id": "FW-2026-004",
-          "title": "Operators on 26.04 and earlier told to go offline before a patch existed",
-          "severity": "critical",
-          "exploited_in_wild": false,
-          "verified": false,
-          "fixed": null,
-          "source": "https://cryptobriefing.com/core-lightning-node-operators-offline-patch/",
-          "status": "not_affected",
-          "reason": "Version 26.06.7 is outside the affected range < 26.06.",
-          "manual_checks": [],
-          "in_range": false,
-          "action": "offline",
-          "steps": "UNVERIFIED: quote the official Core Lightning statement here before marking this advisory verified."
         }
       ]
     },

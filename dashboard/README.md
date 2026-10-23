@@ -30,8 +30,8 @@ Open the app with a fixture to see sample data:
 
 | URL | Shows |
 |---|---|
-| `/?fixture=demo` | the `docs/DEMO.md` network before the demo: `old-cln` and `alice` red, FW-2026-009 ruled out on `alice` |
-| `/?fixture=demo-after` | after beats 4 and 5: `old-cln` upgraded (green), `current-cln` stopped (amber) |
+| `/?fixture=demo` | the `docs/DEMO.md` network: `old-cln`, `alice` and `lnd-old` red, FW-2026-013 amber on `lnd-old`, FW-2026-009 ruled out on regtest |
+| `/?fixture=demo-after` | the same network after `old-cln` is upgraded to 26.06.9 (green) |
 | `/?fixture=mixed` | one node affected, one not affected, one can't tell (includes an unverified advisory) |
 | `/?fixture=green` | every node after upgrading, including one with no known advisories |
 | `/?fixture=error` | one affected node and one that can't be read |

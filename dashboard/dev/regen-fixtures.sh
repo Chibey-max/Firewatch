@@ -14,7 +14,8 @@ cd "$repo"
 cargo build --quiet
 fw="$repo/target/debug/firewatch"
 
-# Snapshots: the docs/DEMO.md network before and after the upgrade, plus
+# Snapshots: the docs/DEMO.md network (old-cln, current-cln, alice, lnd-old)
+# before and after old-cln's upgrade, plus
 # examples/nodes.json with everything upgraded.
 python3 - "$tmp" <<'PY'
 import json, sys
@@ -24,8 +25,9 @@ old = {"name": "old-cln", "implementation": "cln", "version": "v26.06.7", "netwo
 cur = dict(old, name="current-cln", version="v26.06.9")
 alice = {"name": "alice", "implementation": "lnd", "version": "0.20.0-beta commit=v0.20.0-beta",
          "network": "regtest"}
-json.dump([old, cur, alice], open(f"{tmp}/demo.json", "w"))
-json.dump([dict(old, version="v26.06.9"), alice], open(f"{tmp}/after.json", "w"))
+lnd_old = dict(alice, name="lnd-old", version="0.18.5-beta commit=v0.18.5-beta")
+json.dump([old, cur, alice, lnd_old], open(f"{tmp}/demo.json", "w"))
+json.dump([dict(old, version="v26.06.9"), cur, alice, lnd_old], open(f"{tmp}/after.json", "w"))
 nodes = json.load(open("examples/nodes.json"))
 nodes[0]["version"] = "v26.06.9"
 nodes[2]["version"] = "0.21.4-beta commit=v0.21.4-beta"
@@ -44,17 +46,13 @@ TOML
 "$fw" check --nodes examples/nodes.json --json --include-unverified > "$out/report.mixed.json" || true
 "$fw" check --nodes "$tmp/green.json" --json > "$out/report.green.json" || true
 "$fw" check --nodes "$tmp/demo.json" --json > "$out/report.demo.json" || true
-"$fw" check --nodes "$tmp/after.json" --json > "$tmp/after.out.json" || true
+"$fw" check --nodes "$tmp/after.json" --json > "$out/report.demo-after.json" || true
 "$fw" check --config "$tmp/down.toml" --json > "$tmp/down.out.json" || true
 
 python3 - "$tmp" "$out" <<'PY'
 import json, sys
 tmp, out = sys.argv[1:]
-after = json.load(open(f"{tmp}/after.out.json"))
 down = json.load(open(f"{tmp}/down.out.json"))["nodes"][0]
-# demo-after: old-cln upgraded, current-cln stopped (DEMO.md beat 4), alice unchanged.
-after["nodes"] = [after["nodes"][0], down, after["nodes"][1]]
-json.dump(after, open(f"{out}/report.demo-after.json", "w"), indent=2)
 mixed = json.load(open(f"{out}/report.mixed.json"))
 offline = dict(down, name="offline-node")
 json.dump({"checked_at": mixed["checked_at"], "nodes": [mixed["nodes"][0], offline]},
