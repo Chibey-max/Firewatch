@@ -31,6 +31,10 @@ pub struct Verdict {
     pub reason: String,
     /// What to check by hand when the status is "Can't tell".
     pub manual_checks: Vec<String>,
+    /// The node's version is inside the affected range. False when it is
+    /// outside or can't be parsed. A "Not affected" verdict with this set was
+    /// ruled out by a condition, not by the version.
+    pub in_range: bool,
 }
 
 enum Outcome {
@@ -44,11 +48,12 @@ pub fn evaluate(node: &NodeInfo, advisory: &Advisory) -> Option<Verdict> {
     if node.implementation != advisory.implementation {
         return None;
     }
-    let verdict = |status, reason: String, manual_checks| Verdict {
+    let verdict = |status, in_range, reason: String, manual_checks| Verdict {
         advisory_id: advisory.id.clone(),
         status,
         reason,
         manual_checks,
+        in_range,
     };
     let range = &advisory.affected;
 
@@ -57,6 +62,7 @@ pub fn evaluate(node: &NodeInfo, advisory: &Advisory) -> Option<Verdict> {
         Err(_) => {
             return Some(verdict(
                 Status::CantTell,
+                false,
                 format!(
                     "Could not parse the node's version '{}'; compare it by hand with the affected range {range}.",
                     node.version
@@ -78,7 +84,7 @@ pub fn evaluate(node: &NodeInfo, advisory: &Advisory) -> Option<Verdict> {
             }
             _ => format!("Version {version} is outside the affected range {range}."),
         };
-        return Some(verdict(Status::NotAffected, reason, vec![]));
+        return Some(verdict(Status::NotAffected, false, reason, vec![]));
     }
 
     let outcomes: Vec<Outcome> = advisory
@@ -97,6 +103,7 @@ pub fn evaluate(node: &NodeInfo, advisory: &Advisory) -> Option<Verdict> {
     if !ruled_out.is_empty() {
         return Some(verdict(
             Status::NotAffected,
+            true,
             format!(
                 "Version {version} is in the affected range {range}, but {}.",
                 ruled_out.join("; ")
@@ -116,6 +123,7 @@ pub fn evaluate(node: &NodeInfo, advisory: &Advisory) -> Option<Verdict> {
         let n = unknown.len();
         return Some(verdict(
             Status::CantTell,
+            true,
             format!(
                 "Version {version} is in the affected range {range}, but {n} condition{} can't be checked over RPC.",
                 if n == 1 { "" } else { "s" }
@@ -130,6 +138,7 @@ pub fn evaluate(node: &NodeInfo, advisory: &Advisory) -> Option<Verdict> {
     };
     Some(verdict(
         Status::Affected,
+        true,
         format!("Version {version} is in the affected range {range}.{fix}"),
         vec![],
     ))
@@ -315,6 +324,32 @@ mod tests {
         let mut n = node("v26.06.7");
         n.config = Some(BTreeMap::from([("experimental-splicing".into(), false)]));
         assert_eq!(status(&n, &a), Status::NotAffected);
+    }
+
+    #[test]
+    fn in_range_says_whether_the_version_matched() {
+        let a = advisory(SPLICING);
+        let mut n = node("v26.06.7");
+        n.config = Some(BTreeMap::from([("experimental-splicing".into(), false)]));
+        let ruled_out = evaluate(&n, &a).unwrap();
+        assert_eq!(ruled_out.status, Status::NotAffected);
+        assert!(
+            ruled_out.in_range,
+            "ruled out by a condition, not the version"
+        );
+
+        assert!(
+            !evaluate(&node("v26.06.8"), &a).unwrap().in_range,
+            "outside the range"
+        );
+        assert!(
+            !evaluate(&node("custom-build"), &a).unwrap().in_range,
+            "unparseable"
+        );
+        assert!(
+            evaluate(&node("v26.06.7"), &a).unwrap().in_range,
+            "can't tell"
+        );
     }
 
     #[test]

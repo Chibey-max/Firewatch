@@ -41,6 +41,9 @@ pub struct Finding {
     pub status: Status,
     pub reason: String,
     pub manual_checks: Vec<String>,
+    /// The version is inside the affected range; see [`crate::Verdict::in_range`].
+    #[serde(default)]
+    pub in_range: bool,
     pub action: Action,
     /// Quoted from `source`.
     pub steps: String,
@@ -62,6 +65,7 @@ impl NodeReport {
                 status: v.status,
                 reason: v.reason,
                 manual_checks: v.manual_checks,
+                in_range: v.in_range,
                 action: a.remediation.action,
                 steps: a.remediation.steps.clone(),
             })

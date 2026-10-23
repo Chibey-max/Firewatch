@@ -235,6 +235,7 @@ mod tests {
             status,
             reason: "Version 26.06.7 is in the affected range < 26.06.8.".into(),
             manual_checks: vec![],
+            in_range: true,
             action: Action::Upgrade,
             steps: "We strongly recommend upgrading to this release.".into(),
         }

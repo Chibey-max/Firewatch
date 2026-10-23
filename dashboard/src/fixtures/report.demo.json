@@ -1,5 +1,5 @@
 {
-  "checked_at": 1792705487,
+  "checked_at": 1792735521,
   "nodes": [
     {
       "name": "old-cln",
@@ -20,6 +20,7 @@
           "status": "affected",
           "reason": "Version 26.06.7 is in the affected range < 26.06.8. Fixed in 26.06.8.",
           "manual_checks": [],
+          "in_range": true,
           "action": "upgrade",
           "steps": "We strongly recommend upgrading to this release."
         },
@@ -34,6 +35,7 @@
           "status": "affected",
           "reason": "Version 26.06.7 is in the affected range < 26.06.9. Fixed in 26.06.9.",
           "manual_checks": [],
+          "in_range": true,
           "action": "upgrade",
           "steps": "We strongly encourage everyone to upgrade to 26.06.9 as soon as practical."
         }
@@ -58,6 +60,7 @@
           "status": "not_affected",
           "reason": "Version 26.06.9 includes the fix (fixed in 26.06.8).",
           "manual_checks": [],
+          "in_range": false,
           "action": "upgrade",
           "steps": "We strongly recommend upgrading to this release."
         },
@@ -72,6 +75,7 @@
           "status": "not_affected",
           "reason": "Version 26.06.9 includes the fix (fixed in 26.06.9).",
           "manual_checks": [],
+          "in_range": false,
           "action": "upgrade",
           "steps": "We strongly encourage everyone to upgrade to 26.06.9 as soon as practical."
         }
@@ -96,6 +100,7 @@
           "status": "affected",
           "reason": "Version 0.20.0 is in the affected range >= 0.19.0, < 0.20.1. Fixed in 0.20.1.",
           "manual_checks": [],
+          "in_range": true,
           "action": "upgrade",
           "steps": "Users should update to v0.20.1-beta or later on their release line."
         },
@@ -110,6 +115,7 @@
           "status": "affected",
           "reason": "Version 0.20.0 is in the affected range < 0.20.1. Fixed in 0.20.1.",
           "manual_checks": [],
+          "in_range": true,
           "action": "upgrade",
           "steps": "Users should update to a version >= v0.20.1-beta to be protected."
         },
@@ -124,6 +130,7 @@
           "status": "not_affected",
           "reason": "Version 0.20.0 is in the affected range < 0.20.2 || >= 0.21.0-rc1, < 0.21.1, but it only applies on mainnet, and this node runs on regtest.",
           "manual_checks": [],
+          "in_range": true,
           "action": "upgrade",
           "steps": "Users should update to the patched release on their line."
         }

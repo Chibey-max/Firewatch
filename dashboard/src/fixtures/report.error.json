@@ -1,5 +1,5 @@
 {
-  "checked_at": 1792705518,
+  "checked_at": 1792735521,
   "nodes": [
     {
       "name": "old-cln",
@@ -20,6 +20,7 @@
           "status": "affected",
           "reason": "Version 26.06.7 is in the affected range < 26.06.8. Fixed in 26.06.8.",
           "manual_checks": [],
+          "in_range": true,
           "action": "upgrade",
           "steps": "We strongly recommend upgrading to this release."
         },
@@ -34,6 +35,7 @@
           "status": "affected",
           "reason": "Version 26.06.7 is in the affected range < 26.06.9. Fixed in 26.06.9.",
           "manual_checks": [],
+          "in_range": true,
           "action": "upgrade",
           "steps": "We strongly encourage everyone to upgrade to 26.06.9 as soon as practical."
         },
@@ -48,6 +50,7 @@
           "status": "not_affected",
           "reason": "Version 26.06.7 is outside the affected range < 26.06.",
           "manual_checks": [],
+          "in_range": false,
           "action": "offline",
           "steps": "UNVERIFIED: quote the official Core Lightning statement here before marking this advisory verified."
         }
@@ -59,7 +62,7 @@
       "version": null,
       "network": null,
       "status": "cant_tell",
-      "error": "request failed: error sending request for url (http://127.0.0.1:9/v1/getinfo): client error (Connect): tcp connect error: Connection refused (os error 111)",
+      "error": "request failed: error sending request for url (http://127.0.0.1:8183/v1/getinfo): client error (Connect): tcp connect error: Connection refused (os error 111)",
       "findings": []
     }
   ]

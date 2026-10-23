@@ -91,6 +91,7 @@ mod tests {
             status,
             reason: "r".into(),
             manual_checks: vec![],
+            in_range: true,
             action: Action::Upgrade,
             steps: "s".into(),
         }

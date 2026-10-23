@@ -22,6 +22,8 @@ export interface Finding {
   reason: string
   /** non-empty for amber findings */
   manual_checks: string[]
+  /** the version is inside the affected range; with not_affected, a condition ruled it out */
+  in_range: boolean
   action: Action
   /** the developers' words, quoted; never reworded */
   steps: string

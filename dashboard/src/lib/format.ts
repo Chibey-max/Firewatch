@@ -38,12 +38,10 @@ export function splitVersion(raw: string): { version: string; build: string | nu
 /**
  * True when the version is in range but a condition (e.g. "mainnet only") rules
  * the advisory out. These are worth showing: they're where a version check alone
- * would have raised a false alarm. Keyed on the engine's wording in
- * crates/firewatch-core/src/engine.rs; if that changes, these fold away with the
- * other ruled-out findings, which is safe.
+ * would have raised a false alarm.
  */
 export function ruledOutByCondition(f: Finding): boolean {
-  return f.status === 'not_affected' && f.reason.includes(' is in the affected range ')
+  return f.status === 'not_affected' && f.in_range
 }
 
 export function countBy(findings: Finding[]): Record<Status, number> {
