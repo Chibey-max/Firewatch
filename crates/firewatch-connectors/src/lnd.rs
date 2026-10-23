@@ -4,9 +4,9 @@
 //! Most `lnd.conf` options are not exposed over RPC, so the node's config is
 //! reported as unknown and config conditions come back "Can't tell".
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
-use firewatch_core::{Implementation, NodeInfo};
+use firewatch_core::{Api, ApiListen, Implementation, Listen, NodeInfo};
 use serde::Deserialize;
 use serde_json::{json, Value};
 
@@ -26,6 +26,10 @@ pub struct LndConfig {
     /// LND's `tls.cert`, trusted for this node only.
     #[serde(default)]
     pub tls_cert: Option<PathBuf>,
+    /// LND's `lnd.conf`, for the exposure check: LND doesn't report where
+    /// its APIs listen over RPC. Read on this machine.
+    #[serde(default)]
+    pub lnd_conf: Option<PathBuf>,
 }
 
 pub struct LndClient {
@@ -33,6 +37,7 @@ pub struct LndClient {
     name: String,
     url: String,
     macaroon: String,
+    lnd_conf: Option<PathBuf>,
 }
 
 impl LndClient {
@@ -57,6 +62,7 @@ impl LndClient {
             name: config.name.clone(),
             url: crate::node_url(&config.name, &config.url)?,
             macaroon,
+            lnd_conf: config.lnd_conf.clone(),
         })
     }
 
@@ -118,8 +124,61 @@ impl LndClient {
                 other => other,
             })?;
         self.ensure_read_only().await?;
-        parse_getinfo(&self.name, &info)
+        let mut node = parse_getinfo(&self.name, &info)?;
+        node.apis = listen_from_conf(self.lnd_conf.as_deref());
+        Ok(node)
     }
+}
+
+/// Where LND's REST and gRPC APIs listen, from `lnd.conf`. Flags on LND's
+/// command line override the file and can't be seen from here, so an option
+/// the file doesn't set is unknown, not LND's localhost default.
+fn listen_from_conf(path: Option<&Path>) -> Vec<ApiListen> {
+    let unknown = |why: String| {
+        [Api::Rest, Api::Grpc]
+            .map(|api| ApiListen {
+                api,
+                listen: Listen::Unknown { why: why.clone() },
+            })
+            .to_vec()
+    };
+    let Some(path) = path else {
+        return unknown("LND doesn't report it over RPC; set lnd_conf to read lnd.conf".into());
+    };
+    match std::fs::read_to_string(path) {
+        Ok(text) => parse_lnd_conf(&text),
+        Err(e) => unknown(format!("reading {}: {e}", path.display())),
+    }
+}
+
+/// `restlisten` and `rpclisten` from lnd.conf. Each may appear more than once.
+/// Lines starting with `;` or `#` are comments.
+fn parse_lnd_conf(text: &str) -> Vec<ApiListen> {
+    let values = |key: &str| -> Vec<String> {
+        text.lines()
+            .map(str::trim)
+            .filter(|line| !line.starts_with(';') && !line.starts_with('#'))
+            .filter_map(|line| line.split_once('='))
+            .filter(|(k, _)| k.trim().eq_ignore_ascii_case(key))
+            .map(|(_, v)| v.trim().to_string())
+            .filter(|v| !v.is_empty())
+            .collect()
+    };
+    [(Api::Rest, "restlisten"), (Api::Grpc, "rpclisten")]
+        .map(|(api, key)| {
+            let addresses = values(key);
+            let listen = if addresses.is_empty() {
+                Listen::Unknown {
+                    why: format!(
+                        "lnd.conf doesn't set {key}, and LND's command line can't be read"
+                    ),
+                }
+            } else {
+                Listen::Read { addresses }
+            };
+            ApiListen { api, listen }
+        })
+        .to_vec()
 }
 
 fn parse_getinfo(name: &str, info: &Value) -> Result<NodeInfo, ConnectorError> {
@@ -141,6 +200,7 @@ fn parse_getinfo(name: &str, info: &Value) -> Result<NodeInfo, ConnectorError> {
             .as_str()
             .filter(|h| !h.is_empty())
             .map(str::to_string),
+        apis: vec![],
     })
 }
 
@@ -170,6 +230,57 @@ mod tests {
             node.commit_hash.as_deref(),
             Some("b9ea7070c20ad2ca8514a47d9b4d560a501f0487")
         );
+    }
+
+    fn addresses(apis: &[ApiListen], api: Api) -> Listen {
+        apis.iter().find(|a| a.api == api).unwrap().listen.clone()
+    }
+
+    #[test]
+    fn reads_restlisten_and_rpclisten_from_lnd_conf() {
+        let conf = "\
+[Application Options]
+; restlisten=127.0.0.1:8080
+# rpclisten=127.0.0.1:10009
+restlisten = 0.0.0.0:8080
+restlisten=localhost:8081
+rpclisten=:10009
+";
+        let apis = parse_lnd_conf(conf);
+        assert_eq!(
+            addresses(&apis, Api::Rest),
+            Listen::Read {
+                addresses: vec!["0.0.0.0:8080".into(), "localhost:8081".into()]
+            }
+        );
+        assert_eq!(
+            addresses(&apis, Api::Grpc),
+            Listen::Read {
+                addresses: vec![":10009".into()]
+            }
+        );
+    }
+
+    #[test]
+    fn an_option_lnd_conf_doesnt_set_is_unknown() {
+        // Not LND's localhost default: a command-line flag may override it.
+        let apis = parse_lnd_conf("[Application Options]\nalias=alice\n");
+        for api in [Api::Rest, Api::Grpc] {
+            assert!(matches!(addresses(&apis, api), Listen::Unknown { .. }));
+        }
+    }
+
+    #[test]
+    fn without_lnd_conf_or_with_an_unreadable_one_both_apis_are_unknown() {
+        for apis in [
+            listen_from_conf(None),
+            listen_from_conf(Some(Path::new("/nonexistent/lnd.conf"))),
+        ] {
+            assert_eq!(apis.len(), 2);
+            assert!(apis
+                .iter()
+                .all(|a| matches!(a.listen, Listen::Unknown { .. })));
+        }
     }
 
     #[test]

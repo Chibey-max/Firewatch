@@ -11,7 +11,7 @@
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 
-use firewatch_core::{Implementation, NodeInfo};
+use firewatch_core::{Api, ApiListen, Implementation, Listen, NodeInfo};
 use serde::Deserialize;
 use serde_json::Value;
 
@@ -119,9 +119,17 @@ impl ClnClient {
             .ok_or_else(|| ConnectorError::Unexpected("getinfo has no version".into()))?
             .to_string();
         // A config we fail to read is "unknown", never "all options off".
-        let config = match self.call("listconfigs").await {
-            Ok(configs) => Some(parse_configs(&configs)),
-            Err(ConnectorError::Rpc { .. }) => None,
+        let (config, apis) = match self.call("listconfigs").await {
+            Ok(configs) => (Some(parse_configs(&configs)), parse_apis(&configs)),
+            Err(ConnectorError::Rpc { message, .. }) => (
+                None,
+                vec![ApiListen {
+                    api: Api::Rest,
+                    listen: Listen::Unknown {
+                        why: format!("listconfigs was refused ({message})"),
+                    },
+                }],
+            ),
             Err(e) => return Err(e),
         };
 
@@ -133,6 +141,7 @@ impl ClnClient {
             config,
             features: None,
             commit_hash: None,
+            apis,
         })
     }
 }
@@ -153,6 +162,39 @@ fn parse_configs(listconfigs: &Value) -> BTreeMap<String, bool> {
                 .map(|enabled| (name.clone(), enabled))
         })
         .collect()
+}
+
+/// Where clnrest and cln-grpc listen, from their `listconfigs` options. REST
+/// is always there: Firewatch just read the node through it. gRPC is left
+/// out when it has no port, which means the plugin isn't serving.
+fn parse_apis(listconfigs: &Value) -> Vec<ApiListen> {
+    let configs = &listconfigs["configs"];
+    [(Api::Rest, "clnrest"), (Api::Grpc, "grpc")]
+        .into_iter()
+        .filter_map(|(api, prefix)| {
+            let host = configs[format!("{prefix}-host")]["value_str"].as_str();
+            let port = configs[format!("{prefix}-port")]["value_int"].as_i64();
+            let listen = match (host, port) {
+                (Some(host), Some(port)) => Listen::Read {
+                    addresses: vec![join_host_port(host, port)],
+                },
+                (_, None) if api == Api::Grpc => return None,
+                _ => Listen::Unknown {
+                    why: format!("listconfigs has no {prefix}-host and {prefix}-port"),
+                },
+            };
+            Some(ApiListen { api, listen })
+        })
+        .collect()
+}
+
+/// `0.0.0.0:8080`, or `[::]:8080` for an IPv6 host.
+fn join_host_port(host: &str, port: i64) -> String {
+    if host.contains(':') {
+        format!("[{host}]:{port}")
+    } else {
+        format!("{host}:{port}")
+    }
 }
 
 #[cfg(test)]
@@ -179,6 +221,59 @@ mod tests {
                 ("experimental-splicing".to_string(), false),
             ])
         );
+    }
+
+    #[test]
+    fn reads_where_clnrest_and_grpc_listen() {
+        // As Core Lightning 25.12 returned it to a getinfo/listconfigs rune,
+        // run with --clnrest-host=0.0.0.0 (as Polar does).
+        let listconfigs = serde_json::json!({ "configs": {
+            "clnrest-host": { "plugin": "/usr/local/libexec/c-lightning/plugins/clnrest", "source": "cmdline", "value_str": "0.0.0.0" },
+            "clnrest-port": { "plugin": "/usr/local/libexec/c-lightning/plugins/clnrest", "source": "cmdline", "value_int": 8080 },
+            "grpc-host": { "plugin": "/usr/local/libexec/c-lightning/plugins/cln-grpc", "source": "default", "value_str": "127.0.0.1" },
+            "grpc-port": { "plugin": "/usr/local/libexec/c-lightning/plugins/cln-grpc", "source": "default", "value_int": 9736 }
+        }});
+        assert_eq!(
+            parse_apis(&listconfigs),
+            vec![
+                ApiListen {
+                    api: Api::Rest,
+                    listen: Listen::Read {
+                        addresses: vec!["0.0.0.0:8080".into()]
+                    }
+                },
+                ApiListen {
+                    api: Api::Grpc,
+                    listen: Listen::Read {
+                        addresses: vec!["127.0.0.1:9736".into()]
+                    }
+                },
+            ]
+        );
+    }
+
+    #[test]
+    fn grpc_without_a_port_isnt_serving_and_ipv6_is_bracketed() {
+        let listconfigs = serde_json::json!({ "configs": {
+            "clnrest-host": { "value_str": "::" },
+            "clnrest-port": { "value_int": 3010 }
+        }});
+        assert_eq!(
+            parse_apis(&listconfigs),
+            vec![ApiListen {
+                api: Api::Rest,
+                listen: Listen::Read {
+                    addresses: vec!["[::]:3010".into()]
+                }
+            }]
+        );
+    }
+
+    #[test]
+    fn missing_clnrest_options_are_unknown() {
+        let apis = parse_apis(&serde_json::json!({ "configs": {} }));
+        assert_eq!(apis.len(), 1);
+        assert!(matches!(apis[0].listen, Listen::Unknown { .. }));
     }
 
     #[test]

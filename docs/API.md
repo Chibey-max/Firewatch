@@ -92,6 +92,7 @@ cargo run -- check --nodes examples/nodes.json --json --include-unverified > rep
 | `status` | status | The worst status across its findings. |
 | `error` | string or null | Set when the node couldn't be read. A plain sentence, e.g. "Can't connect to https://127.0.0.1:8085; is the node running?". Show it; the node is amber. |
 | `build_check` | build check | Whether the binary is the official release its version claims. See below. |
+| `exposure` | exposure[] | Where the node's REST and gRPC APIs listen, most exposed first. **Never changes `status`.** See below. |
 | `findings` | finding[] | Worst first. Empty means no advisory applies to this node's implementation. |
 
 **Node errors.** Every `error` is a plain sentence that names what to check. These are all of them, each checked against live Polar LND and Core Lightning images:
@@ -141,6 +142,28 @@ An object tagged by `status`:
 ```
 
 `expected` and `actual` are full 40-character hashes; show the first 7. `build` is how the node describes its build (LND's `commit=` text), absent when it doesn't say. When `actual` equals `expected`, the node runs the official commit but was built with changes, e.g. `build` is `v0.20.0-beta-dirty`: show `build` instead of the two hashes. On `mismatch`, every finding on the node is already `cant_tell` with the reason, so the card only needs a banner. `unknown_release` means the version isn't in Firewatch's table, so the build wasn't verified: a small grey note is enough. `unreleased` and `modified` are Core Lightning only. On `unreleased`, every finding is already `cant_tell`, like `mismatch`: a banner naming `build` is enough. On `modified`, red findings stay red and only the would-be-green ones are `cant_tell`, each with a hand check: a small note naming `build` is enough. `not_checked` (a Core Lightning release, or an LND node without a commit) needs nothing.
+
+**Exposure**
+
+Whether each of the node's APIs can be reached from other machines. A leaked rune or macaroon only works for someone who can reach the API: macaroons stolen through BTCPay Server were used to take over LND nodes, and the [BTCPay Server 2.4.2 advisory](https://blog.btcpayserver.org/security-advisory-btcpay-server-2-4-2/) says *"Do not leave an affected LND deployment accessible from the internet."* It isn't an advisory verdict: a fully patched node can be exposed, so it never changes the node's `status` or findings.
+
+```json
+{ "api": "rest", "status": "exposed", "addresses": ["0.0.0.0:8080"],
+  "reason": "The REST API listens on all interfaces (0.0.0.0:8080), so a leaked credential works from anywhere that can reach it.",
+  "manual_check": "Check that port 8080 isn't reachable from the internet: router port forwards, firewall, Tor or a reverse proxy.",
+  "source": "https://blog.btcpayserver.org/security-advisory-btcpay-server-2-4-2/" }
+```
+
+| Field | Type | Notes |
+|---|---|---|
+| `api` | `"rest" \| "grpc"` | Core Lightning: clnrest and cln-grpc (`grpc` only when it's serving). LND: REST and gRPC. |
+| `status` | `"exposed" \| "unknown" \| "local"` | `exposed`: all interfaces (`0.0.0.0`, `::`, `:8080`) or an address other machines reach. `unknown`: couldn't be read (LND without `lnd_conf`, or an option `lnd.conf` doesn't set) or a host name. `local`: `127.0.0.1`, `::1`, `localhost` or a unix socket. |
+| `addresses` | string[] | As the node's config gives them. Empty when unknown. |
+| `reason` | string | One plain sentence. |
+| `manual_check` | string or null | What to check by hand. `null` when `local`. |
+| `source` | string or null | The BTCPay advisory. `null` when `local`. |
+
+Show `exposed` and `unknown` as a note on the card, apart from the findings and not in the node's colour; `local` needs nothing. Every Polar node is `exposed`, because Polar binds its APIs to `0.0.0.0` inside Docker.
 
 **Status**
 

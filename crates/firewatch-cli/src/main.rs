@@ -16,8 +16,8 @@ use clap::{Parser, Subcommand};
 use firewatch_alerts::NostrAlerter;
 use firewatch_connectors::NodeConfig;
 use firewatch_core::{
-    load_dir, short_commit, Advisory, BuildCheck, NodeInfo, NodeReport, ReleaseTable, Report,
-    Status,
+    exposure, load_dir, short_commit, Advisory, BuildCheck, ExposureStatus, NodeInfo, NodeReport,
+    ReleaseTable, Report, Status,
 };
 
 use crate::config::Config;
@@ -334,6 +334,18 @@ fn print_report(report: &Report) {
             }
             BuildCheck::NotChecked => {}
         }
+        // Not a verdict: it never changes the node's colour, so it's shown
+        // apart from the findings, and only when it needs a look.
+        for e in node
+            .exposure
+            .iter()
+            .filter(|e| e.status != ExposureStatus::Local)
+        {
+            println!("    Exposure: {}", e.reason);
+            if let Some(check) = &e.manual_check {
+                println!("        Check by hand: {check}");
+            }
+        }
         if let Some(error) = &node.error {
             println!("    Could not read this node: {error}");
         } else if node.findings.is_empty() {
@@ -353,5 +365,17 @@ fn print_report(report: &Report) {
             }
         }
         println!();
+    }
+    let exposed = report
+        .nodes
+        .iter()
+        .flat_map(|n| &n.exposure)
+        .any(|e| e.status != ExposureStatus::Local);
+    if exposed {
+        println!(
+            "Why exposure matters: macaroons stolen through BTCPay Server were used against LND nodes. \"{}\" {}",
+            exposure::QUOTE,
+            exposure::SOURCE
+        );
     }
 }

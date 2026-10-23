@@ -247,6 +247,7 @@ mod tests {
                 status,
                 error: None,
                 build_check: Default::default(),
+                exposure: vec![],
                 findings: vec![Finding {
                     advisory_id: "FW-2026-003".into(),
                     title: "t".into(),
