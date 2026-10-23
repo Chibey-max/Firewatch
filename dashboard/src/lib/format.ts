@@ -71,10 +71,14 @@ export function sourceLabel(url: string, max = 44): string {
 }
 
 /**
- * A plain-English first line for a connector error. The raw error is still shown
- * underneath; this only names the likely cause. Returns null when unsure.
+ * A plain-English first line for a raw connector error. The connectors now
+ * write plain sentences themselves ("Can't connect to …; is the node
+ * running?"); those are shown as they are. This only steps in for an older
+ * daemon's raw transport text, which is then shown underneath. Null when the
+ * error is already plain, or when unsure.
  */
 export function describeError(error: string): string | null {
+  if (!/^request failed:|error sending request|client error \(/.test(error)) return null
   const host = error.match(/url \((?:https?:\/\/)?([^/)]+)/)?.[1]
   const at = host ? ` at ${host}` : ''
   const e = error.toLowerCase()
@@ -133,6 +137,7 @@ export function needsAction(nodes: NodeReport[]): number {
 export function nodeSummary(node: NodeReport): string {
   if (node.error) return "Couldn't read this node"
   if (node.build_check?.status === 'mismatch') return "Build doesn't match the release"
+  if (node.build_check?.status === 'unreleased') return 'Build is a commit after the release'
   const counts = countBy(node.findings)
   const parts: string[] = []
   if (counts.affected) parts.push(plural(counts.affected, 'advisory applies', 'advisories apply'))

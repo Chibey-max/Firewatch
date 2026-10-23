@@ -121,6 +121,19 @@ function Action({ node }: { node: NodeReport }) {
   }
   const build = node.build_check
   if (build?.status === 'mismatch') {
+    // The official commit, built with changes: the hashes match, so name the build instead.
+    if (build.actual === build.expected) {
+      return (
+        <Callout
+          tone="amber"
+          icon={Pause}
+          title={<>This node runs the {build.release} commit, but built with changes</>}
+        >
+          It describes its build as <span className="font-mono">{build.build ?? 'modified'}</span>.
+          Firewatch can’t trust the version number, so every advisory below is amber.
+        </Callout>
+      )
+    }
     return (
       <Callout
         tone="amber"
@@ -130,6 +143,18 @@ function Action({ node }: { node: NodeReport }) {
         Commit <span className="font-mono">{shortHash(build.actual)}</span>; the official release is{' '}
         <span className="font-mono">{shortHash(build.expected)}</span>. Firewatch can’t trust the
         version number, so every advisory below is amber.
+      </Callout>
+    )
+  }
+  if (build?.status === 'unreleased') {
+    return (
+      <Callout
+        tone="amber"
+        icon={Pause}
+        title={<>This node runs a build after {build.release}, not the release</>}
+      >
+        It reports <span className="font-mono">{build.build}</span>. Commits after the tag may add
+        or remove any fix, so every advisory below is amber.
       </Callout>
     )
   }
@@ -192,6 +217,13 @@ function Detail({ node }: { node: NodeReport }) {
           {node.build_check?.status === 'match' && (
             <p className="mt-1 text-[0.8rem] text-green">
               Official build: its commit matches the release
+            </p>
+          )}
+          {node.build_check?.status === 'modified' && (
+            <p className="mt-1 text-[0.8rem] text-amber">
+              Built from {node.build_check.release} with local changes (
+              <span className="font-mono">{node.build_check.build}</span>), so nothing can be
+              confirmed safe; red stays red
             </p>
           )}
           {node.build_check?.status === 'unknown_release' && (

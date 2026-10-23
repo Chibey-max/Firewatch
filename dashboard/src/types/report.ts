@@ -29,10 +29,18 @@ export interface Finding {
   steps: string
 }
 
-/** Whether the binary is the official release its version claims (LND only). */
+/**
+ * Whether the binary is the official release its version claims (docs/API.md).
+ * match / mismatch / unknown_release: LND, by commit. unreleased / modified:
+ * Core Lightning, from its version string (git describe).
+ */
 export type BuildCheck =
   | { status: 'match' }
   | { status: 'mismatch'; release: string; expected: string; actual: string; build?: string }
+  /** a commit after the tag: every finding is already cant_tell */
+  | { status: 'unreleased'; release: string; build: string }
+  /** the tag with local changes: reds stay red, would-be-greens are cant_tell */
+  | { status: 'modified'; release: string; build: string }
   | { status: 'unknown_release' }
   | { status: 'not_checked' }
 
