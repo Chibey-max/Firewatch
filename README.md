@@ -7,7 +7,7 @@ It is read-only by design: it holds no credential that can change or spend from 
 
 ```sh
 scripts/demo-up.sh                              # build everything, check the nodes, start the demo
-cargo test --workspace                          # 63 tests: engine, connectors, alerts, one per advisory
+cargo test --workspace                          # 69 tests: engine, connectors, alerts, one per advisory
 cargo run -- validate                           # load and list every advisory
 cargo run -- check                              # check the live nodes in firewatch.toml once
 cargo run -- check --nodes examples/nodes.json  # check a JSON snapshot instead
@@ -56,11 +56,11 @@ A version number is only text a binary prints. LND also reports the commit it wa
 | `build_check` | Meaning |
 |---|---|
 | `match` | The binary is the official release its version claims. Verdicts are normal. |
-| `mismatch` | Same version number, different commit. The version can't be trusted, so **every** finding on the node becomes Can't tell. |
+| `mismatch` | Same version number, but a different commit, or the official commit built with changes (LND's `commit=` says `-dirty` or isn't an official tag). The version can't be trusted, so **every** finding on the node becomes Can't tell. |
 | `unknown_release` | The version isn't in the table, for example a release newer than it. Verdicts are normal. |
 | `not_checked` | No commit reported (Core Lightning) or no table. |
 
-Refresh the table with `scripts/lnd-releases.sh`. `--releases <file>` points at another one; without the file, the build check is off.
+Refresh the table with `scripts/lnd-releases.sh`; it only replaces the file when the fetch succeeds. `--releases <file>` points at another one. The table is required: Firewatch stops if it's missing, rather than giving an unofficial build normal verdicts.
 
 **Alerts** are NIP-17 encrypted Nostr DMs to the operator's key. Set `recipient` to your npub under `[alerts.nostr]`. Firewatch creates its own key in `secret_key_file` on first run and delivers to your NIP-17 inbox relays (kind 10050) as well as the relays listed. Any NIP-17 client can read them, for example 0xchat, Amethyst or Primal. To read them in a terminal:
 

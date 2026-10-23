@@ -5,6 +5,12 @@
 //! it was built from, so Firewatch compares that with the commit the official
 //! release tag points to. If they differ, the version number can't be trusted
 //! and every finding on that node becomes "Can't tell".
+//!
+//! The commit alone isn't enough: LND takes `commit_hash` from Go's
+//! `vcs.revision`, which is HEAD even when the source tree has uncommitted
+//! changes. The only sign of those is the `commit=` part of the version
+//! string (`git describe --tags --dirty`), so that must name an official tag
+//! on the same commit too.
 
 use std::path::Path;
 
@@ -37,12 +43,17 @@ pub struct Release {
 pub enum BuildCheck {
     /// The node's commit is the official release commit.
     Match,
-    /// The node claims a release version but was built from another commit.
+    /// The node claims a release version but was built from another commit,
+    /// or from the right commit with changes (`actual` equals `expected` then).
     Mismatch {
         /// The tag the version number claims, e.g. `v0.20.0-beta`.
         release: String,
         expected: String,
         actual: String,
+        /// How the node describes its build: LND's `commit=` text, e.g.
+        /// `v0.20.0-beta-dirty`. Absent when the version string has none.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        build: Option<String>,
     },
     /// The version isn't in the table, e.g. a release newer than the table.
     UnknownRelease,
@@ -65,9 +76,16 @@ impl ReleaseTable {
 
     /// The official release whose version equals `version`, if any.
     pub fn release(&self, version: &Version) -> Option<&Release> {
+        self.releases_of(version).next()
+    }
+
+    /// Every official tag whose version equals `version`. Version equality
+    /// ignores suffixes, so `v0.18.0-beta` and `v0.18.0-beta.1` are both here.
+    fn releases_of(&self, version: &Version) -> impl Iterator<Item = &Release> {
+        let version = version.clone();
         self.releases
             .iter()
-            .find(|r| Version::parse(&r.version).is_ok_and(|v| v == *version))
+            .filter(move |r| Version::parse(&r.version).is_ok_and(|v| v == version))
     }
 
     pub fn check(&self, node: &NodeInfo) -> BuildCheck {
@@ -77,16 +95,50 @@ impl ReleaseTable {
         let (Some(actual), Ok(version)) = (&node.commit_hash, Version::parse(&node.version)) else {
             return BuildCheck::NotChecked;
         };
-        match self.release(&version) {
-            None => BuildCheck::UnknownRelease,
-            Some(r) if r.commit.eq_ignore_ascii_case(actual) => BuildCheck::Match,
-            Some(r) => BuildCheck::Mismatch {
-                release: r.version.clone(),
-                expected: r.commit.clone(),
-                actual: actual.clone(),
-            },
+        let Some(claimed) = self.release(&version) else {
+            return BuildCheck::UnknownRelease;
+        };
+        let build = described_build(&node.version);
+        let mismatch = |release: &Release| BuildCheck::Mismatch {
+            release: release.version.clone(),
+            expected: release.commit.clone(),
+            actual: actual.clone(),
+            build: build.map(str::to_string),
+        };
+        let Some(same_commit) = self
+            .releases_of(&version)
+            .find(|r| r.commit.eq_ignore_ascii_case(actual))
+        else {
+            return mismatch(claimed);
+        };
+        // An official binary describes itself as a tag on its own commit;
+        // `-dirty` or an empty `commit=` means it was built some other way.
+        match build {
+            Some(b)
+                if !self
+                    .releases
+                    .iter()
+                    .any(|r| r.version == b && r.commit.eq_ignore_ascii_case(actual)) =>
+            {
+                mismatch(same_commit)
+            }
+            _ => BuildCheck::Match,
         }
     }
+}
+
+/// LND's `commit=` text from its version string, e.g. `v0.20.0-beta` in
+/// `0.20.0-beta commit=v0.20.0-beta`. `None` when there is no `commit=`.
+fn described_build(version: &str) -> Option<&str> {
+    version
+        .split_whitespace()
+        .find_map(|t| t.strip_prefix("commit="))
+}
+
+/// The first 7 characters of a commit hash, as git shows it. Safe on any
+/// text, since the hash comes from the node.
+pub fn short_commit(hash: &str) -> &str {
+    hash.char_indices().nth(7).map_or(hash, |(i, _)| &hash[..i])
 }
 
 #[cfg(test)]
@@ -161,6 +213,96 @@ mod tests {
         let mut cln = node("v26.06.7", Some(OFFICIAL));
         cln.implementation = Implementation::Cln;
         assert_eq!(table().check(&cln), BuildCheck::NotChecked);
+    }
+
+    #[test]
+    fn official_commit_with_local_changes_is_a_mismatch() {
+        let n = node("0.18.5-beta commit=v0.18.5-beta-dirty", Some(OFFICIAL));
+        assert_eq!(
+            table().check(&n),
+            BuildCheck::Mismatch {
+                release: "v0.18.5-beta".into(),
+                expected: OFFICIAL.into(),
+                actual: OFFICIAL.into(),
+                build: Some("v0.18.5-beta-dirty".into()),
+            }
+        );
+    }
+
+    #[test]
+    fn official_commit_without_release_flags_is_a_mismatch() {
+        // `go build` without the Makefile leaves `commit=` empty, so nothing
+        // says whether the tree was clean.
+        let n = node("0.18.5-beta commit=", Some(OFFICIAL));
+        assert!(matches!(
+            table().check(&n),
+            BuildCheck::Mismatch { build: Some(b), .. } if b.is_empty()
+        ));
+    }
+
+    #[test]
+    fn another_official_tag_on_the_same_commit_matches() {
+        // Real case: v0.18.0-beta and v0.18.0-beta.1 tag the same commit, and
+        // git describe may name either.
+        let t: ReleaseTable = toml::from_str(
+            r#"
+            implementation = "lnd"
+            [[release]]
+            version = "v0.18.0-beta"
+            commit = "fed760913ff98a89c73414acde6cf29f8728321a"
+            [[release]]
+            version = "v0.18.0-beta.1"
+            commit = "fed760913ff98a89c73414acde6cf29f8728321a"
+            "#,
+        )
+        .unwrap();
+        let n = node(
+            "0.18.0-beta commit=v0.18.0-beta.1",
+            Some("fed760913ff98a89c73414acde6cf29f8728321a"),
+        );
+        assert_eq!(t.check(&n), BuildCheck::Match);
+    }
+
+    #[test]
+    fn every_tag_with_the_version_is_considered() {
+        // Two tags that parse to the same version but point at different
+        // commits: a build of either is official.
+        let t: ReleaseTable = toml::from_str(&format!(
+            r#"
+            implementation = "lnd"
+            [[release]]
+            version = "v0.18.5-beta"
+            commit = "{OFFICIAL}"
+            [[release]]
+            version = "v0.18.5-beta.1"
+            commit = "1111111111111111111111111111111111111111"
+            "#
+        ))
+        .unwrap();
+        let n = node(
+            "0.18.5-beta commit=v0.18.5-beta.1",
+            Some("1111111111111111111111111111111111111111"),
+        );
+        assert_eq!(t.check(&n), BuildCheck::Match);
+
+        // A changed build of that second commit names that tag, not the
+        // first one, so the report doesn't claim the commit differs.
+        let n = node(
+            "0.18.5-beta commit=v0.18.5-beta.1-dirty",
+            Some("1111111111111111111111111111111111111111"),
+        );
+        assert!(matches!(
+            t.check(&n),
+            BuildCheck::Mismatch { release, expected, actual, .. }
+                if release == "v0.18.5-beta.1" && expected == actual
+        ));
+    }
+
+    #[test]
+    fn short_commit_never_splits_a_character() {
+        assert_eq!(short_commit(OFFICIAL), "4ccf4fc");
+        assert_eq!(short_commit("abc"), "abc");
+        assert_eq!(short_commit("éééééééééé"), "ééééééé");
     }
 
     #[test]

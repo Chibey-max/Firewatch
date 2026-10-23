@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use crate::advisory::{Action, Advisory, Implementation, Severity};
 use crate::engine::{evaluate, Status};
 use crate::node::NodeInfo;
-use crate::releases::{BuildCheck, ReleaseTable};
+use crate::releases::{short_commit, BuildCheck, ReleaseTable};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Report {
@@ -80,16 +80,25 @@ impl NodeReport {
             release,
             expected,
             actual,
+            build,
         } = &build_check
         {
+            let reason = if expected.eq_ignore_ascii_case(actual) {
+                format!(
+                    "This node reports version {release} and the official commit, but describes its build as \"{}\", not {release}, so its code may have been changed. Firewatch can't trust the version number.",
+                    build.as_deref().unwrap_or_default()
+                )
+            } else {
+                format!(
+                    "This node reports version {release}, but its build ({}) is not the official {release} release ({}). Firewatch can't trust the version number.",
+                    short_commit(actual),
+                    short_commit(expected)
+                )
+            };
             // The version number is untrusted, so no version-based verdict is.
             for f in &mut findings {
                 f.status = Status::CantTell;
-                f.reason = format!(
-                    "This node reports version {release}, but its build ({}) is not the official {release} release ({}). Firewatch can't trust the version number.",
-                    short(actual),
-                    short(expected)
-                );
+                f.reason = reason.clone();
                 f.manual_checks =
                     vec!["Confirm where this binary came from, or reinstall it from the official release.".into()];
             }
@@ -156,11 +165,6 @@ impl Report {
             .max()
             .unwrap_or(Status::NotAffected)
     }
-}
-
-/// The first 7 characters of a commit hash, as git shows it.
-fn short(hash: &str) -> &str {
-    hash.get(..7).unwrap_or(hash)
 }
 
 #[cfg(test)]
@@ -232,6 +236,23 @@ mod tests {
                 .reason
                 .contains("(1234567) is not the official v0.20.0-beta release (b9ea707)"));
             assert_eq!(f.manual_checks.len(), 1);
+        }
+    }
+
+    #[test]
+    fn changed_build_on_the_official_commit_makes_every_finding_cant_tell() {
+        let node = lnd(
+            "0.20.0-beta commit=v0.20.0-beta-dirty",
+            "b9ea7070c20ad2ca8514a47d9b4d560a501f0487",
+        );
+        let r = NodeReport::from_node(&node, &advisories(), Some(&table()));
+        assert!(matches!(r.build_check, BuildCheck::Mismatch { .. }));
+        assert_eq!(r.status, Status::CantTell);
+        for f in &r.findings {
+            assert_eq!(f.status, Status::CantTell, "{}", f.advisory_id);
+            assert!(f
+                .reason
+                .contains("describes its build as \"v0.20.0-beta-dirty\""));
         }
     }
 

@@ -117,12 +117,12 @@ An object tagged by `status`:
 
 ```json
 { "status": "match" }
-{ "status": "mismatch", "release": "v0.20.0-beta", "expected": "b9ea7070c20a…", "actual": "fc472ef1…" }
+{ "status": "mismatch", "release": "v0.20.0-beta", "expected": "b9ea7070c20a…", "actual": "fc472ef1…", "build": "v0.20.0-beta-1-gfc472ef" }
 { "status": "unknown_release" }
 { "status": "not_checked" }
 ```
 
-`expected` and `actual` are full 40-character hashes; show the first 7. On `mismatch`, every finding on the node is already `cant_tell` with the reason, so the card only needs a banner. `unknown_release` means the version isn't in Firewatch's table, so the build wasn't verified: a small grey note is enough. `not_checked` (every Core Lightning node) needs nothing.
+`expected` and `actual` are full 40-character hashes; show the first 7. `build` is how the node describes its build (LND's `commit=` text), absent when it doesn't say. When `actual` equals `expected`, the node runs the official commit but was built with changes, e.g. `build` is `v0.20.0-beta-dirty`: show `build` instead of the two hashes. On `mismatch`, every finding on the node is already `cant_tell` with the reason, so the card only needs a banner. `unknown_release` means the version isn't in Firewatch's table, so the build wasn't verified: a small grey note is enough. `not_checked` (every Core Lightning node) needs nothing.
 
 **Status**
 
