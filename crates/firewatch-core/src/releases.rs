@@ -55,6 +55,20 @@ pub enum BuildCheck {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         build: Option<String>,
     },
+    /// Core Lightning built from a commit that isn't a release: `git describe`
+    /// added `-<n>-g<hash>`, e.g. `v26.06.7-12-gabc1234`. It may hold changes
+    /// or fixes the release doesn't, so every finding becomes "Can't tell".
+    Unreleased {
+        /// The release tag the build started from, e.g. `v26.06.7`.
+        release: String,
+        /// The whole version string the node reports.
+        build: String,
+    },
+    /// Core Lightning built from a release tag with local changes:
+    /// `v26.06.7-modded`. A clean source build often gets this too, when the
+    /// build regenerates tracked files (ElementsProject/lightning#7152), so
+    /// red findings stay red and only "Not affected" becomes "Can't tell".
+    Modified { release: String, build: String },
     /// The version isn't in the table, e.g. a release newer than the table.
     UnknownRelease,
     /// No table for this implementation, or the node reports no commit.
@@ -124,6 +138,54 @@ impl ReleaseTable {
             }
             _ => BuildCheck::Match,
         }
+    }
+}
+
+/// The build check for any node. LND compares its commit with `releases`;
+/// Core Lightning reports no commit, only what `git describe` added to its
+/// version, so that's what it is checked on.
+pub fn build_check(node: &NodeInfo, releases: Option<&ReleaseTable>) -> BuildCheck {
+    match node.implementation {
+        Implementation::Cln => cln_build_check(&node.version),
+        _ => releases.map_or(BuildCheck::NotChecked, |t| t.check(node)),
+    }
+}
+
+/// Core Lightning's version comes from `git describe --tags --always
+/// --dirty=-modded --abbrev=7`; official releases pass the tag itself. Only
+/// those two markers count: a packaging suffix such as `-umbrel` doesn't.
+fn cln_build_check(version: &str) -> BuildCheck {
+    let build = version.trim();
+    let (described, modded) = match build.strip_suffix("-modded") {
+        Some(rest) => (rest, true),
+        None => (build, false),
+    };
+    let unreleased_tag = {
+        let mut parts = described.rsplitn(3, '-');
+        match (parts.next(), parts.next(), parts.next()) {
+            (Some(hash), Some(commits), Some(tag))
+                if !commits.is_empty()
+                    && commits.bytes().all(|b| b.is_ascii_digit())
+                    && hash.len() >= 5
+                    && hash.starts_with('g')
+                    && hash[1..].bytes().all(|b| b.is_ascii_hexdigit()) =>
+            {
+                Some(tag)
+            }
+            _ => None,
+        }
+    };
+    let release = unreleased_tag.unwrap_or(described);
+    // A bare commit hash (`--always` without tags) names no release at all;
+    // the engine already says "Can't tell" for a version it can't parse.
+    if Version::parse(release).is_err() {
+        return BuildCheck::NotChecked;
+    }
+    let (release, build) = (release.to_string(), build.to_string());
+    match (unreleased_tag, modded) {
+        (Some(_), _) => BuildCheck::Unreleased { release, build },
+        (None, true) => BuildCheck::Modified { release, build },
+        (None, false) => BuildCheck::NotChecked,
     }
 }
 
@@ -296,6 +358,75 @@ mod tests {
             BuildCheck::Mismatch { release, expected, actual, .. }
                 if release == "v0.18.5-beta.1" && expected == actual
         ));
+    }
+
+    fn cln(version: &str) -> BuildCheck {
+        let mut n = node(version, None);
+        n.implementation = Implementation::Cln;
+        build_check(&n, Some(&table()))
+    }
+
+    #[test]
+    fn cln_release_builds_are_not_checked() {
+        // What the official images report (elementsproject/lightningd,
+        // polarlightning/clightning), and a release candidate tag.
+        for v in ["v26.06.7", "v26.06.9", "v25.12", "v26.06rc1"] {
+            assert_eq!(cln(v), BuildCheck::NotChecked, "{v}");
+        }
+    }
+
+    #[test]
+    fn cln_built_after_a_tag_is_unreleased() {
+        for (v, release) in [
+            ("v26.06.7-12-gabc1234", "v26.06.7"),
+            ("v26.06.7-12-gabc1234-modded", "v26.06.7"),
+            ("v26.06rc1-3-g1a2b", "v26.06rc1"),
+        ] {
+            assert_eq!(
+                cln(v),
+                BuildCheck::Unreleased {
+                    release: release.into(),
+                    build: v.into()
+                },
+                "{v}"
+            );
+        }
+    }
+
+    #[test]
+    fn cln_with_local_changes_is_modified() {
+        assert_eq!(
+            cln("v26.06.7-modded"),
+            BuildCheck::Modified {
+                release: "v26.06.7".into(),
+                build: "v26.06.7-modded".into()
+            }
+        );
+    }
+
+    #[test]
+    fn other_cln_suffixes_are_not_git_markers() {
+        // A packaging suffix, a hash that isn't hex, a count that isn't a
+        // number, and a bare commit hash (`--always` without tags).
+        for v in [
+            "v26.06.8-umbrel",
+            "v26.06.7-12-gxyz1234",
+            "v26.06.7-x-gabc1234",
+            "abc1234",
+            "abc1234-modded",
+        ] {
+            assert_eq!(cln(v), BuildCheck::NotChecked, "{v}");
+        }
+    }
+
+    #[test]
+    fn lnd_is_still_checked_against_the_table() {
+        let n = node("0.18.5-beta commit=v0.18.5-beta-modded", Some(OFFICIAL));
+        assert!(matches!(
+            build_check(&n, Some(&table())),
+            BuildCheck::Mismatch { .. }
+        ));
+        assert_eq!(build_check(&n, None), BuildCheck::NotChecked);
     }
 
     #[test]

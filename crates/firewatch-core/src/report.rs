@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use crate::advisory::{Action, Advisory, Implementation, Severity};
 use crate::engine::{evaluate, Status};
 use crate::node::NodeInfo;
-use crate::releases::{short_commit, BuildCheck, ReleaseTable};
+use crate::releases::{build_check, short_commit, BuildCheck, ReleaseTable};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Report {
@@ -75,7 +75,38 @@ impl NodeReport {
                 steps: a.remediation.steps.clone(),
             })
             .collect();
-        let build_check = releases.map_or(BuildCheck::NotChecked, |t| t.check(node));
+        let build_check = build_check(node, releases);
+        if let BuildCheck::Unreleased { release, build } = &build_check {
+            // Commits after the tag may add or remove any fix, so no
+            // version-based verdict holds.
+            let reason = format!(
+                "This node reports version {release}, but its build (\"{build}\") is from a commit after the {release} release, so it may hold changes or fixes the release doesn't. Firewatch can't trust the version number."
+            );
+            for f in &mut findings {
+                f.status = Status::CantTell;
+                f.reason = reason.clone();
+                f.manual_checks = vec![
+                    "Confirm which commit this binary was built from, or install the official release."
+                        .into(),
+                ];
+            }
+        }
+        if let BuildCheck::Modified { release, build } = &build_check {
+            // The release's own code is most likely there, so a red finding
+            // stays red; but a fix could have been changed, so nothing is green.
+            for f in findings
+                .iter_mut()
+                .filter(|f| f.status == Status::NotAffected)
+            {
+                f.status = Status::CantTell;
+                f.reason = format!(
+                    "{release} includes this fix, but this build (\"{build}\") was made from a source tree with local changes, so Firewatch can't confirm the fix is intact."
+                );
+                f.manual_checks = vec![format!(
+                    "If you built {release} from source, run `git status` in the source tree: Core Lightning marks a clean build \"-modded\" when the build only regenerated files. Otherwise, install the official release."
+                )];
+            }
+        }
         if let BuildCheck::Mismatch {
             release,
             expected,
@@ -117,7 +148,11 @@ impl NodeReport {
                 .iter()
                 .map(|f| f.status)
                 .chain(
-                    matches!(build_check, BuildCheck::Mismatch { .. }).then_some(Status::CantTell),
+                    matches!(
+                        build_check,
+                        BuildCheck::Mismatch { .. } | BuildCheck::Unreleased { .. }
+                    )
+                    .then_some(Status::CantTell),
                 )
                 .max()
                 .unwrap_or(Status::NotAffected),
@@ -253,6 +288,72 @@ mod tests {
             assert!(f
                 .reason
                 .contains("describes its build as \"v0.20.0-beta-dirty\""));
+        }
+    }
+
+    fn cln(version: &str) -> NodeReport {
+        let node = NodeInfo {
+            name: "cln".into(),
+            implementation: Implementation::Cln,
+            version: version.into(),
+            network: Some("regtest".into()),
+            config: None,
+            features: None,
+            commit_hash: None,
+        };
+        NodeReport::from_node(&node, &advisories(), Some(&table()))
+    }
+
+    fn status_of(r: &NodeReport, id: &str) -> Status {
+        r.findings
+            .iter()
+            .find(|f| f.advisory_id == id)
+            .unwrap()
+            .status
+    }
+
+    #[test]
+    fn cln_release_keeps_normal_verdicts() {
+        let r = cln("v26.06.7");
+        assert_eq!(r.build_check, BuildCheck::NotChecked);
+        assert_eq!(status_of(&r, "FW-2026-003"), Status::Affected);
+        assert_eq!(cln("v26.06.9").status, Status::NotAffected);
+    }
+
+    #[test]
+    fn cln_unreleased_build_makes_every_finding_cant_tell() {
+        for version in ["v26.06.7-12-gabc1234", "v26.06.9-3-gdef5678"] {
+            let r = cln(version);
+            assert!(matches!(r.build_check, BuildCheck::Unreleased { .. }));
+            assert_eq!(r.status, Status::CantTell, "{version}");
+            for f in &r.findings {
+                assert_eq!(f.status, Status::CantTell, "{version} {}", f.advisory_id);
+                assert!(f.reason.contains("is from a commit after the"));
+            }
+        }
+    }
+
+    #[test]
+    fn cln_modified_build_keeps_red_but_is_never_green() {
+        // 26.06.7 is affected by both CLN advisories: they stay red.
+        let r = cln("v26.06.7-modded");
+        assert!(matches!(r.build_check, BuildCheck::Modified { .. }));
+        assert_eq!(r.status, Status::Affected);
+        assert_eq!(status_of(&r, "FW-2026-003"), Status::Affected);
+        assert_eq!(status_of(&r, "FW-2026-006"), Status::Affected);
+
+        // 26.06.8 has 003's fix but not 006's: 006 stays red, 003 can't be green.
+        let r = cln("v26.06.8-modded");
+        assert_eq!(status_of(&r, "FW-2026-006"), Status::Affected);
+        assert_eq!(status_of(&r, "FW-2026-003"), Status::CantTell);
+
+        // 26.06.9 has both fixes: nothing is green, so the node is amber.
+        let r = cln("v26.06.9-modded");
+        assert_eq!(r.status, Status::CantTell);
+        for f in &r.findings {
+            assert_eq!(f.status, Status::CantTell, "{}", f.advisory_id);
+            assert!(f.reason.contains("can't confirm the fix is intact"));
+            assert!(f.manual_checks[0].contains("git status"));
         }
     }
 
