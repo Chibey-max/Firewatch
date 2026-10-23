@@ -145,7 +145,7 @@ An object tagged by `status`:
 
 **Exposure**
 
-Whether each of the node's APIs can be reached from other machines. A leaked rune or macaroon only works for someone who can reach the API: macaroons stolen through BTCPay Server were used to take over LND nodes, and the [BTCPay Server 2.4.2 advisory](https://blog.btcpayserver.org/security-advisory-btcpay-server-2-4-2/) says *"Do not leave an affected LND deployment accessible from the internet."* It isn't an advisory verdict: a fully patched node can be exposed, so it never changes the node's `status` or findings.
+Whether each of the node's APIs can be reached from other machines. A leaked rune or macaroon only works for someone who can reach the API: in August 2026 a BTCPay Server flaw let attackers obtain LND macaroons, and funds were stolen; the [BTCPay Server 2.4.2 advisory](https://blog.btcpayserver.org/security-advisory-btcpay-server-2-4-2/) says *"Do not leave an affected LND deployment accessible from the internet."* It isn't an advisory verdict: a fully patched node can be exposed, so it never changes the node's `status` or findings.
 
 ```json
 { "api": "rest", "status": "exposed", "addresses": ["0.0.0.0:8080"],
@@ -158,12 +158,12 @@ Whether each of the node's APIs can be reached from other machines. A leaked run
 |---|---|---|
 | `api` | `"rest" \| "grpc"` | Core Lightning: clnrest and cln-grpc (`grpc` only when it's serving). LND: REST and gRPC. |
 | `status` | `"exposed" \| "unknown" \| "local"` | `exposed`: all interfaces (`0.0.0.0`, `::`, `:8080`) or an address other machines reach. `unknown`: couldn't be read (LND without `lnd_conf`, or an option `lnd.conf` doesn't set) or a host name. `local`: `127.0.0.1`, `::1`, `localhost` or a unix socket. |
-| `addresses` | string[] | As the node's config gives them. Empty when unknown. |
+| `addresses` | string[] | `host:port` or `unix://path`. Core Lightning: from `listconfigs`. LND: from `lnd.conf`, completed the way LND reads them, e.g. `tcp://0.0.0.0` is `0.0.0.0:10009` and `8080` is `localhost:8080`. Empty when unknown. |
 | `reason` | string | One plain sentence. |
 | `manual_check` | string or null | What to check by hand. `null` when `local`. |
 | `source` | string or null | The BTCPay advisory. `null` when `local`. |
 
-Show `exposed` and `unknown` as a note on the card, apart from the findings and not in the node's colour; `local` needs nothing. Every Polar node is `exposed`, because Polar binds its APIs to `0.0.0.0` inside Docker.
+Show `exposed` and `unknown` as a note on the card, apart from the findings and not in the node's colour; `local` needs nothing. On Polar, Core Lightning nodes are `exposed` (Polar binds their APIs to `0.0.0.0` inside Docker) and LND nodes are `unknown` (Polar passes their listen addresses as command-line flags).
 
 **Status**
 

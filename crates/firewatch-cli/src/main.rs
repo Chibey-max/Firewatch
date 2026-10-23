@@ -373,7 +373,7 @@ fn print_report(report: &Report) {
         .any(|e| e.status != ExposureStatus::Local);
     if exposed {
         println!(
-            "Why exposure matters: macaroons stolen through BTCPay Server were used against LND nodes. \"{}\" {}",
+            "Why exposure matters: a BTCPay Server flaw let attackers obtain LND macaroons, and funds were stolen. \"{}\" {}",
             exposure::QUOTE,
             exposure::SOURCE
         );

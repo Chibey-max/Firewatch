@@ -188,9 +188,10 @@ fn parse_apis(listconfigs: &Value) -> Vec<ApiListen> {
         .collect()
 }
 
-/// `0.0.0.0:8080`, or `[::]:8080` for an IPv6 host.
+/// `0.0.0.0:8080`, or `[::]:8080` for an IPv6 host. clnrest builds its address
+/// as `format!("{host}:{port}")`, so an IPv6 host is set as `[::]` already.
 fn join_host_port(host: &str, port: i64) -> String {
-    if host.contains(':') {
+    if host.contains(':') && !host.starts_with('[') {
         format!("[{host}]:{port}")
     } else {
         format!("{host}:{port}")
@@ -266,6 +267,21 @@ mod tests {
                     addresses: vec!["[::]:3010".into()]
                 }
             }]
+        );
+    }
+
+    #[test]
+    fn a_bracketed_ipv6_host_is_not_bracketed_twice() {
+        // clnrest only starts with an IPv6 host written as `[::]`.
+        let listconfigs = serde_json::json!({ "configs": {
+            "clnrest-host": { "value_str": "[::]" },
+            "clnrest-port": { "value_int": 3010 }
+        }});
+        assert_eq!(
+            parse_apis(&listconfigs)[0].listen,
+            Listen::Read {
+                addresses: vec!["[::]:3010".into()]
+            }
         );
     }
 

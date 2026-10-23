@@ -1,8 +1,8 @@
 //! The exposure check: does a node's API listen beyond this machine?
 //!
 //! A leaked rune or macaroon is only usable by someone who can reach the API.
-//! In August 2026 macaroons stolen through BTCPay Server were used to take
-//! control of LND nodes, and the advisory says: "Do not leave an affected LND
+//! In August 2026 a BTCPay Server flaw let attackers obtain LND macaroons, and
+//! funds were stolen. The advisory says: "Do not leave an affected LND
 //! deployment accessible from the internet."
 //!
 //! This isn't an advisory verdict: a fully patched node can still be exposed.
@@ -63,14 +63,15 @@ fn reach(address: &str) -> Reach {
         Some(rest) => rest.split_once(']').map_or(rest, |(ip, _)| ip),
         None => address.rsplit_once(':').map_or(address, |(host, _)| host),
     };
-    // Go and Core Lightning both read an empty host as "all interfaces".
+    // Go (LND) reads an empty host as all interfaces; clnrest refuses one.
     if host.is_empty() || host == "*" {
         return Reach::AllInterfaces;
     }
     if host.eq_ignore_ascii_case("localhost") {
         return Reach::ThisMachine;
     }
-    match host.parse::<IpAddr>() {
+    // `::ffff:127.0.0.1` is 127.0.0.1: compare the IPv4 address inside.
+    match host.parse::<IpAddr>().map(|ip| ip.to_canonical()) {
         Ok(ip) if ip.is_loopback() => Reach::ThisMachine,
         Ok(ip) if ip.is_unspecified() => Reach::AllInterfaces,
         Ok(_) => Reach::Interface,
@@ -254,6 +255,12 @@ mod tests {
             .starts_with("Check that this API's port isn't reachable"));
         assert_eq!(port("[::]"), "");
         assert_eq!(port("[::]:8080"), "8080");
+    }
+
+    #[test]
+    fn ipv4_mapped_addresses_are_judged_by_the_ipv4_inside() {
+        assert_eq!(status(&["[::ffff:127.0.0.1]:8080"]), ExposureStatus::Local);
+        assert_eq!(status(&["[::ffff:0.0.0.0]:8080"]), ExposureStatus::Exposed);
     }
 
     #[test]
