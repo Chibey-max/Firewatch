@@ -101,13 +101,14 @@ cargo run -- check --nodes examples/nodes.json --json --include-unverified > rep
 | Node stopped, or nothing on that port | `Can't connect to <url>; is the node running?` |
 | Packets dropped by a firewall, or the node never answers | `Timed out after 10 s waiting for <url>` |
 | `tls_cert` isn't this node's certificate | `TLS certificate not trusted; check tls_cert for <name>` |
-| `https://` on a port that doesn't speak TLS (clnrest over HTTP, LND's p2p port) | `<url> doesn't answer HTTPS; check the port, or use http:// for Core Lightning's clnrest` |
+| `https://` on a port that doesn't speak TLS (clnrest over HTTP, LND's p2p port) | `<url> doesn't answer HTTPS; ` then, for LND, `check the port: LND's REST port, not its p2p or gRPC port`, or for Core Lightning, `check the port, or use http:// if clnrest runs over HTTP` |
+| A TLS server Firewatch can't agree with (rare) | `TLS with <url> failed (<reason>); check the url and port` |
 | `http://` on LND's REST port, which is TLS-only | `<url> expects HTTPS; change the url to https://` |
-| A port that answers, but not as a REST API (LND's gRPC port) | `<url> answered, but not as a node's REST API; check the port (REST, not gRPC or p2p)` |
+| A port that answers, but not as a REST API (LND's gRPC port, or a proxy page) | `<url> answered, but not as a node's REST API; check the port (REST, not gRPC or p2p)`. When the reply was HTTP, its status is included: `answered with HTTP 502, but ...` |
 | A port that hangs up (Core Lightning's p2p port), or a node mid-restart | `<url> closed the connection; check the port, or wait if the node is restarting` |
 | Another node's macaroon or rune | `Credential rejected by the node (...)` |
 | A rune or macaroon that can do more than read | `Credential is not read-only: ...` |
-| A missing or unreadable credential file | `config: ...` |
+| A missing or unreadable credential file, or a `url` without `http://` or `https://` | `config: ...` |
 
 **Finding**
 

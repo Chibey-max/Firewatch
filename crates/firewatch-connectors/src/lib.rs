@@ -28,16 +28,17 @@ pub enum ConnectorError {
     Timeout { url: String },
     #[error("TLS certificate not trusted; check tls_cert for {name}")]
     Tls { name: String },
-    #[error(
-        "{url} doesn't answer HTTPS; check the port, or use http:// for Core Lightning's clnrest"
-    )]
-    NotTls { url: String },
+    #[error("{url} doesn't answer HTTPS; {hint}")]
+    NotTls { url: String, hint: &'static str },
+    #[error("TLS with {url} failed ({reason}); check the url and port")]
+    TlsFailed { url: String, reason: String },
     #[error("{url} expects HTTPS; change the url to https://")]
     NeedsHttps { url: String },
     #[error(
-        "{url} answered, but not as a node's REST API; check the port (REST, not gRPC or p2p)"
+        "{url} answered{}, but not as a node's REST API; check the port (REST, not gRPC or p2p)",
+        status.map(|s| format!(" with HTTP {s}")).unwrap_or_default()
     )]
-    NotRestApi { url: String },
+    NotRestApi { url: String, status: Option<u16> },
     #[error("{url} closed the connection; check the port, or wait if the node is restarting")]
     ConnectionClosed { url: String },
     #[error("Credential rejected by the node ({0})")]
@@ -82,27 +83,62 @@ impl NodeConfig {
 /// How long one request to a node may take.
 pub(crate) const TIMEOUT: Duration = Duration::from_secs(10);
 
+/// The node's base url, checked up front: reqwest's own message for a url
+/// without `http://` ("relative URL without a base") would reach the dashboard.
+pub(crate) fn node_url(name: &str, url: &str) -> Result<String, ConnectorError> {
+    match reqwest::Url::parse(url) {
+        Ok(u) if matches!(u.scheme(), "http" | "https") && u.host().is_some() => {
+            Ok(url.trim_end_matches('/').to_string())
+        }
+        _ => Err(ConnectorError::Config(format!(
+            "node '{name}': url \"{url}\" must be a full address starting with http:// or https://, e.g. https://127.0.0.1:8080"
+        ))),
+    }
+}
+
+/// What to check when an https:// url meets something that isn't TLS. LND's
+/// REST port is always TLS; Core Lightning's clnrest may run over plain HTTP.
+fn not_tls_hint(implementation: Implementation) -> &'static str {
+    match implementation {
+        Implementation::Cln => "check the port, or use http:// if clnrest runs over HTTP",
+        _ => "check the port: LND's REST port, not its p2p or gRPC port",
+    }
+}
+
 /// Sorts a transport error into the plain cases an operator can act on, by
 /// the error types in its chain rather than by their text.
-pub(crate) fn transport_error(e: reqwest::Error, url: &str, name: &str) -> ConnectorError {
+pub(crate) fn transport_error(
+    e: reqwest::Error,
+    url: &str,
+    name: &str,
+    implementation: Implementation,
+) -> ConnectorError {
     let url = url.to_string();
     if e.is_timeout() {
         return ConnectorError::Timeout { url };
     }
     let causes = causes(&e);
     // Our pinned verifier and webpki both report a rejected certificate as
-    // InvalidCertificate; any other TLS error means the other end isn't
-    // speaking TLS, e.g. an https:// url on a plain-HTTP port.
+    // InvalidCertificate. InvalidMessage means the other end isn't speaking
+    // TLS at all, e.g. an https:// url on a plain-HTTP port. Anything else is
+    // a real TLS server we couldn't agree with, so say what rustls said.
     if let Some(tls) = find::<rustls::Error>(&causes) {
         return match tls {
             rustls::Error::InvalidCertificate(_) => ConnectorError::Tls { name: name.into() },
-            _ => ConnectorError::NotTls { url },
+            rustls::Error::InvalidMessage(_) => ConnectorError::NotTls {
+                url,
+                hint: not_tls_hint(implementation),
+            },
+            other => ConnectorError::TlsFailed {
+                url,
+                reason: other.to_string(),
+            },
         };
     }
     if let Some(http) = find::<hyper::Error>(&causes) {
         if http.is_parse() {
             // Something answered, but not in HTTP/1.1: gRPC, or another service.
-            return ConnectorError::NotRestApi { url };
+            return ConnectorError::NotRestApi { url, status: None };
         }
         if http.is_incomplete_message() || http.is_closed() {
             return ConnectorError::ConnectionClosed { url };
@@ -116,7 +152,10 @@ pub(crate) fn transport_error(e: reqwest::Error, url: &str, name: &str) -> Conne
                 .is_some_and(|io| io.kind() == std::io::ErrorKind::UnexpectedEof)
         });
         return if handshake_eof {
-            ConnectorError::NotTls { url }
+            ConnectorError::NotTls {
+                url,
+                hint: not_tls_hint(implementation),
+            }
         } else {
             ConnectorError::Unreachable { url }
         };
@@ -130,17 +169,23 @@ pub(crate) async fn read_json(
     response: reqwest::Response,
     url: &str,
     name: &str,
+    implementation: Implementation,
 ) -> Result<serde_json::Value, ConnectorError> {
+    let status = response.status().as_u16();
     let text = response
         .text()
         .await
-        .map_err(|e| transport_error(e, url, name))?;
+        .map_err(|e| transport_error(e, url, name, implementation))?;
     serde_json::from_str(&text).map_err(|_| {
         // Go's net/http (LND) answers plain HTTP on a TLS port with this.
         if text.contains("HTTP request to an HTTPS server") {
             ConnectorError::NeedsHttps { url: url.into() }
         } else {
-            ConnectorError::NotRestApi { url: url.into() }
+            // The status tells a proxy's 502 apart from a wrong port's 404.
+            ConnectorError::NotRestApi {
+                url: url.into(),
+                status: Some(status),
+            }
         }
     })
 }
