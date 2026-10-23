@@ -7,10 +7,10 @@
     <meta name="description" content="Firewatch: is your Lightning node affected by a published security advisory?" />
     <title>Firewatch</title>
     <script>
-      // Apply the saved or requested theme before first paint (dark is the default).
+      // Apply the saved or requested theme before first paint (light is the default).
       try {
         var t = new URLSearchParams(location.search).get('theme') || localStorage.getItem('fw-theme')
-        if (t === 'light') document.documentElement.dataset.theme = 'light'
+        if (t === 'dark') document.documentElement.dataset.theme = 'dark'
       } catch (e) {}
     </script>
   </head>

@@ -1,69 +1,83 @@
 @import 'tailwindcss';
-/* Self-hosted fonts so the dashboard works without venue internet. */
-@import '@fontsource/public-sans/400';
-@import '@fontsource/public-sans/500';
-@import '@fontsource/public-sans/600';
-@import '@fontsource/public-sans/700';
-@import '@fontsource/jetbrains-mono/400';
-@import '@fontsource/jetbrains-mono/500';
+/* Self-hosted variable fonts, so the dashboard works without venue internet. */
+@import '@fontsource-variable/fraunces/standard.css';
+@import '@fontsource-variable/fraunces/standard-italic.css';
+@import '@fontsource-variable/hanken-grotesk';
+@import '@fontsource-variable/geist-mono';
 
 /*
- * Firewatch tokens. Dark by default; a light theme for washed-out projectors.
- * Red, amber and green only ever mean a verdict.
+ * Firewatch tokens. "Lookout stone" by day, "night watch" by toggle.
+ * Red, amber and green only ever mean a verdict; the ambient light behind the
+ * page takes the fleet's worst verdict, so the room itself says how things are.
  */
 :root {
-  --fw-bg: #0d1012;
-  --fw-surface: #14181b;
-  --fw-surface-2: #1a1f23;
-  --fw-hover: #1f252a;
-  --fw-line: #262d32;
-  --fw-fg: #e9ecee;
-  --fw-fg-2: #a6b0b6;
-  --fw-fg-3: #7d878e;
-  --fw-red: #ff6a5c;
-  --fw-red-soft: rgb(255 106 92 / 0.13);
-  --fw-amber: #f4ae45;
-  --fw-amber-soft: rgb(244 174 69 / 0.13);
-  --fw-green: #4cc48c;
-  --fw-green-soft: rgb(76 196 140 / 0.12);
-  --fw-neutral: #8d979e;
-  --fw-neutral-soft: rgb(141 151 158 / 0.13);
-  --fw-button: #e9ecee;
-  --fw-button-fg: #0d1012;
-  color-scheme: dark;
+  --fw-bg: #f2eee6;
+  --fw-bg-2: #e9e3d8;
+  --fw-surface: rgb(252 250 246 / 0.74);
+  --fw-surface-solid: #fbf9f5;
+  --fw-surface-hover: rgb(255 253 249 / 0.92);
+  --fw-line: rgb(96 76 52 / 0.15);
+  --fw-line-strong: rgb(96 76 52 / 0.26);
+  --fw-ink: #1c1915;
+  --fw-ink-2: #574f45;
+  --fw-ink-3: #6e6558;
+  --fw-red: #b3301d;
+  --fw-red-soft: rgb(179 48 29 / 0.09);
+  --fw-amber: #8a4f00;
+  --fw-amber-soft: rgb(194 122 14 / 0.12);
+  --fw-green: #1d6b43;
+  --fw-green-soft: rgb(29 107 67 / 0.09);
+  --fw-neutral: #5c5d55;
+  --fw-neutral-soft: rgb(92 93 85 / 0.09);
+  --fw-button: #1f1b16;
+  --fw-button-fg: #f7f3ec;
+  --fw-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.75), 0 1px 2px rgb(94 71 48 / 0.08),
+    0 18px 40px -30px rgb(94 71 48 / 0.5);
+  --fw-shadow-raised:
+    inset 0 1px 0 rgb(255 255 255 / 0.85), 0 2px 6px -2px rgb(94 71 48 / 0.14),
+    0 28px 56px -32px rgb(94 71 48 / 0.6);
+  --fw-grain-opacity: 0.35;
+  color-scheme: light;
 }
 
-:root[data-theme='light'] {
-  --fw-bg: #f4f6f6;
-  --fw-surface: #ffffff;
-  --fw-surface-2: #f7f9f9;
-  --fw-hover: #eef1f2;
-  --fw-line: #dde2e5;
-  --fw-fg: #12171a;
-  --fw-fg-2: #4d5960;
-  --fw-fg-3: #66727a;
-  --fw-red: #c42a1c;
-  --fw-red-soft: rgb(196 42 28 / 0.09);
-  --fw-amber: #8a4e00;
-  --fw-amber-soft: rgb(194 122 14 / 0.12);
-  --fw-green: #13693a;
-  --fw-green-soft: rgb(26 127 69 / 0.1);
-  --fw-neutral: #555f66;
-  --fw-neutral-soft: rgb(95 107 114 / 0.1);
-  --fw-button: #12171a;
-  --fw-button-fg: #ffffff;
-  color-scheme: light;
+:root[data-theme='dark'] {
+  --fw-bg: #100f0c;
+  --fw-bg-2: #16140f;
+  --fw-surface: rgb(32 29 24 / 0.7);
+  --fw-surface-solid: #1d1a15;
+  --fw-surface-hover: rgb(40 36 30 / 0.85);
+  --fw-line: rgb(255 238 214 / 0.09);
+  --fw-line-strong: rgb(255 238 214 / 0.17);
+  --fw-ink: #f1ece3;
+  --fw-ink-2: #bdb3a4;
+  --fw-ink-3: #978d7e;
+  --fw-red: #ff7d68;
+  --fw-red-soft: rgb(255 125 104 / 0.13);
+  --fw-amber: #f3b75a;
+  --fw-amber-soft: rgb(243 183 90 / 0.13);
+  --fw-green: #63d39d;
+  --fw-green-soft: rgb(99 211 157 / 0.12);
+  --fw-neutral: #a8a194;
+  --fw-neutral-soft: rgb(168 161 148 / 0.12);
+  --fw-button: #f1ece3;
+  --fw-button-fg: #14120e;
+  --fw-shadow: inset 0 1px 0 rgb(255 245 230 / 0.05), 0 18px 40px -28px rgb(0 0 0 / 0.8);
+  --fw-shadow-raised: inset 0 1px 0 rgb(255 245 230 / 0.08), 0 30px 60px -30px rgb(0 0 0 / 0.9);
+  --fw-grain-opacity: 0.2;
+  color-scheme: dark;
 }
 
 @theme inline {
   --color-bg: var(--fw-bg);
   --color-surface: var(--fw-surface);
-  --color-surface-2: var(--fw-surface-2);
-  --color-hover: var(--fw-hover);
+  --color-surface-solid: var(--fw-surface-solid);
+  --color-surface-hover: var(--fw-surface-hover);
   --color-line: var(--fw-line);
-  --color-fg: var(--fw-fg);
-  --color-fg-2: var(--fw-fg-2);
-  --color-fg-3: var(--fw-fg-3);
+  --color-line-strong: var(--fw-line-strong);
+  --color-ink: var(--fw-ink);
+  --color-ink-2: var(--fw-ink-2);
+  --color-ink-3: var(--fw-ink-3);
   --color-red: var(--fw-red);
   --color-red-soft: var(--fw-red-soft);
   --color-amber: var(--fw-amber);
@@ -75,24 +89,38 @@
   --color-button: var(--fw-button);
   --color-button-fg: var(--fw-button-fg);
 
-  --font-sans: 'Public Sans', system-ui, sans-serif;
-  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+  --font-serif: 'Fraunces Variable', Georgia, serif;
+  --font-sans: 'Hanken Grotesk Variable', system-ui, sans-serif;
+  --font-mono: 'Geist Mono Variable', ui-monospace, monospace;
+
+  --shadow-card: var(--fw-shadow);
+  --shadow-raised: var(--fw-shadow-raised);
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* The ambient light's colour animates between verdicts. */
+@property --fw-glow {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: rgb(92 93 85 / 0.2);
 }
 
 @layer base {
   html {
     background: var(--fw-bg);
-    color: var(--fw-fg);
+    color: var(--fw-ink);
     font-family: var(--font-sans);
     font-size: 15px;
     -webkit-font-smoothing: antialiased;
+    transition:
+      background-color 0.5s ease,
+      color 0.5s ease;
   }
 
   body {
     min-height: 100vh;
   }
 
-  /* Projectors and 1080p screens: scale everything up a step. */
   @media (min-width: 1600px) {
     html {
       font-size: 17px;
@@ -100,26 +128,104 @@
   }
 
   :focus-visible {
-    outline: 2px solid var(--fw-fg);
-    outline-offset: 2px;
-    border-radius: 4px;
+    outline: 2px solid var(--fw-ink);
+    outline-offset: 3px;
+    border-radius: 10px;
+  }
+
+  ::selection {
+    background: var(--fw-amber-soft);
   }
 }
 
-/* A row whose verdict just changed glows once, so the change is noticed. */
-@keyframes fw-changed {
+/* --- Atmosphere: verdict-coloured light, depth, and paper grain. --- */
+.fw-ambient {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(60rem 38rem at 12% -6%, var(--fw-glow), transparent 70%),
+    radial-gradient(
+      48rem 34rem at 96% 108%,
+      color-mix(in srgb, var(--fw-glow) 60%, transparent),
+      transparent 70%
+    ),
+    linear-gradient(180deg, var(--fw-bg) 0%, var(--fw-bg-2) 100%);
+  transition: --fw-glow 1.8s var(--ease-out-expo);
+}
+.fw-ambient::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  opacity: var(--fw-grain-opacity);
+  mix-blend-mode: multiply;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .35 0 0 0 0 .28 0 0 0 0 .2 0 0 0 .5 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+:root[data-theme='dark'] .fw-ambient::after {
+  mix-blend-mode: screen;
+}
+
+/* Glass surface used by cards, the top bar and toasts. */
+.fw-glass {
+  background: var(--fw-surface);
+  border: 1px solid var(--fw-line);
+  box-shadow: var(--fw-shadow);
+  backdrop-filter: blur(14px) saturate(1.15);
+  -webkit-backdrop-filter: blur(14px) saturate(1.15);
+}
+
+/* The live dot breathes; a dot that stops breathing has stopped receiving. */
+@keyframes fw-breathe {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, currentColor 45%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 0 6px color-mix(in srgb, currentColor 0%, transparent);
+  }
+}
+.fw-breathe {
+  animation: fw-breathe 2.6s ease-in-out infinite;
+}
+
+/* Skeleton shimmer while the first report loads. */
+@keyframes fw-shimmer {
   from {
-    box-shadow: inset 0 0 0 999px var(--flash);
+    background-position: -200% 0;
   }
   to {
-    box-shadow: inset 0 0 0 999px transparent;
+    background-position: 200% 0;
   }
 }
-.fw-changed {
-  animation: fw-changed 1.6s ease-out;
+.fw-shimmer {
+  background: linear-gradient(
+      100deg,
+      transparent 30%,
+      color-mix(in srgb, var(--fw-ink) 6%, transparent) 50%,
+      transparent 70%
+    )
+    var(--fw-surface);
+  background-size: 200% 100%;
+  animation: fw-shimmer 1.6s linear infinite;
 }
+
+/* Countdown ring around the retry dot while reconnecting. */
+@keyframes fw-countdown {
+  from {
+    stroke-dashoffset: 0;
+  }
+  to {
+    stroke-dashoffset: 44;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .fw-changed {
+  .fw-breathe,
+  .fw-shimmer {
     animation: none;
+  }
+  .fw-ambient {
+    transition: none;
   }
 }

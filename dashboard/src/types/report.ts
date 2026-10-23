@@ -29,10 +29,10 @@ export interface Finding {
   steps: string
 }
 
-/** Whether the binary is the official release its version claims (LND only). Not on every daemon yet. */
+/** Whether the binary is the official release its version claims (LND only). */
 export type BuildCheck =
   | { status: 'match' }
-  | { status: 'mismatch'; release: string; expected: string; actual: string }
+  | { status: 'mismatch'; release: string; expected: string; actual: string; build?: string }
   | { status: 'unknown_release' }
   | { status: 'not_checked' }
 

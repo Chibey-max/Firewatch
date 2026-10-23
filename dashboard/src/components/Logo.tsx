@@ -15,11 +15,11 @@ export function Logo() {
         y1="19"
         x2="23"
         y2="12.5"
-        stroke="var(--fw-fg)"
+        stroke="var(--fw-ink)"
         strokeWidth="2.4"
         strokeLinecap="round"
       />
-      <circle cx="16" cy="19" r="2.4" fill="var(--fw-fg)" />
+      <circle cx="16" cy="19" r="2.4" fill="var(--fw-ink)" />
     </svg>
   )
 }

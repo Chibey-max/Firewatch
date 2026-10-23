@@ -1,74 +1,85 @@
-import { useEffect, useRef } from 'react'
-import {
-  implementationName,
-  nodeSummary,
-  readingOf,
-  splitVersion,
-  type Reading,
-} from '../lib/format'
-import type { NodeReport } from '../types/report'
+import { LayoutGroup, motion } from 'motion/react'
+import { implementationName, nodeSummary, readingOf, splitVersion } from '../lib/format'
+import { EASE, spring } from '../lib/motion'
 import { tone } from '../lib/tone'
+import type { NodeReport } from '../types/report'
 import { StatusPill } from './StatusPill'
 
-const flash: Record<Reading, string> = {
-  affected: 'var(--fw-red-soft)',
-  cant_tell: 'var(--fw-amber-soft)',
-  not_affected: 'var(--fw-green-soft)',
-  none: 'var(--fw-neutral-soft)',
+// The selected row's outline takes its verdict colour.
+const ring = {
+  affected: 'color-mix(in srgb, var(--fw-red) 45%, transparent)',
+  cant_tell: 'color-mix(in srgb, var(--fw-amber) 45%, transparent)',
+  not_affected: 'color-mix(in srgb, var(--fw-green) 45%, transparent)',
+  none: 'var(--fw-line-strong)',
 }
 
 function NodeRow({
   node,
+  index,
   selected,
   onSelect,
 }: {
   node: NodeReport
+  index: number
   selected: boolean
   onSelect: () => void
 }) {
   const reading = readingOf(node)
   const version = node.version ? splitVersion(node.version).version : null
 
-  // Glow once when this node's verdict changes (e.g. after an upgrade).
-  const el = useRef<HTMLButtonElement>(null)
-  const prev = useRef(reading)
-  useEffect(() => {
-    if (prev.current === reading || !el.current) return
-    prev.current = reading
-    el.current.classList.remove('fw-changed')
-    void el.current.offsetWidth // restart the animation
-    el.current.classList.add('fw-changed')
-  }, [reading])
-
   return (
-    <li>
-      <button
-        ref={el}
+    // `layout` slides the row to its new place when a verdict reorders the list.
+    <motion.li
+      layout="position"
+      transition={spring}
+      initial={{ opacity: 0, y: 14 }}
+      animate={{
+        opacity: 1,
+        y: 0,
+        transition: { duration: 0.6, ease: EASE, delay: 0.15 + index * 0.06 },
+      }}
+    >
+      <motion.button
         type="button"
         onClick={onSelect}
         aria-current={selected ? 'true' : undefined}
-        style={{ ['--flash' as string]: flash[reading] }}
-        className={`relative grid w-full grid-cols-[1fr_auto] items-center gap-x-4 gap-y-1 rounded-lg px-4 py-3.5 text-left transition-colors ${
-          selected ? 'bg-surface-2' : 'hover:bg-hover'
-        }`}
+        whileHover={selected ? undefined : { y: -2 }}
+        whileTap={{ scale: 0.985 }}
+        transition={{ duration: 0.25, ease: EASE }}
+        className="relative w-full rounded-[18px] text-left"
       >
+        {/* One highlight shared by every row: it glides to the selected one. */}
+        {selected && (
+          <motion.span
+            layoutId="row-highlight"
+            transition={spring}
+            style={{ borderColor: ring[reading] }}
+            className="absolute -inset-px rounded-[19px] border-[1.5px] bg-surface-solid shadow-raised transition-[border-color] duration-500"
+          />
+        )}
         <span
-          aria-hidden
-          className={`absolute top-3 bottom-3 left-0 w-[3px] rounded-full ${
-            selected ? tone[reading].bar : 'bg-transparent'
+          className={`relative grid grid-cols-[auto_1fr_auto] items-center gap-x-3.5 rounded-[18px] px-4 py-3.5 transition-colors ${
+            selected ? '' : 'fw-glass hover:bg-surface-hover'
           }`}
-        />
-        <span className="min-w-0">
-          <span className="block truncate text-[1.02rem] font-semibold">{node.name}</span>
-          <span className="mt-0.5 block truncate text-[0.85rem] text-fg-2">
-            {implementationName[node.implementation]}
-            {version && <span className="font-mono"> {version}</span>}
+        >
+          <span
+            aria-hidden
+            className={`h-9 w-1 rounded-full transition-colors duration-500 ${tone[reading].bar}`}
+          />
+          <span className="min-w-0">
+            <span className="block truncate text-[1.02rem] font-semibold">{node.name}</span>
+            <span className="mt-0.5 block truncate text-[0.84rem] text-ink-2">
+              {implementationName[node.implementation]}
+              {version && <span className="font-mono text-[0.8rem]"> {version}</span>}
+            </span>
+          </span>
+          <StatusPill reading={reading} />
+          <span className="col-span-2 col-start-2 mt-1 truncate text-[0.82rem] text-ink-3">
+            {nodeSummary(node)}
           </span>
         </span>
-        <StatusPill reading={reading} />
-        <span className="col-span-2 truncate text-[0.85rem] text-fg-3">{nodeSummary(node)}</span>
-      </button>
-    </li>
+      </motion.button>
+    </motion.li>
   )
 }
 
@@ -83,19 +94,22 @@ export function NodeList({
 }) {
   return (
     <nav aria-label="Nodes">
-      <p className="mb-2 px-4 text-[0.75rem] font-semibold tracking-[0.08em] text-fg-3 uppercase">
+      <p className="mb-3 px-1 font-mono text-[0.72rem] tracking-[0.14em] text-ink-3 uppercase">
         Nodes · worst first
       </p>
-      <ul className="space-y-1">
-        {nodes.map((n) => (
-          <NodeRow
-            key={n.name}
-            node={n}
-            selected={n.name === selected}
-            onSelect={() => onSelect(n.name)}
-          />
-        ))}
-      </ul>
+      <LayoutGroup>
+        <ul className="space-y-2.5">
+          {nodes.map((n, i) => (
+            <NodeRow
+              key={n.name}
+              node={n}
+              index={i}
+              selected={n.name === selected}
+              onSelect={() => onSelect(n.name)}
+            />
+          ))}
+        </ul>
+      </LayoutGroup>
     </nav>
   )
 }

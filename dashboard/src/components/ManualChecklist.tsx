@@ -23,7 +23,7 @@ export function ManualChecklist({ id, checks }: { id: string; checks: string[] }
                 aria-describedby={`${id}-why`}
                 className="mt-1 size-[1.1rem] shrink-0 accent-amber"
               />
-              <span className={done[i] ? 'text-fg-3 line-through decoration-amber' : ''}>
+              <span className={done[i] ? 'text-ink-3 line-through decoration-amber' : ''}>
                 <WithCode text={check} />
               </span>
             </label>
@@ -31,7 +31,7 @@ export function ManualChecklist({ id, checks }: { id: string; checks: string[] }
         ))}
       </ul>
       {allDone && (
-        <p className="mt-2 text-[0.9rem] text-fg-3">
+        <p className="mt-2 text-[0.9rem] text-ink-3">
           Checked by hand. This stays amber here, because Firewatch can't confirm it itself.
         </p>
       )}

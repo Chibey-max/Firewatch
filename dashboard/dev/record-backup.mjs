@@ -74,10 +74,10 @@ await caption(
 await sleep(5000)
 await caption('Every red finding quotes the developers’ fix and links their release notes.')
 await sleep(5000)
-await page.click('::-p-text(stopped-cln)')
+await page.click('nav ::-p-text(stopped-cln)')
 await caption('stopped-cln can’t be read, so it stays amber. Firewatch never guesses green.')
 await sleep(5000)
-await page.click('::-p-text(old-cln)')
+await page.click('nav ::-p-text(old-cln)')
 await caption(
   'The operator upgrades old-cln to 26.06.9, by hand. Firewatch never touches the node.',
 )

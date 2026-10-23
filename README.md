@@ -80,7 +80,7 @@ cargo run -p firewatch-alerts --example inbox -- <nsec>         # print DMs sent
 
 ## Dashboard
 
-`dashboard/` is the web page the operator watches: every node in one list, worst first, and the selected node's action, the developers' quoted fixes with links, what to check by hand and what a condition ruled out. Dark by default, with a light theme for projectors.
+`dashboard/` is the web page the operator watches: every node in one list, worst first, and the selected node's action, the developers' quoted fixes with links, what to check by hand and what a condition ruled out. Light by default, with a dark theme for dim rooms; it animates every change of verdict, and a lost or recovered connection arrives as a toast.
 
 ```sh
 cd dashboard && npm install && npm run dev      # http://localhost:5173, reads the watch API

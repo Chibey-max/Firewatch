@@ -13,8 +13,10 @@
     "record:backup": "node dev/record-backup.mjs"
   },
   "dependencies": {
-    "@fontsource/jetbrains-mono": "^5.3.0",
-    "@fontsource/public-sans": "^5.3.0",
+    "@fontsource-variable/fraunces": "^5.3.0",
+    "@fontsource-variable/geist-mono": "^5.3.0",
+    "@fontsource-variable/hanken-grotesk": "^5.3.0",
+    "motion": "^14.6.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1"
   },

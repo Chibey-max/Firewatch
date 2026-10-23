@@ -168,3 +168,32 @@ export function fixedTarget(node: NodeReport): string | null {
 export function shortHash(hash: string): string {
   return hash.slice(0, 7)
 }
+
+export function readingCounts(nodes: NodeReport[]): Record<Reading, number> {
+  const counts: Record<Reading, number> = { affected: 0, cant_tell: 0, not_affected: 0, none: 0 }
+  for (const n of nodes) counts[readingOf(n)] += 1
+  return counts
+}
+
+/** The worst reading across the fleet: what the ambient light shows. */
+export function worstReading(nodes: NodeReport[]): Reading {
+  return sortNodes(nodes)[0] ? readingOf(sortNodes(nodes)[0]) : 'none'
+}
+
+/** Where to start: one sentence naming the node to look at first, and why. */
+export function priorityLine(nodes: NodeReport[]): string {
+  const first = sortNodes(nodes)[0]
+  if (!first) return 'Add a node to firewatch.toml and Firewatch starts watching it.'
+  const reading = readingOf(first)
+  if (reading === 'affected') {
+    return exploited(first)
+      ? `Start with ${first.name}: an advisory on it is exploited in the wild.`
+      : `Start with ${first.name}: ${nodeSummary(first).toLowerCase()}.`
+  }
+  if (reading === 'cant_tell') {
+    return first.error
+      ? `${first.name} can’t be read, so Firewatch won’t call it safe.`
+      : `${first.name} can’t be confirmed over RPC. Check it by hand.`
+  }
+  return 'Nothing the developers have published applies to your nodes right now.'
+}
