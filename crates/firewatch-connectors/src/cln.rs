@@ -78,10 +78,7 @@ impl ClnClient {
             .await
             .map_err(|e| crate::transport_error(e, &self.url, &self.name))?;
         let ok = response.status().is_success();
-        let body: Value = response
-            .json()
-            .await
-            .map_err(|e| crate::transport_error(e, &self.url, &self.name))?;
+        let body = crate::read_json(response, &self.url, &self.name).await?;
         if ok {
             return Ok(body);
         }

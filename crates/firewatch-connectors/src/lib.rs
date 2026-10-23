@@ -28,6 +28,18 @@ pub enum ConnectorError {
     Timeout { url: String },
     #[error("TLS certificate not trusted; check tls_cert for {name}")]
     Tls { name: String },
+    #[error(
+        "{url} doesn't answer HTTPS; check the port, or use http:// for Core Lightning's clnrest"
+    )]
+    NotTls { url: String },
+    #[error("{url} expects HTTPS; change the url to https://")]
+    NeedsHttps { url: String },
+    #[error(
+        "{url} answered, but not as a node's REST API; check the port (REST, not gRPC or p2p)"
+    )]
+    NotRestApi { url: String },
+    #[error("{url} closed the connection; check the port, or wait if the node is restarting")]
+    ConnectionClosed { url: String },
     #[error("Credential rejected by the node ({0})")]
     CredentialRejected(String),
     #[error("request failed: {}", error_chain(.0))]
@@ -70,18 +82,93 @@ impl NodeConfig {
 /// How long one request to a node may take.
 pub(crate) const TIMEOUT: Duration = Duration::from_secs(10);
 
-/// Sorts a transport error into the plain cases an operator can act on.
+/// Sorts a transport error into the plain cases an operator can act on, by
+/// the error types in its chain rather than by their text.
 pub(crate) fn transport_error(e: reqwest::Error, url: &str, name: &str) -> ConnectorError {
-    let chain = error_chain(&e).to_ascii_lowercase();
+    let url = url.to_string();
     if e.is_timeout() {
-        ConnectorError::Timeout { url: url.into() }
-    } else if chain.contains("certificate") || chain.contains("tls") {
-        ConnectorError::Tls { name: name.into() }
-    } else if e.is_connect() {
-        ConnectorError::Unreachable { url: url.into() }
-    } else {
-        ConnectorError::Http(e)
+        return ConnectorError::Timeout { url };
     }
+    let causes = causes(&e);
+    // Our pinned verifier and webpki both report a rejected certificate as
+    // InvalidCertificate; any other TLS error means the other end isn't
+    // speaking TLS, e.g. an https:// url on a plain-HTTP port.
+    if let Some(tls) = find::<rustls::Error>(&causes) {
+        return match tls {
+            rustls::Error::InvalidCertificate(_) => ConnectorError::Tls { name: name.into() },
+            _ => ConnectorError::NotTls { url },
+        };
+    }
+    if let Some(http) = find::<hyper::Error>(&causes) {
+        if http.is_parse() {
+            // Something answered, but not in HTTP/1.1: gRPC, or another service.
+            return ConnectorError::NotRestApi { url };
+        }
+        if http.is_incomplete_message() || http.is_closed() {
+            return ConnectorError::ConnectionClosed { url };
+        }
+    }
+    if e.is_connect() {
+        // A TCP connect never ends in EOF; a TLS handshake the peer hangs up
+        // on does (LND's p2p port, for one).
+        let handshake_eof = causes.iter().any(|c| {
+            c.downcast_ref::<std::io::Error>()
+                .is_some_and(|io| io.kind() == std::io::ErrorKind::UnexpectedEof)
+        });
+        return if handshake_eof {
+            ConnectorError::NotTls { url }
+        } else {
+            ConnectorError::Unreachable { url }
+        };
+    }
+    ConnectorError::Http(e)
+}
+
+/// Reads a node's JSON reply. A body that isn't JSON means something other
+/// than the node's REST API answered.
+pub(crate) async fn read_json(
+    response: reqwest::Response,
+    url: &str,
+    name: &str,
+) -> Result<serde_json::Value, ConnectorError> {
+    let text = response
+        .text()
+        .await
+        .map_err(|e| transport_error(e, url, name))?;
+    serde_json::from_str(&text).map_err(|_| {
+        // Go's net/http (LND) answers plain HTTP on a TLS port with this.
+        if text.contains("HTTP request to an HTTPS server") {
+            ConnectorError::NeedsHttps { url: url.into() }
+        } else {
+            ConnectorError::NotRestApi { url: url.into() }
+        }
+    })
+}
+
+/// Every error in the chain. `io::Error::source()` skips the error it wraps,
+/// so look inside each one with `get_ref()` too.
+fn causes<'a>(
+    e: &'a (dyn std::error::Error + 'static),
+) -> Vec<&'a (dyn std::error::Error + 'static)> {
+    let mut out = Vec::new();
+    let mut next = Some(e);
+    while let Some(err) = next {
+        out.push(err);
+        next = match err
+            .downcast_ref::<std::io::Error>()
+            .and_then(|io| io.get_ref())
+        {
+            Some(inner) => Some(inner as &(dyn std::error::Error + 'static)),
+            None => err.source(),
+        };
+    }
+    out
+}
+
+fn find<'a, T: std::error::Error + 'static>(
+    causes: &[&'a (dyn std::error::Error + 'static)],
+) -> Option<&'a T> {
+    causes.iter().find_map(|c| c.downcast_ref::<T>())
 }
 
 pub fn http_client() -> reqwest::Client {
