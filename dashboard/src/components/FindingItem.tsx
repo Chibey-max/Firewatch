@@ -49,7 +49,7 @@ function Meta({ f }: { f: Finding }) {
 /** One advisory on the selected node. What it shows depends on its verdict. */
 export function FindingItem({ finding: f }: { finding: Finding }) {
   return (
-    <motion.li variants={rise} data-surface className="fw-glass rounded-2xl px-5 py-4.5">
+    <motion.li variants={rise} className="fw-glass rounded-2xl px-5 py-4.5">
       <Meta f={f} />
       <h4 className="mt-2 text-[1.05rem] leading-snug font-semibold">{f.title}</h4>
 

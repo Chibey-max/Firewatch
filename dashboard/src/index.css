@@ -131,9 +131,6 @@
     #f7b683 91%, #4a2a16;
   --fw-chrome-line: rgb(138 79 38 / 0.55);
   --fw-metal-tint: #ffb27a;
-  /* On cream, white light vanishes: the glint is the bronze of the rims. */
-  --fw-glint: rgb(176 104 52 / 0.9);
-  --fw-spot: rgb(255 226 196 / 0.85);
   --fw-red: #b3301d;
   --fw-red-soft: rgb(179 48 29 / 0.09);
   --fw-amber: #8a4f00;
@@ -176,8 +173,6 @@
     #cbcbd3 91%, #3b3b40;
   --fw-chrome-line: rgb(223 225 230 / 0.5);
   --fw-metal-tint: #ffffff;
-  --fw-glint: rgb(255 255 255 / 0.8);
-  --fw-spot: rgb(223 225 230 / 0.09);
   --fw-ink: #eef2f6;
   --fw-ink-2: #bcc6d0;
   --fw-ink-3: #97a3b0;
@@ -344,16 +339,6 @@
   inherits: true;
   initial-value: transparent;
 }
-@property --fw-glint {
-  syntax: '<color>';
-  inherits: true;
-  initial-value: transparent;
-}
-@property --fw-spot {
-  syntax: '<color>';
-  inherits: true;
-  initial-value: transparent;
-}
 @property --fw-gloss {
   syntax: '<color>';
   inherits: true;
@@ -410,8 +395,6 @@
     --fw-button var(--fw-theme-ease),
     --fw-button-fg var(--fw-theme-ease),
     --fw-sheen var(--fw-theme-ease),
-    --fw-glint var(--fw-theme-ease),
-    --fw-spot var(--fw-theme-ease),
     --fw-gloss var(--fw-theme-ease),
     --fw-chrome-line var(--fw-theme-ease),
     --fw-ember var(--fw-theme-ease),
@@ -420,16 +403,11 @@
     --fw-veil-bottom var(--fw-theme-ease);
 }
 
-/* The turn of every chrome rim, and how lit a surface is under the pointer. */
+/* The turn of every chrome rim. */
 @property --fw-metal {
   syntax: '<angle>';
   inherits: true;
   initial-value: 0deg;
-}
-@property --lit {
-  syntax: '<number>';
-  inherits: true;
-  initial-value: 0;
 }
 
 /* The ambient light's colour animates between verdicts. */
@@ -629,60 +607,6 @@
     linear-gradient(180deg, color-mix(in srgb, var(--fw-sheen) 40%, transparent), transparent 24%),
     var(--fw-shell);
   box-shadow: var(--fw-shadow);
-}
-
-/*
- * Surfaces that answer the pointer, after Mirror's panels: SurfaceMotion puts
- * --gx/--gy (where the pointer is) and data-hot on the one under the mouse.
- * ::before is a soft spotlight behind the content; ::after is a 1px ring that
- * glints nearest the pointer. --lit fades both in and out.
- */
-[data-surface] {
-  isolation: isolate;
-  transition:
-    border-color 240ms ease,
-    box-shadow 360ms ease,
-    --lit 420ms ease;
-}
-[data-surface]::before,
-[data-surface]::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  pointer-events: none;
-}
-[data-surface]::before {
-  z-index: -1;
-  background: radial-gradient(
-    520px circle at var(--gx, 50%) var(--gy, 0%),
-    color-mix(in srgb, var(--fw-spot) calc(var(--lit) * 100%), transparent),
-    transparent 45%
-  );
-}
-[data-surface]::after {
-  padding: 1px;
-  background: radial-gradient(
-    240px circle at var(--gx, 50%) var(--gy, 0%),
-    color-mix(in srgb, var(--fw-glint) calc(var(--lit) * 85%), transparent),
-    color-mix(in srgb, var(--fw-chrome-line) calc(var(--lit) * 60%), transparent) 35%,
-    transparent 65%
-  );
-  -webkit-mask:
-    linear-gradient(#000 0 0) content-box,
-    linear-gradient(#000 0 0);
-  -webkit-mask-composite: xor;
-  mask-composite: exclude;
-}
-@media (any-hover: hover) {
-  [data-surface][data-hot] {
-    --lit: 1;
-    border-color: var(--fw-line-strong);
-  }
-  /* The pane holding the lit row or card glows a little too. */
-  [data-surface]:has([data-hot]) {
-    --lit: 0.4;
-  }
 }
 
 /* --- Liquid metal --- */

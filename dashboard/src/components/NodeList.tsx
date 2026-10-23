@@ -58,7 +58,6 @@ function NodeRow({
           )}
         </AnimatePresence>
         <span
-          data-surface
           className={`relative grid grid-cols-[auto_1fr_auto] items-center gap-x-3.5 rounded-[18px] px-4 py-3.5 transition-colors ${
             selected ? '' : 'fw-glass hover:bg-surface-hover'
           }`}

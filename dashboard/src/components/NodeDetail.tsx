@@ -256,7 +256,6 @@ export function NodeDetail({ node }: { node: NodeReport }) {
   return (
     <article
       aria-labelledby="detail-title"
-      data-surface
       className="fw-glass-strong relative min-h-full overflow-hidden rounded-[28px] p-6 sm:p-9"
     >
       <AnimatePresence mode="popLayout" initial={false}>
