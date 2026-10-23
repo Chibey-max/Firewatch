@@ -107,10 +107,11 @@ impl App {
     }
 }
 
-pub async fn run(config: Config, advisories: Vec<Advisory>) -> Result<()> {
+pub async fn run(config: Config, advisories: Vec<Advisory>, allow_remote: bool) -> Result<()> {
     if config.nodes.is_empty() {
         anyhow::bail!("no [[nodes]] in the config");
     }
+    ensure_local(&config.watch.listen, allow_remote).await?;
     let alerter = match &config.alerts.nostr {
         Some(nostr) => {
             let alerter = NostrAlerter::connect(nostr)
@@ -171,6 +172,26 @@ pub async fn run(config: Config, advisories: Vec<Advisory>) -> Result<()> {
         interval.as_secs()
     ));
     axum::serve(listener, router).await?;
+    Ok(())
+}
+
+/// Refuses a non-loopback `listen` address unless `allow_remote` is set: the
+/// report says which nodes are vulnerable, so by default only this machine
+/// may read it.
+async fn ensure_local(listen: &str, allow_remote: bool) -> Result<()> {
+    if allow_remote {
+        return Ok(());
+    }
+    let addrs: Vec<_> = tokio::net::lookup_host(listen)
+        .await
+        .with_context(|| format!("resolving listen address {listen}"))?
+        .collect();
+    if let Some(addr) = addrs.iter().find(|a| !a.ip().is_loopback()) {
+        anyhow::bail!(
+            "refusing to serve the report on {addr}: it is reachable from other machines and \
+             says which nodes are vulnerable. Use 127.0.0.1, or pass --allow-remote if you mean it"
+        );
+    }
     Ok(())
 }
 
@@ -252,6 +273,17 @@ mod tests {
             .iter()
             .map(|t| t.split(" is ").next().unwrap_or_default().to_string())
             .collect()
+    }
+
+    #[tokio::test]
+    async fn listen_must_be_loopback_unless_allowed() {
+        for ok in ["127.0.0.1:7070", "[::1]:7070", "localhost:7070"] {
+            assert!(ensure_local(ok, false).await.is_ok(), "{ok}");
+        }
+        for remote in ["0.0.0.0:7070", "[::]:7070", "192.168.1.10:7070"] {
+            assert!(ensure_local(remote, false).await.is_err(), "{remote}");
+            assert!(ensure_local(remote, true).await.is_ok(), "{remote}");
+        }
     }
 
     #[test]

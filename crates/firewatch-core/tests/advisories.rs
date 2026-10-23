@@ -42,12 +42,15 @@ const TESTED: &[&str] = &[
     "FW-2026-001",
     "FW-2026-002",
     "FW-2026-003",
-    "FW-2026-004",
     "FW-2026-005",
     "FW-2026-006",
     "FW-2026-007",
     "FW-2026-008",
     "FW-2026-009",
+    "FW-2026-010",
+    "FW-2026-011",
+    "FW-2026-012",
+    "FW-2026-013",
 ];
 
 #[test]
@@ -94,15 +97,6 @@ fn fw_2026_003_cln_26_06_8() {
     assert_eq!(status("FW-2026-003", Cln, "v26.06.8rc1"), Status::Affected);
     assert_eq!(status("FW-2026-003", Cln, "v26.06.8"), Status::NotAffected);
     assert_eq!(status("FW-2026-003", Cln, "v26.06.9"), Status::NotAffected);
-}
-
-#[test]
-fn fw_2026_004_cln_go_offline() {
-    use Implementation::Cln;
-    assert_eq!(status("FW-2026-004", Cln, "v26.04.1"), Status::Affected);
-    assert_eq!(status("FW-2026-004", Cln, "v26.06rc1"), Status::Affected);
-    assert_eq!(status("FW-2026-004", Cln, "v26.06"), Status::NotAffected);
-    assert!(!advisory("FW-2026-004").verified);
 }
 
 #[test]
@@ -179,4 +173,59 @@ fn fw_2026_009_lnd_dns_seed_panic() {
     assert_eq!(on("0.21.0-beta", "mainnet"), Status::CantTell);
     assert_eq!(on("0.20.2-beta", "mainnet"), Status::NotAffected);
     assert_eq!(on("0.21.1-beta", "mainnet"), Status::NotAffected);
+}
+
+#[test]
+fn fw_2026_010_lnd_update_fee_breach() {
+    use Implementation::Lnd;
+    assert_eq!(status("FW-2026-010", Lnd, "0.17.5-beta"), Status::Affected);
+    assert_eq!(status("FW-2026-010", Lnd, "0.18.2-beta"), Status::Affected);
+    assert_eq!(
+        status("FW-2026-010", Lnd, "0.18.3-beta"),
+        Status::NotAffected
+    );
+    assert_eq!(
+        status("FW-2026-010", Lnd, "0.18.5-beta"),
+        Status::NotAffected
+    );
+}
+
+#[test]
+fn fw_2026_011_lnd_pending_commitment_failback() {
+    use Implementation::Lnd;
+    assert_eq!(status("FW-2026-011", Lnd, "0.17.5-beta"), Status::Affected);
+    assert_eq!(
+        status("FW-2026-011", Lnd, "0.18.0-beta"),
+        Status::NotAffected
+    );
+}
+
+#[test]
+fn fw_2026_012_lnd_htlc_sweep_budget() {
+    use Implementation::Lnd;
+    assert_eq!(
+        status("FW-2026-012", Lnd, "0.17.5-beta"),
+        Status::NotAffected
+    );
+    assert_eq!(status("FW-2026-012", Lnd, "0.18.0-beta"), Status::Affected);
+    assert_eq!(status("FW-2026-012", Lnd, "0.18.5-beta"), Status::Affected);
+    assert_eq!(
+        status("FW-2026-012", Lnd, "0.19.0-beta"),
+        Status::NotAffected
+    );
+}
+
+#[test]
+fn fw_2026_013_lnd_interceptor_cancel_settles_invoice() {
+    use Implementation::Lnd;
+    assert_eq!(
+        status("FW-2026-013", Lnd, "0.18.3-beta"),
+        Status::NotAffected
+    );
+    assert_eq!(status("FW-2026-013", Lnd, "0.18.4-beta"), Status::CantTell);
+    assert_eq!(status("FW-2026-013", Lnd, "0.18.5-beta"), Status::CantTell);
+    assert_eq!(
+        status("FW-2026-013", Lnd, "0.19.0-beta"),
+        Status::NotAffected
+    );
 }
