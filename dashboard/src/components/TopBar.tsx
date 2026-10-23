@@ -311,7 +311,7 @@ export function NavBar({
 export function SideRail({ children, inert }: { children: ReactNode; inert?: boolean }) {
   return (
     <header inert={inert} className="fixed top-1/2 right-5 z-30 -translate-y-1/2">
-      <div className="fw-bar flex flex-col items-center gap-1.5 rounded-full p-1.5">
+      <div className="fw-bar flex flex-col items-center gap-3 rounded-full px-1.5 py-3.5">
         <span className="grid size-10 place-items-center" title="Firewatch">
           <Logo />
         </span>
