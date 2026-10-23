@@ -1,6 +1,13 @@
-# Range: "everything below the fixed release". The release notes do not list
-# affected versions per bug; Core Lightning urged anyone on 26.06.7 or earlier
-# to upgrade on Oct 2, citing attacks on unpatched nodes.
+# Range conclusion (D3-6, Dave, 2026-10-23): no lower bound.
+# The 26.06.7, 26.06.8 and 26.06.9 release notes describe their fixes as
+# "fixes for vulnerabilities responsibly reported by a number of sources" and
+# name no earliest affected version, and the tests for them are withheld. So
+# the only defensible range is "everything below the fixed release". The
+# 26.06.7 line "Users pinned to v26.06.6 or earlier were never affected" is in
+# its Docker users section and refers to Docker images that briefly shipped
+# without the fixes, not to the vulnerabilities.
+# Core Lightning urged anyone on 26.06.7 or earlier to upgrade on Oct 2,
+# citing attacks on unpatched nodes.
 id = "FW-2026-003"
 implementation = "cln"
 title = "Vulnerabilities fixed in 26.06.8"
