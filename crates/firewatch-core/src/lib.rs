@@ -8,6 +8,7 @@ pub mod advisory;
 pub mod changes;
 pub mod engine;
 pub mod node;
+pub mod releases;
 pub mod report;
 pub mod version;
 
@@ -15,5 +16,6 @@ pub use advisory::{load_dir, Action, Advisory, Condition, Implementation, LoadEr
 pub use changes::{changes, Change};
 pub use engine::{evaluate, Status, Verdict};
 pub use node::NodeInfo;
+pub use releases::{BuildCheck, Release, ReleaseTable};
 pub use report::{Finding, NodeReport, Report};
 pub use version::{Version, VersionError, VersionReq};

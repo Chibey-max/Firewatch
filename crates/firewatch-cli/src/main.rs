@@ -15,7 +15,9 @@ use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
 use firewatch_alerts::NostrAlerter;
 use firewatch_connectors::NodeConfig;
-use firewatch_core::{load_dir, Advisory, NodeInfo, NodeReport, Report, Status};
+use firewatch_core::{
+    load_dir, Advisory, BuildCheck, NodeInfo, NodeReport, ReleaseTable, Report, Status,
+};
 
 use crate::config::Config;
 
@@ -29,6 +31,11 @@ struct Cli {
     /// Directory of advisory TOML files.
     #[arg(long, global = true, default_value = "advisories")]
     advisories: PathBuf,
+
+    /// Official release table for the build check. Skipped if the file is
+    /// missing; regenerate it with scripts/lnd-releases.sh.
+    #[arg(long, global = true, default_value = "releases/lnd.toml")]
+    releases: PathBuf,
 
     #[command(subcommand)]
     command: Command,
@@ -90,6 +97,7 @@ async fn run() -> Result<ExitCode> {
     let cli = Cli::parse();
     let advisories = load_dir(&cli.advisories)
         .with_context(|| format!("loading advisories from {}", cli.advisories.display()))?;
+    let releases = load_releases(&cli.releases)?;
 
     match cli.command {
         Command::Validate => {
@@ -123,8 +131,20 @@ async fn run() -> Result<ExitCode> {
         } => {
             let advisories = select(advisories, include_unverified);
             let report = match nodes {
-                Some(path) => Report::build(&load_snapshot(&path)?, &advisories, now()),
-                None => check_live(&Config::load(&config)?.nodes, &advisories).await,
+                Some(path) => Report::build(
+                    &load_snapshot(&path)?,
+                    &advisories,
+                    releases.as_ref(),
+                    now(),
+                ),
+                None => {
+                    check_live(
+                        &Config::load(&config)?.nodes,
+                        &advisories,
+                        releases.as_ref(),
+                    )
+                    .await
+                }
             };
             if json {
                 println!("{}", serde_json::to_string_pretty(&report)?);
@@ -145,6 +165,7 @@ async fn run() -> Result<ExitCode> {
             watch::run(
                 Config::load(&config)?,
                 select(advisories, include_unverified),
+                releases,
                 allow_remote,
             )
             .await?;
@@ -186,12 +207,16 @@ fn select(advisories: Vec<Advisory>, include_unverified: bool) -> Vec<Advisory> 
 
 /// Reads every configured node. A node that can't be read is reported as
 /// "Can't tell" with its error, so one dead node doesn't hide the others.
-pub(crate) async fn check_live(configs: &[NodeConfig], advisories: &[Advisory]) -> Report {
+pub(crate) async fn check_live(
+    configs: &[NodeConfig],
+    advisories: &[Advisory],
+    releases: Option<&ReleaseTable>,
+) -> Report {
     let http = firewatch_connectors::http_client();
     let mut nodes = Vec::with_capacity(configs.len());
     for node in configs {
         nodes.push(match firewatch_connectors::fetch(node, &http).await {
-            Ok(info) => NodeReport::from_node(&info, advisories),
+            Ok(info) => NodeReport::from_node(&info, advisories, releases),
             Err(e) => NodeReport::unreachable(node.name(), node.implementation(), e.to_string()),
         });
     }
@@ -199,6 +224,18 @@ pub(crate) async fn check_live(configs: &[NodeConfig], advisories: &[Advisory]) 
         checked_at: now(),
         nodes,
     }
+}
+
+/// The release table, or `None` (build check off) when the file is missing.
+fn load_releases(path: &Path) -> Result<Option<ReleaseTable>> {
+    if !path.exists() {
+        log(&format!(
+            "no release table at {}: build check off",
+            path.display()
+        ));
+        return Ok(None);
+    }
+    Ok(Some(ReleaseTable::load(path)?))
 }
 
 fn load_snapshot(path: &Path) -> Result<Vec<NodeInfo>> {
@@ -248,6 +285,22 @@ fn print_report(report: &Report) {
             node.implementation,
             node.version.as_deref().unwrap_or("version unknown")
         );
+        match &node.build_check {
+            BuildCheck::Match => println!("    Build: the official release commit."),
+            BuildCheck::Mismatch {
+                release,
+                expected,
+                actual,
+            } => println!(
+                "    Build: NOT the official {release} release (commit {}, expected {}).",
+                &actual[..actual.len().min(7)],
+                &expected[..expected.len().min(7)]
+            ),
+            BuildCheck::UnknownRelease => {
+                println!("    Build: release not in Firewatch's table, so not verified.")
+            }
+            BuildCheck::NotChecked => {}
+        }
         if let Some(error) = &node.error {
             println!("    Could not read this node: {error}");
         } else if node.findings.is_empty() {

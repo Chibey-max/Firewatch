@@ -120,6 +120,7 @@ impl ClnClient {
             network: info["network"].as_str().map(str::to_string),
             config,
             features: None,
+            commit_hash: None,
         })
     }
 }

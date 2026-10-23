@@ -125,6 +125,10 @@ fn parse_getinfo(name: &str, info: &Value) -> Result<NodeInfo, ConnectorError> {
         network: info["chains"][0]["network"].as_str().map(str::to_string),
         config: None,
         features,
+        commit_hash: info["commit_hash"]
+            .as_str()
+            .filter(|h| !h.is_empty())
+            .map(str::to_string),
     })
 }
 
@@ -138,6 +142,7 @@ mod tests {
     fn parses_getinfo() {
         let info = json!({
             "version": "0.20.0-beta commit=v0.20.0-beta",
+            "commit_hash": "b9ea7070c20ad2ca8514a47d9b4d560a501f0487",
             "chains": [{ "chain": "bitcoin", "network": "regtest" }],
             "features": {
                 "0": { "name": "data-loss-protect", "is_required": true },
@@ -149,6 +154,10 @@ mod tests {
         assert_eq!(node.network.as_deref(), Some("regtest"));
         assert_eq!(node.features, Some(BTreeSet::from([0, 5])));
         assert!(node.config.is_none(), "lnd.conf is not readable over RPC");
+        assert_eq!(
+            node.commit_hash.as_deref(),
+            Some("b9ea7070c20ad2ca8514a47d9b4d560a501f0487")
+        );
     }
 
     #[test]
