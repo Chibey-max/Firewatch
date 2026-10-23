@@ -15,22 +15,35 @@ Every advisory shown is verified against the developers' own release notes or ad
    ```sh
    cargo run --release -- test-alert
    ```
-4. **Build once** so nothing compiles on stage: `cargo build --release`.
-5. **Screen:** the dashboard in one window and a terminal in `~/Projects/Hackathon/Firewatch` in another. The phone goes on the projector.
-6. **Interval:** set `interval_secs = 5` under `[watch]` in `firewatch.toml` so changes show within 5 seconds.
+4. **Interval:** set `interval_secs = 5` under `[watch]` in `firewatch.toml` so changes show within 5 seconds.
+5. **Check every verdict** against the expected table, and that every source link opens:
+   ```sh
+   scripts/verify-demo.py
+   ```
+   It must end with "All demo checks pass."
+6. **Screen:** a terminal in `~/Projects/Hackathon/Firewatch`, and a browser ready for `http://127.0.0.1:7070`. The phone goes on the projector.
 
-Do not start `watch` yet: starting it is what makes the phone buzz.
+Do not start the daemon yet: starting it is what makes the phone buzz.
 
 ## On stage
 
 | # | Time | Say | Do |
 |---|---|---|---|
 | 1 | 15 s | "On October 2, Core Lightning warned that attackers were targeting unpatched nodes. Would you have known your node was one of them?" | |
-| 2 | 30 s | "Firewatch reads each node with a credential that can't spend or change anything." | Run `./target/release/firewatch watch`. The dashboard shows `old-cln` red (FW-2026-003, FW-2026-006). The phone buzzes with encrypted alerts quoting the developers' fix. |
+| 2 | 30 s | "Firewatch reads each node with a credential that can't spend or change anything." | Run `scripts/demo-up.sh`. It builds, checks every node and opens the dashboard: `old-cln` red (FW-2026-003, FW-2026-006). The phone buzzes with encrypted alerts quoting the developers' fix. |
 | 3 | 30 s | "This LND node is red on a Lightning Labs advisory, and amber on another. That one only matters if an app intercepts your payments, which no RPC reveals, so Firewatch tells you what to check instead of guessing. We never show green when we're not sure." | Point at `lnd-old`: FW-2026-012 red, FW-2026-013 amber with its hand check. |
+| 3b | 15 s | *(Only if `lnd-unofficial` is on the network.)* "This node says it's the official 0.20.0 release, but its build doesn't match the official commit, so Firewatch refuses to call anything on it safe." | Point at `lnd-unofficial`: every finding amber, with "its build (fc472ef) is not the official v0.20.0-beta release (b9ea707)". |
 | 4 | 20 s | "A version number alone gives false alarms. This bug only bites on mainnet, so on this regtest node Firewatch says not affected, and shows why." | Point at FW-2026-009 on `alice` or `lnd-old`: green, with "it only applies on mainnet, and this node runs on regtest". |
 | 5 | 45 s | "The operator upgrades, by hand. Firewatch never touches the node." | Run `demo/upgrade.sh`. Within one check `old-cln` turns green, and the phone gets "✅ old-cln is no longer affected". |
 | 6 | 30 s | "Read-only credentials, fixes quoted from the developers, private alerts, and an open advisory format anyone can contribute to." | |
+
+## Adding `lnd-unofficial` (optional build-check beat)
+
+```sh
+docker build -f demo/polar/Dockerfile.lnd-unofficial -t firewatch/lnd:0.20.0-unofficial demo/polar
+```
+
+In Polar: **Manage Images → Custom Nodes → Add**, implementation LND, image `firewatch/lnd:0.20.0-unofficial`, then drag it onto the network as `lnd-unofficial`. Rename it **while the network is stopped**, or Polar keeps running it under its first name. Add it to `firewatch.toml` like `lnd-old`, with its own REST port, `readonly.macaroon` and `tls.cert`.
 
 ## After the demo
 
@@ -44,6 +57,7 @@ demo/reset.sh            # old-cln back to 26.06.7 with its original data
 | Problem | Fix |
 |---|---|
 | No phone buzz | Check the `watch` log for `alert sent (N relays)`. If it says `ALERT FAILED`, the venue is blocking the relays: switch to the mobile hotspot. The dashboard still shows everything. |
+| `demo-up.sh` stops at "Checking every node" | It prints which node is down and why. Start the network in Polar, wait for every node to go green, and run it again. |
 | `old-cln` doesn't come back after `upgrade.sh` | `docker logs polar-n<id>-old-cln`, then `demo/reset.sh` and play the backup video. |
 | Polar network won't start | Play the backup video. |
 | A node card says "Could not read this node" | The node is stopped or restarting. Start it in Polar; the card recovers on the next check. If asked, it's also the honesty point: an unreadable node is never green. |
@@ -51,6 +65,7 @@ demo/reset.sh            # old-cln back to 26.06.7 with its original data
 ## Likely questions about the data
 
 - **"Why is lnd-old amber on FW-2026-013?"** The bug only affects nodes where an app uses LND's `HtlcModifier` RPC to intercept invoice payments, such as Lightning Terminal running tapd. RPC can't tell which apps are connected, so Firewatch lists the hand check instead of guessing.
+- **"What if the version string lies?"** For LND, Firewatch compares the commit the binary was built from with the commit of the official release tag. On a mismatch every finding becomes Can't tell. Core Lightning doesn't report its commit, so for CLN this check is off.
 - **"Why is alice red?"** LND 0.20.0-beta is affected by two Lightning Labs advisories, both version-only, both fixed in 0.20.1-beta. It's real: Polar's newest LND image is 0.20.0.
 - **"Why isn't the DNS-seed bug red?"** The DNS peer bootstrapper runs by default on mainnet only, and Firewatch reads the network over RPC. On mainnet the finding would be amber, because `nobootstrap` lives in `lnd.conf`, which RPC doesn't expose.
 - **"What about the LND cooperative-close reorg bug in the news?"** It isn't on Lightning Labs' advisory page, so it stays unverified (FW-2026-005) and doesn't run. Firewatch only alerts on what the developers themselves published.
