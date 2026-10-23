@@ -71,6 +71,9 @@ enum Command {
         /// who can reach it which nodes are vulnerable.
         #[arg(long)]
         allow_remote: bool,
+        /// Serve a built dashboard at `/`, overriding `dashboard_dir`.
+        #[arg(long)]
+        dashboard: Option<PathBuf>,
     },
     /// Send a test alert to check that it reaches your phone.
     TestAlert {
@@ -161,9 +164,14 @@ async fn run() -> Result<ExitCode> {
             config,
             include_unverified,
             allow_remote,
+            dashboard,
         } => {
+            let mut config = Config::load(&config)?;
+            if dashboard.is_some() {
+                config.watch.dashboard_dir = dashboard;
+            }
             watch::run(
-                Config::load(&config)?,
+                config,
                 select(advisories, include_unverified),
                 releases,
                 allow_remote,
