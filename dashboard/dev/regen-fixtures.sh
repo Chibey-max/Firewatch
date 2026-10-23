@@ -60,4 +60,6 @@ json.dump({"checked_at": mixed["checked_at"], "nodes": [mixed["nodes"][0], offli
 json.dump({"checked_at": mixed["checked_at"], "nodes": []},
           open(f"{out}/report.empty.json", "w"), indent=2)
 PY
+# Match the repo's formatting so CI's prettier --check passes.
+(cd "$repo/dashboard" && npx --no-install prettier --write --log-level warn src/fixtures)
 echo "Fixtures regenerated in dashboard/src/fixtures/"
