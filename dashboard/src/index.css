@@ -13,14 +13,24 @@
 :root {
   --fw-bg: #f2eee6;
   --fw-bg-2: #e9e3d8;
-  --fw-surface: rgb(252 250 246 / 0.74);
-  --fw-surface-solid: #fbf9f5;
-  --fw-surface-hover: rgb(255 253 249 / 0.92);
-  --fw-line: rgb(96 76 52 / 0.15);
-  --fw-line-strong: rgb(96 76 52 / 0.26);
+  /* Glass, after HackOdds: a warm translucent fill, a strong blur and a hairline. */
+  --fw-shell: rgb(247 240 226 / 0.52);
+  --fw-surface: rgb(247 240 226 / 0.5);
+  --fw-surface-solid: rgb(250 246 238 / 0.68);
+  --fw-surface-hover: rgb(250 246 238 / 0.7);
+  --fw-line: rgb(169 155 128 / 0.4);
+  --fw-line-strong: rgb(150 134 106 / 0.55);
   --fw-ink: #1c1915;
-  --fw-ink-2: #574f45;
-  --fw-ink-3: #6e6558;
+  --fw-ink-2: #51493f;
+  --fw-ink-3: #625a4e;
+  /* The scene: a warm dusk over four ridges. */
+  --fw-sky-1: #eee6d8;
+  --fw-sky-2: #f2dcc7;
+  --fw-ridge-1: #ddd1bf;
+  --fw-ridge-2: #d2c4af;
+  --fw-ridge-3: #c4b49c;
+  --fw-ridge-4: #b9a991;
+  --fw-ember: #e0613f;
   --fw-red: #b3301d;
   --fw-red-soft: rgb(179 48 29 / 0.09);
   --fw-amber: #8a4f00;
@@ -31,12 +41,11 @@
   --fw-neutral-soft: rgb(92 93 85 / 0.09);
   --fw-button: #1f1b16;
   --fw-button-fg: #f7f3ec;
-  --fw-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 0.75), 0 1px 2px rgb(94 71 48 / 0.08),
-    0 18px 40px -30px rgb(94 71 48 / 0.5);
+  --fw-shadow: inset 0 1px 0 rgb(255 255 255 / 0.55), 0 18px 40px -32px rgb(94 71 48 / 0.45);
   --fw-shadow-raised:
-    inset 0 1px 0 rgb(255 255 255 / 0.85), 0 2px 6px -2px rgb(94 71 48 / 0.14),
-    0 28px 56px -32px rgb(94 71 48 / 0.6);
+    inset 0 1px 0 rgb(255 255 255 / 0.7), 0 2px 6px -2px rgb(94 71 48 / 0.12),
+    0 28px 56px -34px rgb(94 71 48 / 0.55);
+  --fw-sheen: rgb(255 255 255 / 0.55);
   --fw-grain-opacity: 0.35;
   color-scheme: light;
 }
@@ -44,11 +53,19 @@
 :root[data-theme='dark'] {
   --fw-bg: #100f0c;
   --fw-bg-2: #16140f;
-  --fw-surface: rgb(32 29 24 / 0.7);
-  --fw-surface-solid: #1d1a15;
-  --fw-surface-hover: rgb(40 36 30 / 0.85);
-  --fw-line: rgb(255 238 214 / 0.09);
-  --fw-line-strong: rgb(255 238 214 / 0.17);
+  --fw-shell: rgb(255 255 255 / 0.045);
+  --fw-surface: rgb(255 255 255 / 0.05);
+  --fw-surface-solid: rgb(255 255 255 / 0.09);
+  --fw-surface-hover: rgb(255 255 255 / 0.07);
+  --fw-line: rgb(255 255 255 / 0.13);
+  --fw-line-strong: rgb(255 255 255 / 0.24);
+  --fw-sky-1: #0c0e14;
+  --fw-sky-2: #1b1613;
+  --fw-ridge-1: #171920;
+  --fw-ridge-2: #13151b;
+  --fw-ridge-3: #0f1116;
+  --fw-ridge-4: #0b0c10;
+  --fw-ember: #ff8a5c;
   --fw-ink: #f1ece3;
   --fw-ink-2: #bdb3a4;
   --fw-ink-3: #978d7e;
@@ -62,8 +79,9 @@
   --fw-neutral-soft: rgb(168 161 148 / 0.12);
   --fw-button: #f1ece3;
   --fw-button-fg: #14120e;
-  --fw-shadow: inset 0 1px 0 rgb(255 245 230 / 0.05), 0 18px 40px -28px rgb(0 0 0 / 0.8);
-  --fw-shadow-raised: inset 0 1px 0 rgb(255 245 230 / 0.08), 0 30px 60px -30px rgb(0 0 0 / 0.9);
+  --fw-shadow: inset 0 1px 0 rgb(255 255 255 / 0.06), 0 18px 40px -28px rgb(0 0 0 / 0.8);
+  --fw-shadow-raised: inset 0 1px 0 rgb(255 255 255 / 0.1), 0 30px 60px -30px rgb(0 0 0 / 0.9);
+  --fw-sheen: rgb(255 255 255 / 0.14);
   --fw-grain-opacity: 0.2;
   color-scheme: dark;
 }
@@ -138,41 +156,125 @@
   }
 }
 
-/* --- Atmosphere: verdict-coloured light, depth, and paper grain. --- */
-.fw-ambient {
+/* --- The scene behind the glass: sky, horizon glow, ridges, grain. --- */
+.fw-scene {
   position: fixed;
   inset: 0;
   z-index: -1;
   pointer-events: none;
-  background:
-    radial-gradient(60rem 38rem at 12% -6%, var(--fw-glow), transparent 70%),
-    radial-gradient(
-      48rem 34rem at 96% 108%,
-      color-mix(in srgb, var(--fw-glow) 60%, transparent),
-      transparent 70%
-    ),
-    linear-gradient(180deg, var(--fw-bg) 0%, var(--fw-bg-2) 100%);
+  overflow: hidden;
+  background: linear-gradient(
+    180deg,
+    var(--fw-sky-1) 0%,
+    var(--fw-sky-2) 62%,
+    var(--fw-ridge-4) 100%
+  );
   transition: --fw-glow 1.8s var(--ease-out-expo);
 }
-.fw-ambient::after {
-  content: '';
+/* The verdict light, low on the horizon behind the ridges, breathing slowly. */
+.fw-horizon {
+  position: absolute;
+  left: 50%;
+  bottom: 18%;
+  width: 140vmax;
+  height: 70vmax;
+  translate: -38% 0;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, var(--fw-glow), transparent 72%);
+  animation: fw-horizon 9s ease-in-out infinite;
+}
+@keyframes fw-horizon {
+  0%,
+  100% {
+    opacity: 0.85;
+    scale: 1;
+  }
+  50% {
+    opacity: 1;
+    scale: 1.05;
+  }
+}
+.fw-grain {
   position: absolute;
   inset: 0;
   opacity: var(--fw-grain-opacity);
   mix-blend-mode: multiply;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .35 0 0 0 0 .28 0 0 0 0 .2 0 0 0 .5 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
-:root[data-theme='dark'] .fw-ambient::after {
+:root[data-theme='dark'] .fw-grain {
   mix-blend-mode: screen;
 }
 
-/* Glass surface used by cards, the top bar and toasts. */
+/* Liquid glass: the shell, the panels and the small pills. */
+.fw-glass,
+.fw-glass-strong,
+.fw-shell {
+  position: relative;
+  border: 1px solid var(--fw-line);
+  -webkit-backdrop-filter: blur(18px) saturate(1.2);
+  backdrop-filter: blur(18px) saturate(1.2);
+}
 .fw-glass {
   background: var(--fw-surface);
-  border: 1px solid var(--fw-line);
+}
+.fw-glass-strong {
+  background: var(--fw-surface-solid);
+  box-shadow: var(--fw-shadow-raised);
+}
+.fw-shell {
+  background: var(--fw-shell);
   box-shadow: var(--fw-shadow);
-  backdrop-filter: blur(14px) saturate(1.15);
-  -webkit-backdrop-filter: blur(14px) saturate(1.15);
+}
+/* A soft light along the top rim, like the edge of a pane catching the sky. */
+.fw-shell::before,
+.fw-glass-strong::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(180deg, var(--fw-sheen) 0%, transparent 28%);
+  opacity: 0.55;
+  mix-blend-mode: soft-light;
+}
+
+/* A specular sweep across the glass each time a fresh report lands. */
+/* The band is 40% wide, so -130% and 300% of its own width start and end it off the pane. */
+@keyframes fw-sweep {
+  from {
+    translate: -130% 0;
+  }
+  to {
+    translate: 300% 0;
+  }
+}
+.fw-sweep {
+  position: absolute;
+  inset: -10% auto -10% 0;
+  width: 40%;
+  pointer-events: none;
+  background: linear-gradient(100deg, transparent, var(--fw-sheen), transparent);
+  opacity: 0.6;
+  mix-blend-mode: soft-light;
+  animation: fw-sweep 1.4s var(--ease-out-expo) both;
+}
+
+/* The Re-check pill breathes, after HackOdds' call to action; hovering stills it. */
+@keyframes fw-cta {
+  0%,
+  100% {
+    scale: 1;
+  }
+  50% {
+    scale: 1.03;
+  }
+}
+.fw-cta {
+  animation: fw-cta 2.6s ease-in-out infinite;
+}
+.fw-cta:hover,
+.fw-cta:disabled {
+  animation-play-state: paused;
 }
 
 /* The live dot breathes; a dot that stops breathing has stopped receiving. */
@@ -222,10 +324,16 @@
 
 @media (prefers-reduced-motion: reduce) {
   .fw-breathe,
-  .fw-shimmer {
+  .fw-shimmer,
+  .fw-horizon,
+  .fw-sweep,
+  .fw-cta {
     animation: none;
   }
-  .fw-ambient {
+  .fw-sweep {
+    display: none;
+  }
+  .fw-scene {
     transition: none;
   }
 }

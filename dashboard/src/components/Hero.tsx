@@ -59,7 +59,7 @@ function Headline({ line }: { line: Line }) {
   const words = line.before.split(' ')
   const text = `${line.before} ${line.accent}${line.after}`
   return (
-    <h1 className="font-serif text-[clamp(2.3rem,4.6vw,3.9rem)] leading-[1.04] font-medium tracking-[-0.025em]">
+    <h1 className="font-serif text-[clamp(2.1rem,3.3vw,3.25rem)] leading-[1.04] font-medium tracking-[-0.025em]">
       <span className="sr-only">{text}</span>
       <AnimatePresence mode="wait" initial={true}>
         <motion.span
@@ -117,7 +117,7 @@ function FleetBar({ report }: { report: Report }) {
   const counts = readingCounts(report.nodes)
   const total = report.nodes.length
   return (
-    <div className="w-full max-w-xl">
+    <div className="w-full">
       <div className="flex h-2 gap-1 overflow-hidden rounded-full" aria-hidden>
         {legend.map(({ key }) =>
           counts[key] ? (
@@ -151,7 +151,7 @@ function FleetBar({ report }: { report: Report }) {
 export function Hero({ report, phase }: { report: Report | null; phase: Phase }) {
   const line = headline(report, phase)
   return (
-    <section className="flex flex-col gap-5 pt-10 pb-8 sm:pt-14">
+    <section className="flex flex-col gap-4">
       <p className="font-mono text-[0.75rem] tracking-[0.14em] text-ink-3 uppercase">
         {report
           ? `Watching ${plural(report.nodes.length, 'Lightning node', 'Lightning nodes')} · read-only`
@@ -165,7 +165,7 @@ export function Hero({ report, phase }: { report: Report | null; phase: Phase })
             initial={{ opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0, transition: { duration: 0.6, ease: EASE, delay: 0.25 } }}
             exit={{ opacity: 0, transition: { duration: 0.2 } }}
-            className="max-w-2xl text-[1.1rem] leading-relaxed text-ink-2"
+            className="max-w-xl text-[1.02rem] leading-relaxed text-ink-2"
           >
             {priorityLine(report.nodes)}
           </motion.p>

@@ -4,7 +4,6 @@ import { checkedAgo, clockTime } from '../lib/format'
 import { EASE } from '../lib/motion'
 import { POLL_MS, type Phase } from '../lib/useReport'
 import { Logo } from './Logo'
-import { ThemeToggle } from './ThemeToggle'
 
 function Dot({ tone, breathe }: { tone: string; breathe?: boolean }) {
   return (
@@ -43,7 +42,7 @@ function RetryRing({ failures }: { failures: number }) {
 }
 
 /** What the data is right now: live, starting, reconnecting or sample. */
-function LiveChip(props: {
+export function LiveChip(props: {
   phase: Phase
   fixture: string | null
   checkedAt: number | null
@@ -132,7 +131,7 @@ function LiveChip(props: {
 }
 
 /** Re-check, with its state in the button itself: spinning while busy, a tick when done. */
-function RecheckButton({
+export function RecheckButton({
   onCheck,
   checking,
 }: {
@@ -156,7 +155,7 @@ function RecheckButton({
       whileTap={{ scale: 0.97 }}
       layout
       transition={{ duration: 0.4, ease: EASE }}
-      className="group flex h-10 items-center gap-2.5 rounded-full bg-button pr-1.5 pl-4 text-[0.88rem] font-semibold text-button-fg shadow-[0_10px_24px_-14px_rgb(31_27_22/.7)] disabled:cursor-wait"
+      className={`group flex h-11 items-center gap-3 rounded-full bg-button pr-1.5 pl-5 text-[0.9rem] font-semibold tracking-[-0.01em] text-button-fg shadow-[0_12px_28px_-14px_rgb(31_27_22/.75)] disabled:cursor-wait ${checking || done ? '' : 'fw-cta'}`}
     >
       <AnimatePresence mode="popLayout" initial={false}>
         <motion.span
@@ -169,7 +168,7 @@ function RecheckButton({
           {label}
         </motion.span>
       </AnimatePresence>
-      <span className="grid size-7 place-items-center rounded-full bg-button-fg/15">
+      <span className="grid size-8 place-items-center rounded-full bg-button-fg/16">
         {done ? (
           <motion.svg
             viewBox="0 0 16 16"
@@ -220,31 +219,12 @@ function RecheckButton({
   )
 }
 
-export function TopBar(props: {
-  phase: Phase
-  fixture: string | null
-  checkedAt: number | null
-  receivedAt: number | null
-  failures: number
-  now: number
-  checking: boolean
-  onCheck: () => Promise<boolean>
-}) {
+/** The wordmark pill. */
+export function Brand() {
   return (
-    <header className="flex flex-wrap items-center justify-between gap-3">
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="fw-glass flex h-10 items-center gap-2.5 rounded-full pr-4 pl-3.5">
-          <Logo />
-          <span className="text-[0.98rem] font-semibold tracking-[0.01em]">Firewatch</span>
-        </div>
-        <LiveChip {...props} />
-      </div>
-      <div className="flex items-center gap-2">
-        {props.phase !== 'fixture' && (
-          <RecheckButton onCheck={props.onCheck} checking={props.checking} />
-        )}
-        <ThemeToggle />
-      </div>
-    </header>
+    <div className="fw-glass flex h-10 items-center gap-2.5 rounded-full pr-4 pl-3.5">
+      <Logo />
+      <span className="text-[0.98rem] font-semibold tracking-[0.01em]">Firewatch</span>
+    </div>
   )
 }

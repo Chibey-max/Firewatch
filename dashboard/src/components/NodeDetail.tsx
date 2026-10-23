@@ -15,6 +15,7 @@ import { EASE, rise } from '../lib/motion'
 import type { Finding, NodeReport } from '../types/report'
 import { FindingItem } from './FindingItem'
 import { StatusPill } from './StatusPill'
+import { Sweep } from './Sweep'
 
 const list = { hidden: {}, show: { transition: { staggerChildren: 0.06, delayChildren: 0.12 } } }
 
@@ -249,12 +250,13 @@ function Detail({ node }: { node: NodeReport }) {
 }
 
 /** The selected node; switching nodes crossfades the panel. */
-export function NodeDetail({ node }: { node: NodeReport }) {
+export function NodeDetail({ node, sweepKey }: { node: NodeReport; sweepKey: number }) {
   return (
     <article
       aria-labelledby="detail-title"
-      className="fw-glass relative overflow-hidden rounded-[28px] p-6 shadow-raised sm:p-8"
+      className="fw-glass-strong relative min-h-full overflow-hidden rounded-[28px] p-6 sm:p-9"
     >
+      <Sweep key={sweepKey} />
       <AnimatePresence mode="wait" initial={false}>
         <motion.div
           key={node.name}
