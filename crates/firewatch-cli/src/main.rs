@@ -323,6 +323,12 @@ fn print_report(report: &Report) {
                 short_commit(actual),
                 short_commit(expected)
             ),
+            BuildCheck::Unreleased { release, build } => println!(
+                "    Build: NOT the {release} release (\"{build}\" is a later commit)."
+            ),
+            BuildCheck::Modified { release, build } => println!(
+                "    Build: {release} with local changes (\"{build}\"); nothing can be confirmed safe."
+            ),
             BuildCheck::UnknownRelease => {
                 println!("    Build: release not in Firewatch's table, so not verified.")
             }
