@@ -5,13 +5,8 @@ import { tone } from '../lib/tone'
 import type { NodeReport } from '../types/report'
 import { StatusPill } from './StatusPill'
 
-// The selected row's outline takes its verdict colour.
-const ring = {
-  affected: 'color-mix(in srgb, var(--fw-red) 45%, transparent)',
-  cant_tell: 'color-mix(in srgb, var(--fw-amber) 45%, transparent)',
-  not_affected: 'color-mix(in srgb, var(--fw-green) 45%, transparent)',
-  none: 'var(--fw-line-strong)',
-}
+// The selection travels like Mirror's pager drop: a soft overshoot.
+const DROP = { duration: 0.82, ease: [0.34, 1.28, 0.64, 1] } as const
 
 function NodeRow({
   node,
@@ -48,16 +43,23 @@ function NodeRow({
         transition={{ duration: 0.25, ease: EASE }}
         className="relative w-full rounded-[18px] text-left"
       >
-        {/* One highlight shared by every row: it glides to the selected one. */}
+        {/* The selection is one drop of liquid metal shared by every row: it
+            glides to the chosen row, stretches on the way (fw-drop), turns a
+            chrome rim, and ripples when it lands. */}
         {selected && (
           <motion.span
             layoutId="row-highlight"
-            transition={spring}
-            style={{ borderColor: ring[reading] }}
-            className="absolute -inset-px rounded-[19px] border-[1.5px] bg-surface-solid shadow-raised transition-[border-color] duration-500"
-          />
+            transition={DROP}
+            className="absolute -inset-px rounded-[19px]"
+          >
+            <span className="fw-drop absolute inset-0 rounded-[inherit] bg-surface-solid shadow-raised">
+              <span className="fw-chrome-rim" />
+              <span className="fw-drop-ripple" />
+            </span>
+          </motion.span>
         )}
         <span
+          data-surface
           className={`relative grid grid-cols-[auto_1fr_auto] items-center gap-x-3.5 rounded-[18px] px-4 py-3.5 transition-colors ${
             selected ? '' : 'fw-glass hover:bg-surface-hover'
           }`}

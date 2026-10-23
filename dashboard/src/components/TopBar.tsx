@@ -1,9 +1,10 @@
-import { AnimatePresence, motion } from 'motion/react'
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { useState } from 'react'
 import { checkedAgo, clockTime } from '../lib/format'
 import { EASE } from '../lib/motion'
 import { POLL_MS, type Phase } from '../lib/useReport'
 import { Logo } from './Logo'
+import { MetalLayers } from './MetalLayers'
 
 function Dot({ tone, breathe }: { tone: string; breathe?: boolean }) {
   return (
@@ -130,7 +131,12 @@ export function LiveChip(props: {
   )
 }
 
-/** Re-check, with its state in the button itself: spinning while busy, a tick when done. */
+/**
+ * Re-check, as Firewatch's one liquid-metal button (after Mirror's): a 2px rim
+ * of moving chrome around the face. The chrome idles, runs on hover, bursts on
+ * a press and races while a check runs; the label says what's happening and
+ * ends on a tick.
+ */
 export function RecheckButton({
   onCheck,
   checking,
@@ -138,28 +144,41 @@ export function RecheckButton({
   onCheck: () => Promise<boolean>
   checking: boolean
 }) {
+  const reduce = useReducedMotion()
   const [done, setDone] = useState(false)
+  const [hover, setHover] = useState(false)
+  const [burst, setBurst] = useState(false)
+
   const click = async () => {
     if (await onCheck()) {
       setDone(true)
       setTimeout(() => setDone(false), 1400)
     }
   }
+  const press = () => {
+    setBurst(true)
+    setTimeout(() => setBurst(false), 300)
+  }
+  const speed = reduce ? 0 : burst ? 2.4 : checking ? 1.8 : hover ? 1 : 0.45
   const label = checking ? 'Checking…' : done ? 'Checked' : 'Re-check now'
+
   return (
     <motion.button
       type="button"
       onClick={click}
+      onPointerEnter={() => setHover(true)}
+      onPointerLeave={() => setHover(false)}
+      onPointerDown={press}
       disabled={checking}
-      whileHover={{ y: -1 }}
-      whileTap={{ scale: 0.97 }}
       layout
       transition={{ duration: 0.4, ease: EASE }}
-      className={`group flex h-11 items-center gap-3 rounded-full bg-button pr-1.5 pl-5 text-[0.9rem] font-semibold tracking-[-0.01em] text-button-fg shadow-[0_12px_28px_-14px_rgb(31_27_22/.75)] disabled:cursor-wait ${checking || done ? '' : 'fw-cta'}`}
+      className="group relative isolate flex h-11 items-center gap-3 rounded-full pr-1.5 pl-5 text-[0.9rem] font-semibold tracking-[-0.01em] text-[var(--fw-metal-label)] transition-transform duration-150 active:translate-y-px active:scale-[0.98] disabled:cursor-wait"
     >
+      <MetalLayers speed={speed} />
       <AnimatePresence mode="popLayout" initial={false}>
         <motion.span
           key={label}
+          className="relative"
           initial={{ opacity: 0, y: 6 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -6 }}
@@ -168,7 +187,7 @@ export function RecheckButton({
           {label}
         </motion.span>
       </AnimatePresence>
-      <span className="grid size-8 place-items-center rounded-full bg-button-fg/16">
+      <span className="relative grid size-8 place-items-center rounded-full bg-[var(--fw-metal-label)]/10">
         {done ? (
           <motion.svg
             viewBox="0 0 16 16"

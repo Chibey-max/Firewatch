@@ -63,8 +63,10 @@ function Callout({
       : 'border-amber/25 bg-amber-soft text-amber'
   return (
     <motion.div variants={rise} className={`flex gap-4 rounded-2xl border px-5 py-4.5 ${t}`}>
-      <span className="mt-0.5 grid size-9 shrink-0 place-items-center rounded-full bg-current/12">
-        {icon}
+      {/* A droplet of liquid metal holds the icon: wobbling, rimmed in turning chrome. */}
+      <span className="fw-droplet mt-0.5 grid size-10 shrink-0 place-items-center">
+        <span className="fw-chrome-rim" />
+        <span className="relative">{icon}</span>
       </span>
       <div className="min-w-0 text-ink">
         <p className="text-[1.08rem] leading-snug font-semibold">{title}</p>
@@ -254,6 +256,7 @@ export function NodeDetail({ node, sweepKey }: { node: NodeReport; sweepKey: num
   return (
     <article
       aria-labelledby="detail-title"
+      data-surface
       className="fw-glass-strong relative min-h-full overflow-hidden rounded-[28px] p-6 sm:p-9"
     >
       <Sweep key={sweepKey} />

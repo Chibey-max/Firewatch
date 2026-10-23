@@ -31,6 +31,18 @@
   --fw-ridge-3: #c4b49c;
   --fw-ridge-4: #b9a991;
   --fw-ember: #e0613f;
+  /* Liquid metal, after Mirror: hard-stopped chrome bands for the rims, and
+     the face of the one metal button. Warm bronze on stone. */
+  --fw-chrome:
+    #4a2a16, #ffe2c7 11%, #8a4f26 23%, #ffc08f 37%, #3a1e0e 51%, #fff1e3 64%, #9a5a2c 78%,
+    #f7b683 91%, #4a2a16;
+  --fw-chrome-line: rgb(138 79 38 / 0.55);
+  --fw-metal-face: linear-gradient(180deg, #fffaf0 0%, #ded2c1 100%);
+  --fw-metal-label: #2a2117;
+  --fw-metal-tint: #ffb27a;
+  /* On cream, white light vanishes: the glint is the bronze of the rims. */
+  --fw-glint: rgb(176 104 52 / 0.9);
+  --fw-spot: rgb(255 226 196 / 0.85);
   --fw-red: #b3301d;
   --fw-red-soft: rgb(179 48 29 / 0.09);
   --fw-amber: #8a4f00;
@@ -66,6 +78,15 @@
   --fw-ridge-3: #0f1116;
   --fw-ridge-4: #0b0c10;
   --fw-ember: #ff8a5c;
+  --fw-chrome:
+    #3b3b40, #f2f2f6 11%, #6a6a72 23%, #d6d6dc 37%, #2c2c33 51%, #fafaff 64%, #77777f 78%,
+    #cbcbd3 91%, #3b3b40;
+  --fw-chrome-line: rgb(223 225 230 / 0.5);
+  --fw-metal-face: linear-gradient(180deg, #232323 0%, #050505 100%);
+  --fw-metal-label: #e9e6df;
+  --fw-metal-tint: #ffffff;
+  --fw-glint: rgb(255 255 255 / 0.8);
+  --fw-spot: rgb(223 225 230 / 0.09);
   --fw-ink: #f1ece3;
   --fw-ink-2: #bdb3a4;
   --fw-ink-3: #978d7e;
@@ -114,6 +135,18 @@
   --shadow-card: var(--fw-shadow);
   --shadow-raised: var(--fw-shadow-raised);
   --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* The turn of every chrome rim, and how lit a surface is under the pointer. */
+@property --fw-metal {
+  syntax: '<angle>';
+  inherits: true;
+  initial-value: 0deg;
+}
+@property --lit {
+  syntax: '<number>';
+  inherits: true;
+  initial-value: 0;
 }
 
 /* The ambient light's colour animates between verdicts. */
@@ -205,7 +238,8 @@
   mix-blend-mode: screen;
 }
 
-/* Liquid glass: the shell, the panels and the small pills. */
+/* Liquid glass: the shell, the panels and the small pills. A soft light along
+   each pane's top rim is part of its fill. */
 .fw-glass,
 .fw-glass-strong,
 .fw-shell {
@@ -218,24 +252,180 @@
   background: var(--fw-surface);
 }
 .fw-glass-strong {
-  background: var(--fw-surface-solid);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--fw-sheen) 45%, transparent), transparent 26%),
+    var(--fw-surface-solid);
   box-shadow: var(--fw-shadow-raised);
 }
 .fw-shell {
-  background: var(--fw-shell);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--fw-sheen) 40%, transparent), transparent 24%),
+    var(--fw-shell);
   box-shadow: var(--fw-shadow);
 }
-/* A soft light along the top rim, like the edge of a pane catching the sky. */
-.fw-shell::before,
-.fw-glass-strong::before {
+
+/*
+ * Surfaces that answer the pointer, after Mirror's panels: SurfaceMotion puts
+ * --gx/--gy (where the pointer is) and data-hot on the one under the mouse.
+ * ::before is a soft spotlight behind the content; ::after is a 1px ring that
+ * glints nearest the pointer. --lit fades both in and out.
+ */
+[data-surface] {
+  isolation: isolate;
+  transition:
+    border-color 240ms ease,
+    box-shadow 360ms ease,
+    --lit 420ms ease;
+}
+[data-surface]::before,
+[data-surface]::after {
   content: '';
   position: absolute;
   inset: 0;
   border-radius: inherit;
   pointer-events: none;
-  background: linear-gradient(180deg, var(--fw-sheen) 0%, transparent 28%);
-  opacity: 0.55;
-  mix-blend-mode: soft-light;
+}
+[data-surface]::before {
+  z-index: -1;
+  background: radial-gradient(
+    520px circle at var(--gx, 50%) var(--gy, 0%),
+    color-mix(in srgb, var(--fw-spot) calc(var(--lit) * 100%), transparent),
+    transparent 45%
+  );
+}
+[data-surface]::after {
+  padding: 1px;
+  background: radial-gradient(
+    240px circle at var(--gx, 50%) var(--gy, 0%),
+    color-mix(in srgb, var(--fw-glint) calc(var(--lit) * 85%), transparent),
+    color-mix(in srgb, var(--fw-chrome-line) calc(var(--lit) * 60%), transparent) 35%,
+    transparent 65%
+  );
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+}
+@media (any-hover: hover) {
+  [data-surface][data-hot] {
+    --lit: 1;
+    border-color: var(--fw-line-strong);
+  }
+  /* The pane holding the lit row or card glows a little too. */
+  [data-surface]:has([data-hot]) {
+    --lit: 0.4;
+  }
+}
+
+/* --- Liquid metal --- */
+
+/* A turning chrome rim: a conic of chrome bands, cut down to a ring by a mask. */
+.fw-chrome-rim {
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  padding: 1.5px;
+  pointer-events: none;
+  background: conic-gradient(from var(--fw-metal, 0deg), var(--fw-chrome));
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  animation: fw-metal-turn 5s linear infinite;
+}
+@keyframes fw-metal-turn {
+  to {
+    --fw-metal: 360deg;
+  }
+}
+
+/* The selected row is a drop of liquid metal flowing between rows: it
+   stretches as it travels and sends a faint ripple out when it lands.
+   Keyed by the selection, so both play on every move. */
+.fw-drop {
+  animation: fw-drop-travel 820ms cubic-bezier(0.34, 1.28, 0.64, 1);
+}
+.fw-drop-ripple {
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  border: 1px solid var(--fw-chrome-line);
+  pointer-events: none;
+  opacity: 0;
+  animation: fw-drop-ripple 1100ms cubic-bezier(0.16, 1, 0.3, 1) 420ms;
+}
+@keyframes fw-drop-travel {
+  0% {
+    scale: 1 1;
+  }
+  30% {
+    scale: 1.03 0.9;
+  }
+  62% {
+    scale: 0.99 1.04;
+  }
+  82% {
+    scale: 1.005 0.995;
+  }
+  100% {
+    scale: 1 1;
+  }
+}
+@keyframes fw-drop-ripple {
+  from {
+    opacity: 0.6;
+    scale: 1;
+  }
+  to {
+    opacity: 0;
+    scale: 1.06 1.35;
+  }
+}
+
+/* A droplet of liquid metal, for the action's icon: its outline wobbles like
+   a drop settling, a chrome rim turns around it, and it splashes once. */
+.fw-droplet {
+  position: relative;
+  background:
+    radial-gradient(circle at 34% 28%, var(--fw-glint), transparent 58%), var(--fw-metal-face);
+  box-shadow: 0 8px 20px -8px var(--fw-chrome-line);
+  animation: fw-blob 3.4s ease-in-out infinite;
+}
+.fw-droplet::before {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: 9999px;
+  border: 1px solid var(--fw-chrome-line);
+  pointer-events: none;
+  animation: fw-splash 900ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+@keyframes fw-blob {
+  0%,
+  100% {
+    border-radius: 50%;
+  }
+  25% {
+    border-radius: 56% 44% 52% 48% / 46% 55% 45% 54%;
+  }
+  50% {
+    border-radius: 45% 55% 47% 53% / 55% 45% 56% 44%;
+  }
+  75% {
+    border-radius: 53% 47% 44% 56% / 48% 52% 50% 50%;
+  }
+}
+@keyframes fw-splash {
+  from {
+    opacity: 0.7;
+    scale: 1;
+  }
+  to {
+    opacity: 0;
+    scale: 2.1;
+  }
 }
 
 /* A specular sweep across the glass each time a fresh report lands. */
@@ -257,24 +447,6 @@
   opacity: 0.6;
   mix-blend-mode: soft-light;
   animation: fw-sweep 1.4s var(--ease-out-expo) both;
-}
-
-/* The Re-check pill breathes, after HackOdds' call to action; hovering stills it. */
-@keyframes fw-cta {
-  0%,
-  100% {
-    scale: 1;
-  }
-  50% {
-    scale: 1.03;
-  }
-}
-.fw-cta {
-  animation: fw-cta 2.6s ease-in-out infinite;
-}
-.fw-cta:hover,
-.fw-cta:disabled {
-  animation-play-state: paused;
 }
 
 /* The live dot breathes; a dot that stops breathing has stopped receiving. */
@@ -327,7 +499,11 @@
   .fw-shimmer,
   .fw-horizon,
   .fw-sweep,
-  .fw-cta {
+  .fw-chrome-rim,
+  .fw-drop,
+  .fw-drop-ripple,
+  .fw-droplet,
+  .fw-droplet::before {
     animation: none;
   }
   .fw-sweep {

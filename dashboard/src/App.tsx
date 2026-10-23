@@ -5,6 +5,7 @@ import { Hero } from './components/Hero'
 import { NodeDetail } from './components/NodeDetail'
 import { NodeList } from './components/NodeList'
 import { Scene } from './components/Scene'
+import { SurfaceMotion } from './components/SurfaceMotion'
 import { Sweep } from './components/Sweep'
 import { ThemeToggle } from './components/ThemeToggle'
 import { Toasts } from './components/Toasts'
@@ -61,7 +62,10 @@ export default function App() {
           and the slab (the selected node). On large screens each scrolls on
           its own and the page stays put. */}
       <div className="mx-auto grid max-w-[1720px] gap-5 p-3 sm:p-5 lg:h-[100dvh] lg:grid-cols-[minmax(400px,500px)_1fr] lg:p-6 min-[1600px]:grid-cols-[560px_1fr]">
-        <aside className="fw-shell flex min-h-0 flex-col overflow-hidden rounded-[28px]">
+        <aside
+          data-surface
+          className="fw-shell flex min-h-0 flex-col overflow-hidden rounded-[28px]"
+        >
           <Sweep key={`shell-${fresh}`} />
           <div className="flex flex-wrap items-center gap-2.5 p-5 pb-0 sm:p-6 sm:pb-0">
             <Brand />
@@ -120,6 +124,7 @@ export default function App() {
         </section>
       </div>
       <Toasts />
+      <SurfaceMotion />
     </MotionConfig>
   )
 }
