@@ -107,9 +107,9 @@
   --fw-bg: #f2eee6;
   --fw-bg-2: #e9e3d8;
   /* Glass, after HackOdds: a warm translucent fill, a strong blur and a hairline. */
-  --fw-shell: rgb(247 240 226 / 0.62);
+  --fw-shell: rgb(247 240 226 / 0.56);
   --fw-surface: rgb(247 240 226 / 0.5);
-  --fw-surface-solid: rgb(250 246 238 / 0.68);
+  --fw-surface-solid: rgb(250 246 238 / 0.56);
   --fw-surface-hover: rgb(250 246 238 / 0.7);
   --fw-line: rgb(169 155 128 / 0.4);
   --fw-line-strong: rgb(150 134 106 / 0.55);
@@ -120,8 +120,9 @@
      foreground so text over the glass keeps its contrast. */
   --fw-sky-1: #e9ece6;
   --fw-veil-top: rgb(244 240 232 / 0.06);
-  --fw-veil-bottom: rgb(242 236 226 / 0.74);
+  --fw-veil-bottom: rgb(242 236 226 / 0.6);
   --fw-ember: #e0613f;
+  --fw-on-red: #ffffff;
   --fw-gloss: rgb(255 255 255 / 0.7);
   /* Liquid metal, after Mirror: hard-stopped chrome bands for the rims, and
      the face of the one metal button. Warm bronze on stone. */
@@ -137,7 +138,7 @@
   --fw-red-soft: rgb(179 48 29 / 0.09);
   --fw-amber: #8a4f00;
   --fw-amber-soft: rgb(194 122 14 / 0.12);
-  --fw-green: #1d6b43;
+  --fw-green: #1a633e;
   --fw-green-soft: rgb(29 107 67 / 0.09);
   --fw-neutral: #5c5d55;
   --fw-neutral-soft: rgb(92 93 85 / 0.09);
@@ -157,16 +158,18 @@
   --fw-bg-2: #16140f;
   /* Night glass is tinted dark, so the photo's bright sky never shows
      through as a mid-tone behind text. */
-  --fw-shell: rgb(7 11 18 / 0.52);
+  --fw-shell: rgb(7 11 18 / 0.47);
   --fw-surface: rgb(255 255 255 / 0.05);
-  --fw-surface-solid: rgb(9 13 21 / 0.58);
+  --fw-surface-solid: rgb(9 13 21 / 0.56);
   --fw-surface-hover: rgb(255 255 255 / 0.07);
   --fw-line: rgb(255 255 255 / 0.13);
   --fw-line-strong: rgb(255 255 255 / 0.24);
   --fw-sky-1: #0d1a2a;
   --fw-veil-top: rgb(6 10 18 / 0.3);
-  --fw-veil-bottom: rgb(6 9 14 / 0.58);
+  --fw-veil-bottom: rgb(6 9 14 / 0.45);
   --fw-ember: #ff8a5c;
+  /* the night red is light, so text on it is dark */
+  --fw-on-red: #1d0d09;
   --fw-gloss: rgb(255 255 255 / 0.22);
   --fw-chrome:
     #3b3b40, #f2f2f6 11%, #6a6a72 23%, #d6d6dc 37%, #2c2c33 51%, #fafaff 64%, #77777f 78%,
@@ -383,6 +386,7 @@
 }
 :root {
   --fw-theme-ease: 900ms cubic-bezier(0.65, 0, 0.35, 1);
+  --fw-blur: 6px;
   transition:
     --fw-bg var(--fw-theme-ease),
     --fw-bg-2 var(--fw-theme-ease),
@@ -607,8 +611,9 @@
 .fw-shell {
   position: relative;
   border: 1px solid var(--fw-line);
-  -webkit-backdrop-filter: blur(18px) saturate(1.2);
-  backdrop-filter: blur(18px) saturate(1.2);
+  /* Enough blur to frost the glass, little enough that the mountains read. */
+  -webkit-backdrop-filter: blur(var(--fw-blur)) saturate(1.2);
+  backdrop-filter: blur(var(--fw-blur)) saturate(1.2);
 }
 .fw-glass {
   background: var(--fw-surface);

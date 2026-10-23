@@ -33,7 +33,7 @@ function Meta({ f }: { f: Finding }) {
       <span aria-hidden>·</span>
       <span>{severityName[f.severity]}</span>
       {f.exploited_in_wild && (
-        <span className="ml-1 rounded-full bg-red px-2 py-[1px] font-sans text-[0.72rem] font-semibold tracking-normal text-white normal-case">
+        <span className="ml-1 rounded-full bg-red px-2 py-[1px] font-sans text-[0.72rem] font-semibold tracking-normal text-[var(--fw-on-red)] normal-case">
           Exploited in the wild
         </span>
       )}

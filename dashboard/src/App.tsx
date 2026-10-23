@@ -84,7 +84,7 @@ export default function App() {
               <NodeList nodes={nodes} selected={selected.name} onSelect={select} />
             )}
           </div>
-          <p className="border-t border-line px-6 py-3.5 text-[0.78rem] leading-snug text-ink-3">
+          <p className="border-t border-line px-6 py-3.5 text-[0.78rem] leading-snug text-ink-2">
             Read-only: Firewatch can’t change or spend from your nodes. Every fix is quoted from the
             project’s own release notes.
           </p>
