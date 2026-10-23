@@ -106,7 +106,7 @@ export default function App() {
           its own and the page stays put; on a phone the slab is a sheet. */}
       <div
         inert={sheetOpen}
-        className={`mx-auto grid max-w-[1720px] gap-5 p-3 sm:p-5 ${rail ? 'sm:pr-[92px]' : ''} lg:h-[100dvh] lg:grid-cols-[minmax(400px,500px)_1fr] lg:p-6 min-[1600px]:grid-cols-[560px_1fr]`}
+        className={`mx-auto grid max-w-[1720px] gap-5 p-3 sm:p-5 ${rail ? 'min-h-[100dvh] content-center sm:pr-[92px]' : ''} lg:h-[100dvh] lg:grid-cols-[minmax(400px,500px)_1fr] lg:p-6 min-[1600px]:grid-cols-[560px_1fr]`}
       >
         <aside className="fw-shell flex min-h-0 flex-col overflow-hidden rounded-[28px]">
           <div className="flex flex-wrap items-center gap-2.5 p-5 pb-0 sm:p-6 sm:pb-0">
