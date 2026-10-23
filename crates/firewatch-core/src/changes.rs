@@ -106,6 +106,7 @@ mod tests {
                 network: None,
                 status: Status::Affected,
                 error: None,
+                build_check: Default::default(),
                 findings,
             }],
         }

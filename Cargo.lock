@@ -668,6 +668,7 @@ dependencies = [
  "firewatch-alerts",
  "firewatch-connectors",
  "firewatch-core",
+ "futures",
  "serde",
  "serde_json",
  "tokio",

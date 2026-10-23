@@ -6,7 +6,8 @@ It is read-only by design: it holds no credential that can change or spend from 
 ## Quick start
 
 ```sh
-cargo test --workspace                          # engine, connectors, alerts, one test per advisory
+scripts/demo-up.sh                              # build everything, check the nodes, start the demo
+cargo test --workspace                          # 63 tests: engine, connectors, alerts, one per advisory
 cargo run -- validate                           # load and list every advisory
 cargo run -- check                              # check the live nodes in firewatch.toml once
 cargo run -- check --nodes examples/nodes.json  # check a JSON snapshot instead
@@ -16,6 +17,8 @@ cargo run -- test-alert                         # send a test DM to your phone
 ```
 
 Add `--include-unverified` to `check` or `watch` to also run advisories not yet verified against an official source.
+
+`watch` listens on localhost only. It refuses any other `listen` address unless you pass `--allow-remote`, because the report says which nodes are vulnerable. `--dashboard <dir>` serves a built dashboard at `/`.
 
 `check` exits with `0` when nothing applies, `2` when something can't be told, `3` when a node is affected, and `1` on error.
 
@@ -31,7 +34,33 @@ lightning-cli createrune restrictions='[["method=getinfo","method=listconfigs"]]
 
 **LND** is read over REST with `readonly.macaroon`. LND's self-signed `tls.cert` is pinned: Firewatch accepts exactly that certificate and nothing else.
 
+```toml
+[[nodes]]
+kind = "lnd"
+name = "lnd-old"
+url = "https://127.0.0.1:8085"         # Polar's REST port for the node
+macaroon_file = "/home/you/.polar/networks/2/volumes/lnd/lnd-old/data/chain/bitcoin/regtest/readonly.macaroon"
+tls_cert = "/home/you/.polar/networks/2/volumes/lnd/lnd-old/tls.cert"
+```
+
+Use absolute paths; `~` isn't expanded.
+
 Firewatch probes every credential before trusting it and refuses one that can do more than read: a rune that can call `listfunds`, or a macaroon that can sign messages.
+
+When a node can't be read, the report says why in plain words: the node isn't running, the request timed out, the TLS certificate isn't the pinned one, or the node rejected the credential. That node is Can't tell, never green, and the other nodes are still checked.
+
+## Build check
+
+A version number is only text a binary prints. LND also reports the commit it was built from, so Firewatch compares it with the commit the official release tag points to, from [releases/lnd.toml](releases/lnd.toml):
+
+| `build_check` | Meaning |
+|---|---|
+| `match` | The binary is the official release its version claims. Verdicts are normal. |
+| `mismatch` | Same version number, different commit. The version can't be trusted, so **every** finding on the node becomes Can't tell. |
+| `unknown_release` | The version isn't in the table, for example a release newer than it. Verdicts are normal. |
+| `not_checked` | No commit reported (Core Lightning) or no table. |
+
+Refresh the table with `scripts/lnd-releases.sh`. `--releases <file>` points at another one; without the file, the build check is off.
 
 **Alerts** are NIP-17 encrypted Nostr DMs to the operator's key. Set `recipient` to your npub under `[alerts.nostr]`. Firewatch creates its own key in `secret_key_file` on first run and delivers to your NIP-17 inbox relays (kind 10050) as well as the relays listed. Any NIP-17 client can read them, for example 0xchat, Amethyst or Primal. To read them in a terminal:
 
@@ -48,7 +77,7 @@ cargo run -p firewatch-alerts --example inbox -- <nsec>         # print DMs sent
 
 ## Demo
 
-The demo runs on a [Polar](https://lightningpolar.com) regtest network named `Firewatch-demo`. It has an old Core Lightning (`old-cln`, 26.06.7), a current one (`current-cln`, 26.06.9) and an LND node (`alice`).
+The demo runs on a [Polar](https://lightningpolar.com) regtest network named `Firewatch-demo`: an old Core Lightning (`old-cln`, 26.06.7), a current one (`current-cln`, 26.06.9), and two LND nodes (`alice` on 0.20.0-beta, `lnd-old` on 0.18.5-beta). The step-by-step script is in [docs/DEMO.md](docs/DEMO.md).
 
 Polar's built-in Core Lightning list stops at 25.12. Build Polar-compatible images of the demo versions, then add them in Polar under **Manage Images → Custom Nodes**:
 
@@ -68,12 +97,20 @@ demo/reset.sh       # back to 26.06.7 with the snapshot
 
 Core Lightning migrates its database on upgrade and cannot downgrade, which is why `reset.sh` restores a snapshot instead of swapping the image back.
 
+For the build check, `demo/polar/Dockerfile.lnd-unofficial` builds LND 0.20.0-beta from the official tag plus one empty commit: it reports the official version number but not the official commit. Add it in Polar as a custom LND node named `lnd-unofficial`.
+
+```sh
+scripts/verify-demo.py                   # every node shows what demo/expected.toml says; every source opens
+scripts/verify-demo.py --after-upgrade   # the same after demo/upgrade.sh
+scripts/audit-quotes.py                  # every verified quote appears word for word on its source page
+```
+
 ## Verdicts
 
 | Verdict | When |
 |---|---|
 | Affected | The version is in the affected range and every condition is confirmed true |
-| Can't tell | The version is in range but a condition can't be read over RPC, the version can't be parsed, or the node can't be read |
+| Can't tell | The version is in range but a condition can't be read over RPC, the version can't be parsed, the node can't be read, or its build isn't the official release |
 | Not affected | The version is outside the range, or a condition is confirmed false |
 
 Firewatch never shows green when it is unsure.
@@ -82,12 +119,16 @@ Firewatch never shows green when it is unsure.
 
 | Path | What it is |
 |---|---|
-| `crates/firewatch-core` | Shared types (`Advisory`, `NodeInfo`, `Verdict`, `Report`), version parsing, the matching engine and change detection. Pure: no network, no credentials. |
+| `crates/firewatch-core` | Shared types (`Advisory`, `NodeInfo`, `Verdict`, `Report`), version parsing, the matching engine, the build check and change detection. Pure: no network, no credentials. |
 | `crates/firewatch-connectors` | Read-only Core Lightning and LND connectors. |
 | `crates/firewatch-alerts` | NIP-17 Nostr DM alerts. |
 | `crates/firewatch-cli` | The `firewatch` binary: `check`, `watch` (loop and API), `test-alert`, `validate`. |
+| `dashboard/` | The web dashboard (Vite, React, Tailwind). |
 | `advisories/` | One TOML file per advisory. Only `verified = true` advisories run by default. |
-| `demo/` | Polar images, the upgrade and reset scripts, and the [demo runbook](docs/DEMO.md). |
+| `docs/sources/` | The evidence for each Lightning Labs advisory: what was copied from where, and the audit. |
+| `releases/` | Official release commits for the build check. |
+| `scripts/` | `demo-up.sh`, `verify-demo.py`, `audit-quotes.py`, `lnd-releases.sh`. |
+| `demo/` | Polar images, the upgrade and reset scripts, and the expected verdicts. |
 | `examples/nodes.json` | Node snapshots for working without a live network. |
 
 ## Advisory format
@@ -138,5 +179,6 @@ A file that fails to parse or validate stops the load, so a broken advisory is n
 
 - Firewatch covers only the advisories in its database; it does not discover new vulnerabilities.
 - Conditions that depend on `lnd.conf` options not exposed over RPC return Can't tell, not a verdict.
+- The build check covers LND only: Core Lightning doesn't report the commit it was built from.
 - It serves self-hosted node operators, not users of custodial or LSP-managed phone wallets.
 - The advisory database is maintained by people; a missed advisory is a missed alert.

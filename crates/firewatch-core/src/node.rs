@@ -23,4 +23,7 @@ pub struct NodeInfo {
     /// Feature bits the node advertises. `None` means they could not be read.
     #[serde(default)]
     pub features: Option<BTreeSet<u32>>,
+    /// The commit the node's binary was built from, if it reports one (LND).
+    #[serde(default)]
+    pub commit_hash: Option<String>,
 }

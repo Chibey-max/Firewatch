@@ -29,6 +29,7 @@ fn on_network(implementation: Implementation, version: &str, network: &str) -> N
         network: Some(network.into()),
         config: None,
         features: None,
+        commit_hash: None,
     }
 }
 
