@@ -1,0 +1,24 @@
+# Lightning Labs advisory, published 2026-09-21, severity T1 (High).
+# Affected lnd: "0.18.4-beta – 0.18.5-beta"; patched: "0.19.0-beta".
+# Evidence: docs/sources/FW-2026-013.md
+# The page has no upgrade sentence, so steps quotes its Patches section.
+id = "FW-2026-013"
+implementation = "lnd"
+title = "Invoice marked settled after HTLC cancelled by interceptor"
+affected = ">= 0.18.4, < 0.19.0"
+fixed = "0.19.0"
+severity = "high"
+exploited_in_wild = false
+source = "https://security.lightning.engineering/2026/09/21/lnd-tapd-cancelled-htlc-marked-settled.html"
+reviewed_by = "Dave"
+verified = true
+
+# Only clients of the HtlcModifier RPC are in scope; RPC can't tell us which
+# apps are connected to the node.
+[[conditions]]
+kind = "manual"
+check_hint = "Only applies if an app on this node uses LND's HtlcModifier RPC to intercept invoice HTLCs, such as Lightning Terminal running tapd. Check whether you run Lightning Terminal or another app that intercepts HTLCs."
+
+[remediation]
+action = "upgrade"
+steps = "lnd fix released in v0.19.0-beta"

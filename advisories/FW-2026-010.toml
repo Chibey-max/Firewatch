@@ -1,0 +1,20 @@
+# Lightning Labs advisory, published 2026-08-11, severity T1 (High).
+# Affected: "< 0.18.3-beta"; patched: "0.18.3-beta". Evidence: docs/sources/FW-2026-010.md
+id = "FW-2026-010"
+implementation = "lnd"
+title = "update_fee breach fee-burn exploit"
+affected = "< 0.18.3"
+fixed = "0.18.3"
+severity = "high"
+exploited_in_wild = false
+source = "https://security.lightning.engineering/2026/08/11/lnd-update-fee-breach-exploit.html"
+reviewed_by = "Dave"
+verified = true
+
+# "Channel partner only": any node with channels on an affected version.
+[[conditions]]
+kind = "version_range"
+
+[remediation]
+action = "upgrade"
+steps = "Users should update to v0.18.3-beta or later to be protected."

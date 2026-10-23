@@ -60,6 +60,10 @@ enum Command {
         /// Also run advisories not yet verified against an official source.
         #[arg(long)]
         include_unverified: bool,
+        /// Allow `listen` on a non-loopback address. The report tells anyone
+        /// who can reach it which nodes are vulnerable.
+        #[arg(long)]
+        allow_remote: bool,
     },
     /// Send a test alert to check that it reaches your phone.
     TestAlert {
@@ -136,10 +140,12 @@ async fn run() -> Result<ExitCode> {
         Command::Watch {
             config,
             include_unverified,
+            allow_remote,
         } => {
             watch::run(
                 Config::load(&config)?,
                 select(advisories, include_unverified),
+                allow_remote,
             )
             .await?;
             Ok(ExitCode::SUCCESS)
