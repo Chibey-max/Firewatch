@@ -11,12 +11,12 @@ import {
   shortHash,
   splitVersion,
 } from '../lib/format'
-import { EASE, rise } from '../lib/motion'
+import { rise, SOFT } from '../lib/motion'
 import type { Finding, NodeReport } from '../types/report'
 import { FindingItem } from './FindingItem'
 import { StatusPill } from './StatusPill'
 
-const list = { hidden: {}, show: { transition: { staggerChildren: 0.06, delayChildren: 0.12 } } }
+const list = { hidden: {}, show: { transition: { staggerChildren: 0.04, delayChildren: 0.1 } } }
 
 function Section({
   title,
@@ -247,7 +247,11 @@ function Detail({ node }: { node: NodeReport }) {
   )
 }
 
-/** The selected node; switching nodes crossfades the panel. */
+/**
+ * The selected node. Switching nodes is a true crossfade: the old content
+ * fades out where it is while the new fades in over it (popLayout lifts the
+ * leaving content out of the flow), so there is never an empty moment.
+ */
 export function NodeDetail({ node }: { node: NodeReport }) {
   return (
     <article
@@ -255,13 +259,13 @@ export function NodeDetail({ node }: { node: NodeReport }) {
       data-surface
       className="fw-glass-strong relative min-h-full overflow-hidden rounded-[28px] p-6 sm:p-9"
     >
-      <AnimatePresence mode="wait" initial={false}>
+      <AnimatePresence mode="popLayout" initial={false}>
         <motion.div
           key={node.name}
-          initial={{ opacity: 0, y: 10, filter: 'blur(6px)' }}
-          animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-          exit={{ opacity: 0, y: -6, filter: 'blur(4px)' }}
-          transition={{ duration: 0.4, ease: EASE }}
+          initial={{ opacity: 0, y: 4 }}
+          animate={{ opacity: 1, y: 0, transition: { duration: 0.55, ease: SOFT } }}
+          exit={{ opacity: 0, transition: { duration: 0.35, ease: SOFT } }}
+          style={{ willChange: 'opacity, transform' }}
         >
           <Detail node={node} />
         </motion.div>

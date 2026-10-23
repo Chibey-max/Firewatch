@@ -1,6 +1,6 @@
 import { AnimatePresence, motion } from 'motion/react'
 import { implementationName, nodeSummary, readingOf, splitVersion } from '../lib/format'
-import { EASE, spring } from '../lib/motion'
+import { EASE, SOFT, spring } from '../lib/motion'
 import { tone } from '../lib/tone'
 import type { NodeReport } from '../types/report'
 import { StatusPill } from './StatusPill'
@@ -50,7 +50,7 @@ function NodeRow({
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              transition={{ duration: 0.4, ease: EASE }}
+              transition={{ duration: 0.5, ease: SOFT }}
               className="absolute -inset-px rounded-[19px] bg-surface-solid shadow-raised"
             >
               <span className="fw-chrome-rim" />
