@@ -16,10 +16,20 @@ pub use tls::install_crypto_provider;
 pub use cln::{ClnClient, ClnConfig};
 pub use lnd::{LndClient, LndConfig};
 
+/// Every message here can end up on the dashboard, so each one says what
+/// happened in plain words and, where possible, what to check.
 #[derive(Debug, Error)]
 pub enum ConnectorError {
     #[error("config: {0}")]
     Config(String),
+    #[error("Can't connect to {url}; is the node running?")]
+    Unreachable { url: String },
+    #[error("Timed out after {} s waiting for {url}", TIMEOUT.as_secs())]
+    Timeout { url: String },
+    #[error("TLS certificate not trusted; check tls_cert for {name}")]
+    Tls { name: String },
+    #[error("Credential rejected by the node ({0})")]
+    CredentialRejected(String),
     #[error("request failed: {}", error_chain(.0))]
     Http(#[from] reqwest::Error),
     #[error("{method} refused (code {code}): {message}")]
@@ -28,7 +38,7 @@ pub enum ConnectorError {
         code: i64,
         message: String,
     },
-    #[error("credential is not read-only: {0}")]
+    #[error("Credential is not read-only: {0}")]
     NotReadOnly(String),
     #[error("unexpected response: {0}")]
     Unexpected(String),
@@ -57,9 +67,26 @@ impl NodeConfig {
     }
 }
 
+/// How long one request to a node may take.
+pub(crate) const TIMEOUT: Duration = Duration::from_secs(10);
+
+/// Sorts a transport error into the plain cases an operator can act on.
+pub(crate) fn transport_error(e: reqwest::Error, url: &str, name: &str) -> ConnectorError {
+    let chain = error_chain(&e).to_ascii_lowercase();
+    if e.is_timeout() {
+        ConnectorError::Timeout { url: url.into() }
+    } else if chain.contains("certificate") || chain.contains("tls") {
+        ConnectorError::Tls { name: name.into() }
+    } else if e.is_connect() {
+        ConnectorError::Unreachable { url: url.into() }
+    } else {
+        ConnectorError::Http(e)
+    }
+}
+
 pub fn http_client() -> reqwest::Client {
     reqwest::Client::builder()
-        .timeout(Duration::from_secs(10))
+        .timeout(TIMEOUT)
         .build()
         .expect("static reqwest config is valid")
 }

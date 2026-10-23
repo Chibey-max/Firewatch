@@ -5,7 +5,6 @@
 //! reported as unknown and config conditions come back "Can't tell".
 
 use std::path::PathBuf;
-use std::time::Duration;
 
 use firewatch_core::{Implementation, NodeInfo};
 use serde::Deserialize;
@@ -47,7 +46,7 @@ impl LndClient {
             .map(|b| format!("{b:02x}"))
             .collect();
 
-        let mut http = reqwest::Client::builder().timeout(Duration::from_secs(10));
+        let mut http = reqwest::Client::builder().timeout(crate::TIMEOUT);
         if let Some(cert) = &config.tls_cert {
             http = http.tls_backend_preconfigured(tls::pinned_config(&read(cert)?)?);
         }
@@ -69,9 +68,13 @@ impl LndClient {
         let response = request
             .header("Grpc-Metadata-macaroon", &self.macaroon)
             .send()
-            .await?;
+            .await
+            .map_err(|e| crate::transport_error(e, &self.url, &self.name))?;
         let ok = response.status().is_success();
-        let body: Value = response.json().await?;
+        let body: Value = response
+            .json()
+            .await
+            .map_err(|e| crate::transport_error(e, &self.url, &self.name))?;
         if ok {
             return Ok(body);
         }
@@ -102,9 +105,21 @@ impl LndClient {
 
     pub async fn node_info(&self) -> Result<NodeInfo, ConnectorError> {
         let path = "/v1/getinfo";
+        // A macaroon from another node fails verification; one without
+        // info:read is denied. Either way the credential is the problem.
         let info = self
             .send(self.http.get(format!("{}{path}", self.url)), path)
-            .await?;
+            .await
+            .map_err(|e| match e {
+                ConnectorError::Rpc { message, .. }
+                    if message.contains("verification failed")
+                        || message.contains("macaroon")
+                        || message.contains("permission denied") =>
+                {
+                    ConnectorError::CredentialRejected(message)
+                }
+                other => other,
+            })?;
         self.ensure_read_only().await?;
         parse_getinfo(&self.name, &info)
     }

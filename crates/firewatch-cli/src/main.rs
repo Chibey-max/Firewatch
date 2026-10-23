@@ -213,13 +213,21 @@ pub(crate) async fn check_live(
     releases: Option<&ReleaseTable>,
 ) -> Report {
     let http = firewatch_connectors::http_client();
-    let mut nodes = Vec::with_capacity(configs.len());
-    for node in configs {
-        nodes.push(match firewatch_connectors::fetch(node, &http).await {
+    // All nodes at once, so one node timing out doesn't delay the rest.
+    let reads = futures::future::join_all(
+        configs
+            .iter()
+            .map(|node| firewatch_connectors::fetch(node, &http)),
+    )
+    .await;
+    let nodes = configs
+        .iter()
+        .zip(reads)
+        .map(|(node, read)| match read {
             Ok(info) => NodeReport::from_node(&info, advisories, releases),
             Err(e) => NodeReport::unreachable(node.name(), node.implementation(), e.to_string()),
-        });
-    }
+        })
+        .collect();
     Report {
         checked_at: now(),
         nodes,

@@ -17,6 +17,8 @@ use serde_json::Value;
 
 use crate::ConnectorError;
 
+/// CLN's error code for a rune it doesn't recognise.
+const NOT_AUTHORIZED: i64 = 1501;
 /// CLN's error code for a call the rune does not permit.
 const NOT_PERMITTED: i64 = 1502;
 
@@ -73,9 +75,13 @@ impl ClnClient {
             .header("Rune", &self.rune)
             .json(&serde_json::json!({}))
             .send()
-            .await?;
+            .await
+            .map_err(|e| crate::transport_error(e, &self.url, &self.name))?;
         let ok = response.status().is_success();
-        let body: Value = response.json().await?;
+        let body: Value = response
+            .json()
+            .await
+            .map_err(|e| crate::transport_error(e, &self.url, &self.name))?;
         if ok {
             return Ok(body);
         }
@@ -99,7 +105,16 @@ impl ClnClient {
     }
 
     pub async fn node_info(&self) -> Result<NodeInfo, ConnectorError> {
-        let info = self.call("getinfo").await?;
+        // A rune this node didn't issue fails with 1501; one that doesn't allow
+        // getinfo fails with 1502. Either way the credential is the problem.
+        let info = self.call("getinfo").await.map_err(|e| match e {
+            ConnectorError::Rpc { code, message, .. }
+                if code == NOT_AUTHORIZED || code == NOT_PERMITTED =>
+            {
+                ConnectorError::CredentialRejected(message)
+            }
+            other => other,
+        })?;
         self.ensure_read_only().await?;
 
         let version = info["version"]
