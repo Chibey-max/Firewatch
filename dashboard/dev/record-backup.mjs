@@ -40,6 +40,20 @@ const browser = await puppeteer.launch({
 const page = await browser.newPage()
 await page.goto('http://127.0.0.1:5173/#node=old-cln', { waitUntil: 'networkidle0' })
 
+// A dev server can serve a stale, empty stylesheet after many quick edits.
+// Never record an unstyled page: the shell pane must have its glass blur.
+const styled = await page.evaluate(() => {
+  const shell = document.querySelector('.fw-shell')
+  return !!shell && getComputedStyle(shell).backdropFilter.includes('blur')
+})
+if (!styled) {
+  console.error(
+    'The page has no styles. Restart `npm run dev` (rm -rf node_modules/.vite) and retry.',
+  )
+  await browser.close()
+  process.exit(1)
+}
+
 // The caption bar is the recorder's, not part of the app.
 await page.evaluate(() => {
   const bar = document.createElement('div')
