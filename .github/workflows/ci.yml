@@ -25,7 +25,7 @@ jobs:
       - run: cargo test --workspace
 
   dashboard:
-    name: Dashboard (lint, format, build)
+    name: Dashboard (lint, format, tests, build)
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -40,4 +40,5 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: npm run format:check
+      - run: npm test
       - run: npm run build
