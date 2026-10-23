@@ -1,12 +1,9 @@
-import { LayoutGroup, motion } from 'motion/react'
+import { AnimatePresence, motion } from 'motion/react'
 import { implementationName, nodeSummary, readingOf, splitVersion } from '../lib/format'
 import { EASE, spring } from '../lib/motion'
 import { tone } from '../lib/tone'
 import type { NodeReport } from '../types/report'
 import { StatusPill } from './StatusPill'
-
-// The selection travels like Mirror's pager drop: a soft overshoot.
-const DROP = { duration: 0.82, ease: [0.34, 1.28, 0.64, 1] } as const
 
 function NodeRow({
   node,
@@ -43,21 +40,23 @@ function NodeRow({
         transition={{ duration: 0.25, ease: EASE }}
         className="relative w-full rounded-[18px] text-left"
       >
-        {/* The selection is one drop of liquid metal shared by every row: it
-            glides to the chosen row, stretches on the way (fw-drop), turns a
-            chrome rim, and ripples when it lands. */}
-        {selected && (
-          <motion.span
-            layoutId="row-highlight"
-            transition={DROP}
-            className="absolute -inset-px rounded-[19px]"
-          >
-            <span className="fw-drop absolute inset-0 rounded-[inherit] bg-surface-solid shadow-raised">
+        {/* Each row has its own highlight: choosing another node fades this
+            one out and the new one in, so it never travels across other rows.
+            A chrome rim turns round the selected row. */}
+        <AnimatePresence initial={false}>
+          {selected && (
+            <motion.span
+              key="highlight"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.4, ease: EASE }}
+              className="absolute -inset-px rounded-[19px] bg-surface-solid shadow-raised"
+            >
               <span className="fw-chrome-rim" />
-              <span className="fw-drop-ripple" />
-            </span>
-          </motion.span>
-        )}
+            </motion.span>
+          )}
+        </AnimatePresence>
         <span
           data-surface
           className={`relative grid grid-cols-[auto_1fr_auto] items-center gap-x-3.5 rounded-[18px] px-4 py-3.5 transition-colors ${
@@ -99,19 +98,17 @@ export function NodeList({
       <p className="mb-3 px-1 font-mono text-[0.72rem] tracking-[0.14em] text-ink-3 uppercase">
         Nodes · worst first
       </p>
-      <LayoutGroup>
-        <ul className="space-y-2.5">
-          {nodes.map((n, i) => (
-            <NodeRow
-              key={n.name}
-              node={n}
-              index={i}
-              selected={n.name === selected}
-              onSelect={() => onSelect(n.name)}
-            />
-          ))}
-        </ul>
-      </LayoutGroup>
+      <ul className="space-y-2.5">
+        {nodes.map((n, i) => (
+          <NodeRow
+            key={n.name}
+            node={n}
+            index={i}
+            selected={n.name === selected}
+            onSelect={() => onSelect(n.name)}
+          />
+        ))}
+      </ul>
     </nav>
   )
 }
