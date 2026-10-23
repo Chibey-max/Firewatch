@@ -13,6 +13,7 @@ import {
 } from '../lib/format'
 import { rise, SOFT } from '../lib/motion'
 import type { Finding, NodeReport } from '../types/report'
+import { Disclosure } from './Disclosure'
 import { FindingItem } from './FindingItem'
 import { StatusPill } from './StatusPill'
 
@@ -261,19 +262,13 @@ function Detail({ node }: { node: NodeReport }) {
       </Section>
 
       {clear.length > 0 && (
-        <motion.details variants={rise} className="group mt-8">
-          <summary className="flex cursor-pointer list-none items-center gap-2 text-[0.86rem] text-ink-3 select-none hover:text-ink-2">
-            <span
-              aria-hidden
-              className="inline-block transition-transform duration-300 group-open:rotate-90"
-            >
-              ▸
-            </span>
-            {plural(clear.length, 'advisory doesn’t apply', 'advisories don’t apply')} to this
-            version
-          </summary>
-          <ul className="mt-3 space-y-3">{items(clear)}</ul>
-        </motion.details>
+        <motion.div variants={rise} className="mt-8">
+          <Disclosure
+            label={`${plural(clear.length, 'advisory doesn’t apply', 'advisories don’t apply')} to this version`}
+          >
+            {items(clear)}
+          </Disclosure>
+        </motion.div>
       )}
     </motion.div>
   )
