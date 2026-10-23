@@ -148,6 +148,24 @@ export function nodeSummary(node: NodeReport): string {
   return `None of ${plural(node.findings.length, 'advisory', 'advisories')} apply`
 }
 
+/**
+ * Why a node is amber, for the "Why amber?" note: the rule first, then what
+ * this node's amber rests on.
+ */
+export function amberReason(node: NodeReport): string {
+  if (node.error) {
+    return "It couldn't read this node, so it can't tell which advisories apply. It stays amber until the node answers."
+  }
+  const build = node.build_check?.status
+  if (build === 'mismatch' || build === 'unreleased') {
+    return "This build isn't the official release, so its version number can't say which fixes it has."
+  }
+  if (build === 'modified') {
+    return 'This build was made with local changes, so Firewatch can’t confirm a fix is intact.'
+  }
+  return 'Something an advisory depends on can’t be read from the node, so check it by hand.'
+}
+
 /** Compare dotted version numbers ("26.06.9", "0.20.1-beta"); suffixes are ignored. */
 export function compareVersions(a: string, b: string): number {
   const parts = (v: string) => (v.match(/\d+(\.\d+)*/)?.[0] ?? '').split('.').map(Number)
