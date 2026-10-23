@@ -1,6 +1,6 @@
 # Firewatch dashboard
 
-React + TypeScript + Vite + Tailwind. It reads the report from `firewatch watch` (see [`docs/API.md`](../docs/API.md)) and shows every node in a list, worst first, with the selected node's findings beside it, on panes of glass over a mountain photo. Below 1024px wide the controls move to a bar pinned at the top on a phone, or a slim rail down the left on a tablet, and a node's findings open over the list: as a sheet from the bottom on a phone (a drag down closes it), as a dialog in the middle of the page from 640px. Back, Escape or the backdrop closes either.
+React + TypeScript + Vite + Tailwind. It reads the report from `firewatch watch` (see [`docs/API.md`](../docs/API.md)) and shows every node in a list, worst first, with the selected node's findings beside it, on panes of glass over a mountain photo. Below 1024px wide the controls move to a bar pinned at the top on a phone, or a small pill at the top right on a tablet, and a node's findings open over the list: as a sheet from the bottom on a phone (a drag down closes it), as a dialog in the middle of the page from 640px. Back, Escape or the backdrop closes either.
 
 | URL / control                              | Does                                                                                                     |
 | ------------------------------------------ | -------------------------------------------------------------------------------------------------------- |

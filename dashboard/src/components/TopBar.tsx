@@ -172,7 +172,7 @@ export function RecheckButton({
         : 'Re-check now'
   const icon = size === 'icon'
   const shape = icon
-    ? 'size-12 justify-center'
+    ? 'size-10 justify-center'
     : `h-11 pr-1.5 ${size === 'compact' ? 'gap-2.5 pl-4' : 'gap-3 pl-5'}`
 
   return (
@@ -304,19 +304,17 @@ export function NavBar({
 }
 
 /**
- * The tablet's rail: a slim pane pinned down the left edge with the mark at
- * the top and the controls at the bottom, so the content keeps the full
- * height of the screen.
+ * The tablet's rail: a small pill pinned at the top right, just the mark
+ * and the two controls, so the content keeps the rest of the screen.
  */
 export function SideRail({ children, inert }: { children: ReactNode; inert?: boolean }) {
   return (
-    <header inert={inert} className="fixed top-5 bottom-5 left-5 z-30 w-[68px]">
-      <div className="fw-bar flex h-full flex-col items-center rounded-[34px] py-5">
-        <Logo />
-        <span className="mt-5 text-[0.8rem] font-semibold tracking-[0.2em] text-ink-2 uppercase [writing-mode:vertical-rl]">
-          Firewatch
+    <header inert={inert} className="fixed top-5 right-5 z-30">
+      <div className="fw-bar flex flex-col items-center gap-1.5 rounded-full p-1.5">
+        <span className="grid size-10 place-items-center" title="Firewatch">
+          <Logo />
         </span>
-        <div className="mt-auto flex flex-col items-center gap-3">{children}</div>
+        {children}
       </div>
     </header>
   )
