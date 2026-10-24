@@ -1,5 +1,5 @@
 {
-  "checked_at": 1792753038,
+  "checked_at": 1792842192,
   "nodes": [
     {
       "name": "old-cln",
@@ -11,6 +11,7 @@
       "build_check": {
         "status": "not_checked"
       },
+      "exposure": [],
       "findings": [
         {
           "advisory_id": "FW-2026-003",
@@ -54,6 +55,7 @@
       "build_check": {
         "status": "not_checked"
       },
+      "exposure": [],
       "findings": [
         {
           "advisory_id": "FW-2026-003",
@@ -97,6 +99,7 @@
       "build_check": {
         "status": "not_checked"
       },
+      "exposure": [],
       "findings": [
         {
           "advisory_id": "FW-2026-010",
