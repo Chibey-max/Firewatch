@@ -3,6 +3,26 @@ import type { Reading } from '../lib/format'
 
 // Where the needle points, in degrees from straight up: the middle of each
 // arc. With nothing to judge it stands upright.
+// The three arcs as tubes of clear tinted glass. Each gets a gradient
+// across its width (centred on the dial, so it follows the curve): a firm
+// inner edge, a clear body the lens shows through, light caught near the
+// outer edge, and a firm outer edge. Offsets are radii over 12.8; the
+// stroke runs from 9.2 to 12.8.
+const tube: [offset: number, opacity: number, light?: boolean][] = [
+  [0.71, 1],
+  [0.76, 0.82],
+  [0.84, 0.58],
+  [0.9, 0.62],
+  [0.935, 0.9, true],
+  [0.965, 0.72],
+  [1, 1],
+]
+const arcs = [
+  { key: 'green', colour: 'var(--fw-green)', d: 'M9.17 23.09A11 11 0 0 1 14.84 15.29' },
+  { key: 'amber', colour: 'var(--fw-amber)', d: 'M15.88 14.8A11 11 0 0 1 24.12 14.8' },
+  { key: 'red', colour: 'var(--fw-red)', d: 'M25.16 15.29A11 11 0 0 1 30.83 23.09' },
+]
+
 const needle: Record<Reading, number> = {
   not_affected: -54,
   cant_tell: 0,
@@ -42,6 +62,29 @@ export function Logo({ reading = 'affected', size = 28 }: { reading?: Reading; s
           <stop offset="0.5" style={{ stopColor: 'var(--fw-line)' }} />
           <stop offset="1" style={{ stopColor: 'var(--fw-line-strong)' }} />
         </linearGradient>
+        {arcs.map((a) => (
+          <radialGradient
+            key={a.key}
+            id={`${id}-${a.key}`}
+            gradientUnits="userSpaceOnUse"
+            cx="20"
+            cy="25"
+            r="12.8"
+          >
+            {tube.map(([offset, opacity, light]) => (
+              <stop
+                key={offset}
+                offset={offset}
+                style={{ stopColor: light ? '#fff' : a.colour, stopOpacity: opacity }}
+              />
+            ))}
+          </radialGradient>
+        ))}
+        <radialGradient id={`${id}-hub`} cx="0.36" cy="0.3" r="0.75">
+          <stop offset="0" style={{ stopColor: '#fff', stopOpacity: 0.85 }} />
+          <stop offset="0.45" style={{ stopColor: 'var(--fw-ink)' }} />
+          <stop offset="1" style={{ stopColor: 'var(--fw-ink)' }} />
+        </radialGradient>
         <radialGradient id={gloss} cx="0.42" cy="0.18" r="0.62">
           <stop offset="0" style={{ stopColor: 'var(--fw-gloss)', stopOpacity: 0.9 }} />
           <stop offset="1" style={{ stopColor: 'var(--fw-gloss)', stopOpacity: 0 }} />
@@ -51,11 +94,11 @@ export function Logo({ reading = 'affected', size = 28 }: { reading?: Reading; s
       {/* the lens */}
       <circle cx="20" cy="20" r="18" fill={`url(#${body})`} />
 
-      {/* the dial: green, amber, red over the top */}
+      {/* the dial: green, amber, red over the top, each a tube of glass */}
       <g fill="none" strokeWidth="3.6">
-        <path d="M9.17 23.09A11 11 0 0 1 14.84 15.29" stroke="var(--fw-green)" />
-        <path d="M15.88 14.8A11 11 0 0 1 24.12 14.8" stroke="var(--fw-amber)" />
-        <path d="M25.16 15.29A11 11 0 0 1 30.83 23.09" stroke="var(--fw-red)" />
+        {arcs.map((a) => (
+          <path key={a.key} d={a.d} stroke={`url(#${id}-${a.key})`} />
+        ))}
       </g>
       <g
         className="fw-needle"
@@ -75,7 +118,7 @@ export function Logo({ reading = 'affected', size = 28 }: { reading?: Reading; s
           strokeLinecap="round"
         />
       </g>
-      <circle cx="20" cy="25" r="2.3" fill="var(--fw-ink)" />
+      <circle cx="20" cy="25" r="2.3" fill={`url(#${id}-hub)`} />
 
       {/* glass over it: a gloss on the upper half, the rim, light along the
           bottom edge, a glint */}

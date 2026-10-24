@@ -3,13 +3,13 @@
   <style>
     .body-top { stop-color: #ffffff; stop-opacity: .7 } .body { stop-color: #f3eee4 }
     .rim-top { stop-color: #ffffff } .rim { stop-color: #cfc6b6 } .rim-bottom { stop-color: #a99f8e }
-    .gloss { stop-color: #ffffff } .ink { fill: #1c1915; stroke: #1c1915 }
-    .green { stroke: #1a633e } .amber { stroke: #8a4f00 } .red { stroke: #b3301d } .glint { stroke: #ffffff }
+    .gloss { stop-color: #ffffff } .ink { fill: #1c1915; stroke: #1c1915 } .hub { stop-color: #1c1915 }
+    .sg { stop-color: #1a633e } .sa { stop-color: #8a4f00 } .sr { stop-color: #b3301d } .glint { stroke: #ffffff }
     @media (prefers-color-scheme: dark) {
       .body-top { stop-color: #8aa0b8; stop-opacity: .35 } .body { stop-color: #121a26 }
       .rim-top { stop-color: #c9d4e0 } .rim { stop-color: #3a4656 } .rim-bottom { stop-color: #253040 }
-      .gloss { stop-color: #dfe8f2 } .ink { fill: #eef2f6; stroke: #eef2f6 }
-      .green { stroke: #63d39d } .amber { stroke: #f3b75a } .red { stroke: #ff7d68 } .glint { stroke: #dfe8f2 }
+      .gloss { stop-color: #dfe8f2 } .ink { fill: #eef2f6; stroke: #eef2f6 } .hub { stop-color: #eef2f6 }
+      .sg { stop-color: #63d39d } .sa { stop-color: #f3b75a } .sr { stop-color: #ff7d68 } .glint { stroke: #dfe8f2 }
     }
   </style>
   <defs>
@@ -22,15 +22,19 @@
     <radialGradient id="gloss" cx=".42" cy=".18" r=".62">
       <stop offset="0" class="gloss" stop-opacity=".85"/><stop offset="1" class="gloss" stop-opacity="0"/>
     </radialGradient>
+    <radialGradient id="g" gradientUnits="userSpaceOnUse" cx="20" cy="25" r="12.8"><stop offset="0.71" class="sg" stop-opacity="1"/><stop offset="0.76" class="sg" stop-opacity="0.82"/><stop offset="0.84" class="sg" stop-opacity="0.58"/><stop offset="0.9" class="sg" stop-opacity="0.62"/><stop offset="0.935" stop-color="#fff" stop-opacity="0.9"/><stop offset="0.965" class="sg" stop-opacity="0.72"/><stop offset="1" class="sg" stop-opacity="1"/></radialGradient>
+    <radialGradient id="a" gradientUnits="userSpaceOnUse" cx="20" cy="25" r="12.8"><stop offset="0.71" class="sa" stop-opacity="1"/><stop offset="0.76" class="sa" stop-opacity="0.82"/><stop offset="0.84" class="sa" stop-opacity="0.58"/><stop offset="0.9" class="sa" stop-opacity="0.62"/><stop offset="0.935" stop-color="#fff" stop-opacity="0.9"/><stop offset="0.965" class="sa" stop-opacity="0.72"/><stop offset="1" class="sa" stop-opacity="1"/></radialGradient>
+    <radialGradient id="r" gradientUnits="userSpaceOnUse" cx="20" cy="25" r="12.8"><stop offset="0.71" class="sr" stop-opacity="1"/><stop offset="0.76" class="sr" stop-opacity="0.82"/><stop offset="0.84" class="sr" stop-opacity="0.58"/><stop offset="0.9" class="sr" stop-opacity="0.62"/><stop offset="0.935" stop-color="#fff" stop-opacity="0.9"/><stop offset="0.965" class="sr" stop-opacity="0.72"/><stop offset="1" class="sr" stop-opacity="1"/></radialGradient>
+    <radialGradient id="hub" cx=".36" cy=".3" r=".75"><stop offset="0" stop-color="#fff" stop-opacity=".85"/><stop offset=".45" class="hub"/><stop offset="1" class="hub"/></radialGradient>
   </defs>
   <circle cx="20" cy="20" r="19" fill="url(#body)"/>
-  <g fill="none" stroke-width="3.8">
-    <path class="green" d="M9.17 23.09A11 11 0 0 1 14.84 15.29"/>
-    <path class="amber" d="M15.88 14.8A11 11 0 0 1 24.12 14.8"/>
-    <path class="red" d="M25.16 15.29A11 11 0 0 1 30.83 23.09"/>
+  <g fill="none" stroke-width="3.6">
+    <path stroke="url(#g)" d="M9.17 23.09A11 11 0 0 1 14.84 15.29"/>
+    <path stroke="url(#a)" d="M15.88 14.8A11 11 0 0 1 24.12 14.8"/>
+    <path stroke="url(#r)" d="M25.16 15.29A11 11 0 0 1 30.83 23.09"/>
   </g>
   <line class="ink" x1="20" y1="25" x2="27.7" y2="19.4" stroke-width="2.4" stroke-linecap="round"/>
-  <circle class="ink" cx="20" cy="25" r="2.5"/>
+  <circle cx="20" cy="25" r="2.5" fill="url(#hub)"/>
   <ellipse cx="20" cy="12.5" rx="14.5" ry="8.5" fill="url(#gloss)"/>
   <circle cx="20" cy="20" r="18.3" fill="none" stroke="url(#rim)" stroke-width="1.4"/>
   <path class="glint" d="M8.2 13A14 14 0 0 1 14.4 7.2" fill="none" stroke-width="1.6" stroke-linecap="round"/>
