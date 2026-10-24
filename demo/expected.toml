@@ -30,10 +30,10 @@ build_check = "match"
 findings = { "FW-2026-007" = "not_affected", "FW-2026-008" = "affected", "FW-2026-009" = "not_affected", "FW-2026-010" = "not_affected", "FW-2026-011" = "not_affected", "FW-2026-012" = "affected", "FW-2026-013" = "cant_tell" }
 
 # Built by demo/polar/Dockerfile.lnd-unofficial: official version number,
-# unofficial commit, so every finding is Can't tell.
+# unofficial commit, so every finding is Can't tell. Part of the pitch, so it's
+# required: add it in Polar as docs/DEMO.md says.
 [[node]]
 name = "lnd-unofficial"
-optional = true
 status = "cant_tell"
 build_check = "mismatch"
 findings = { "FW-2026-007" = "cant_tell", "FW-2026-008" = "cant_tell", "FW-2026-009" = "cant_tell", "FW-2026-010" = "cant_tell", "FW-2026-011" = "cant_tell", "FW-2026-012" = "cant_tell", "FW-2026-013" = "cant_tell" }

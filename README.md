@@ -103,7 +103,7 @@ For the demo, `scripts/demo-up.sh` builds it and serves it from `watch` at `http
 
 ## Demo
 
-The demo runs on a [Polar](https://lightningpolar.com) regtest network named `Firewatch-demo`: an old Core Lightning (`old-cln`, 26.06.7), a current one (`current-cln`, 26.06.9), and two LND nodes (`alice` on 0.20.0-beta, `lnd-old` on 0.18.5-beta). The step-by-step script is in [docs/DEMO.md](docs/DEMO.md).
+The demo runs on a [Polar](https://lightningpolar.com) regtest network named `Firewatch-demo`: an old Core Lightning (`old-cln`, 26.06.7), a current one (`current-cln`, 26.06.9), and three LND nodes (`alice` on 0.20.0-beta, `lnd-old` on 0.18.5-beta, and `lnd-unofficial`, a 0.20.0-beta built from an unofficial commit). What to do is in [docs/DEMO.md](docs/DEMO.md); what to say is in [docs/PITCH.md](docs/PITCH.md).
 
 Polar's built-in Core Lightning list stops at 25.12. Build Polar-compatible images of the demo versions, then add them in Polar under **Manage Images → Custom Nodes**:
 
@@ -158,6 +158,18 @@ Firewatch never shows green when it is unsure.
 | `examples/nodes.json` | Node snapshots for working without a live network. |
 | `dashboard/` | The operator's web dashboard (React, TypeScript, Vite), its fixtures, the live sim and the backup-video recorder. |
 | `.github/workflows/ci.yml` | CI: Rust fmt, clippy and tests, and the dashboard's lint, format check and build. |
+
+## Docs
+
+| File | What it is |
+|---|---|
+| [docs/PITCH.md](docs/PITCH.md) | The 3-minute pitch, deck outline and judge Q&A. |
+| [docs/DEMO.md](docs/DEMO.md) | The demo runbook: setup, each beat, recovery. |
+| [docs/API.md](docs/API.md) | The dashboard API and JSON contract. |
+| [docs/sources/](docs/sources/) | Evidence for each Lightning Labs advisory, with the quote audit. |
+| [docs/upstream-issue.md](docs/upstream-issue.md) | Draft proposal for the community advisory list (not filed yet). |
+| [docs/event-rules.md](docs/event-rules.md) | What the organizers confirmed. |
+| `docs/Firewatch-Project-Brief.pdf`, `docs/Firewatch-Task-List.pdf` | The original plan (Oct 20–22). The code has moved past parts of it; this README and the docs above are current. |
 
 ## Advisory format
 
