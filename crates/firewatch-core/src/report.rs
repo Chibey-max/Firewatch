@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::advisory::{Action, Advisory, Implementation, Severity};
 use crate::engine::{evaluate, Status};
+use crate::exposure::Exposure;
 use crate::node::NodeInfo;
 use crate::releases::{build_check, short_commit, BuildCheck, ReleaseTable};
 
@@ -29,6 +30,10 @@ pub struct NodeReport {
     /// Whether the binary is the official release its version claims.
     #[serde(default)]
     pub build_check: BuildCheck,
+    /// Where the node's APIs listen, most exposed first. Never changes
+    /// `status`: a patched node can still be exposed. See `exposure.rs`.
+    #[serde(default)]
+    pub exposure: Vec<Exposure>,
     /// Worst first.
     pub findings: Vec<Finding>,
 }
@@ -162,6 +167,7 @@ impl NodeReport {
                 .unwrap_or(Status::NotAffected),
             error: None,
             build_check,
+            exposure: crate::exposure::check(&node.apis),
             findings,
         }
     }
@@ -176,6 +182,7 @@ impl NodeReport {
             status: Status::CantTell,
             error: Some(error),
             build_check: BuildCheck::NotChecked,
+            exposure: vec![],
             findings: vec![],
         }
     }
@@ -230,6 +237,7 @@ mod tests {
             config: None,
             features: None,
             commit_hash: Some(commit.into()),
+            apis: vec![],
         }
     }
 
@@ -296,7 +304,11 @@ mod tests {
     }
 
     fn cln(version: &str) -> NodeReport {
-        let node = NodeInfo {
+        NodeReport::from_node(&cln_node(version), &advisories(), Some(&table()))
+    }
+
+    fn cln_node(version: &str) -> NodeInfo {
+        NodeInfo {
             name: "cln".into(),
             implementation: Implementation::Cln,
             version: version.into(),
@@ -304,8 +316,8 @@ mod tests {
             config: None,
             features: None,
             commit_hash: None,
-        };
-        NodeReport::from_node(&node, &advisories(), Some(&table()))
+            apis: vec![],
+        }
     }
 
     fn status_of(r: &NodeReport, id: &str) -> Status {
@@ -359,6 +371,43 @@ mod tests {
             assert!(f.reason.contains("can't confirm the fix is intact"));
             assert!(f.manual_checks[0].contains("git status"));
         }
+    }
+
+    #[test]
+    fn exposure_never_changes_the_verdict() {
+        // A patched node on Polar: clnrest on 0.0.0.0, yet still green.
+        let node = NodeInfo {
+            apis: vec![crate::node::ApiListen {
+                api: crate::node::Api::Rest,
+                listen: crate::node::Listen::Read {
+                    addresses: vec!["0.0.0.0:8080".into()],
+                },
+            }],
+            ..cln_node("v26.06.9")
+        };
+        let r = NodeReport::from_node(&node, &advisories(), Some(&table()));
+        assert_eq!(r.status, Status::NotAffected);
+        assert_eq!(r.exposure.len(), 1);
+        assert_eq!(
+            r.exposure[0].status,
+            crate::exposure::ExposureStatus::Exposed
+        );
+
+        // The same node without listen data: everything but `exposure` is
+        // identical, so no field can pick the exposure up.
+        let without = NodeReport::from_node(&cln_node("v26.06.9"), &advisories(), Some(&table()));
+        let strip = |r: &NodeReport| {
+            let mut v = serde_json::to_value(r).unwrap();
+            v.as_object_mut().unwrap().remove("exposure");
+            v
+        };
+        assert_eq!(strip(&r), strip(&without));
+    }
+
+    #[test]
+    fn an_unreadable_node_has_no_exposure_entries() {
+        let r = NodeReport::unreachable("x", Implementation::Cln, "down".into());
+        assert!(r.exposure.is_empty());
     }
 
     #[test]

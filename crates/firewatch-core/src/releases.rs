@@ -233,6 +233,7 @@ mod tests {
             config: None,
             features: None,
             commit_hash: commit.map(str::to_string),
+            apis: vec![],
         }
     }
 

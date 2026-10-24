@@ -48,11 +48,20 @@ macaroon_file = "/home/you/.polar/networks/2/volumes/lnd/lnd-old/data/chain/bitc
 tls_cert = "/home/you/.polar/networks/2/volumes/lnd/lnd-old/tls.cert"
 ```
 
-Use absolute paths; `~` isn't expanded.
+Use absolute paths; `~` isn't expanded. Add `lnd_conf = "/path/to/lnd.conf"` to also check where LND's APIs listen (see [Exposure](#exposure)): LND doesn't report it over RPC.
 
 Firewatch probes every credential before trusting it and refuses one that can do more than read: a rune that can call `listfunds`, or a macaroon that can sign messages.
 
 When a node can't be read, the report says why in plain words: the node isn't running, the request timed out, the TLS certificate isn't the pinned one, the url points at the wrong port or scheme, or the node rejected the credential. [docs/API.md](docs/API.md) lists every message. That node is Can't tell, never green, and the other nodes are still checked.
+
+## Exposure
+
+Each node also gets an `exposure` list: whether its REST and gRPC APIs listen beyond this machine. A leaked rune or macaroon only works for someone who can reach the API. In August 2026 a BTCPay Server flaw let attackers obtain LND macaroons, and funds were stolen; the [BTCPay Server 2.4.2 advisory](https://blog.btcpayserver.org/security-advisory-btcpay-server-2-4-2/) says: *"Do not leave an affected LND deployment accessible from the internet."*
+
+- **Core Lightning:** `clnrest-host`/`clnrest-port` and `grpc-host`/`grpc-port`, read with `listconfigs` through the same restricted rune.
+- **LND:** `restlisten` and `rpclisten` from `lnd.conf`, when `lnd_conf` is set, read the way LND reads them: quoted values, `tcp://` and `unix://` forms, a bare port meaning localhost, and LND's default ports (8080, 10009). Flags on LND's command line override the file and can't be seen, so an option the file doesn't set is `unknown`, not LND's localhost default. Point `lnd_conf` at the file LND actually loads (`lnd.conf` in its `lnddir`, or its `--configfile`): Firewatch can't tell which file LND read.
+
+An API on `0.0.0.0`, `::` or a bare `:port` is `exposed`, with a hand check for the port. It's not an advisory verdict, so it never changes a node's red, amber or green. On Polar, Core Lightning nodes show `exposed` (Polar binds their APIs to `0.0.0.0` inside Docker), and LND nodes show `unknown` (Polar sets their listen addresses as command-line flags).
 
 ## Build check
 

@@ -116,6 +116,7 @@ async fn lnd_error(test: &str, url: String, cert: &[u8]) -> String {
         url,
         macaroon_file: write(&dir, "readonly.macaroon", b"\x02\x01"),
         tls_cert: Some(write(&dir, "pinned.pem", cert)),
+        lnd_conf: None,
     });
     let message = fetch(&node, &http_client()).await.unwrap_err().to_string();
     let _ = std::fs::remove_dir_all(&dir);
