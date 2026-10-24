@@ -20,7 +20,7 @@ use axum::middleware::{self, Next};
 use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
 use axum::{Json, Router};
-use firewatch_alerts::{message, NostrAlerter};
+use firewatch_alerts::{message, node_message, NostrAlerter};
 use firewatch_connectors::NodeConfig;
 use firewatch_core::{changes, Advisory, Change, NodeReport, ReleaseTable, Report};
 use serde_json::json;
@@ -65,10 +65,23 @@ impl Tracker {
                 .filter_map(|n| self.known.get(&n.name).cloned())
                 .collect(),
         };
-        let mut texts: Vec<String> = changes(Some(&baseline), report)
+        // One message per node, in report order.
+        let changes = changes(Some(&baseline), report);
+        let mut texts: Vec<String> = report
+            .nodes
             .iter()
-            .filter(|c| matches!(c, Change::Raised { .. } | Change::Resolved { .. }))
-            .map(message)
+            .filter_map(|node| {
+                let mine: Vec<&Change> = changes
+                    .iter()
+                    .filter(|c| match c {
+                        Change::Raised { node: n, .. } | Change::Resolved { node: n, .. } => {
+                            n.name == node.name
+                        }
+                        _ => false,
+                    })
+                    .collect();
+                (!mine.is_empty()).then(|| node_message(node, &mine))
+            })
             .collect();
 
         for node in &report.nodes {
@@ -97,7 +110,12 @@ impl App {
         let report = check_live(&self.nodes, &self.advisories, self.releases.as_ref()).await;
 
         for text in tracker.alerts(&report) {
-            log(&text.lines().take(2).collect::<Vec<_>>().join(" — "));
+            log(&text
+                .lines()
+                .filter(|l| !l.is_empty())
+                .take(2)
+                .collect::<Vec<_>>()
+                .join(" — "));
             if let Some(alerter) = &self.alerter {
                 match alerter.send(&text).await {
                     Ok(relays) => log(&format!("  alert sent ({relays} relays)")),
