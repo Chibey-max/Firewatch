@@ -44,6 +44,24 @@ export type BuildCheck =
   | { status: 'unknown_release' }
   | { status: 'not_checked' }
 
+/**
+ * Where one of the node's APIs listens (docs/API.md, "Exposure"). Never part
+ * of the verdict: a patched node can still be reachable from the internet.
+ */
+export interface Exposure {
+  api: 'rest' | 'grpc'
+  /** exposed: other machines can reach it; unknown: couldn't be read; local: this machine only */
+  status: 'exposed' | 'unknown' | 'local'
+  /** host:port or unix://path; empty when unknown */
+  addresses: string[]
+  /** one plain sentence */
+  reason: string
+  /** null when local */
+  manual_check: string | null
+  /** the BTCPay Server advisory; null when local */
+  source: string | null
+}
+
 export interface NodeReport {
   name: string
   implementation: Implementation
@@ -58,6 +76,8 @@ export interface NodeReport {
   build_check?: BuildCheck
   /** worst first */
   findings: Finding[]
+  /** most exposed first; absent on daemons from before the exposure check */
+  exposure?: Exposure[]
 }
 
 export interface Report {

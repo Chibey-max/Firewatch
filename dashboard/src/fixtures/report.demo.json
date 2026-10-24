@@ -1,5 +1,5 @@
 {
-  "checked_at": 1792842192,
+  "checked_at": 1792868561,
   "nodes": [
     {
       "name": "old-cln",
@@ -11,7 +11,16 @@
       "build_check": {
         "status": "not_checked"
       },
-      "exposure": [],
+      "exposure": [
+        {
+          "api": "rest",
+          "status": "exposed",
+          "addresses": ["0.0.0.0:3010"],
+          "reason": "The REST API listens on all interfaces (0.0.0.0:3010), so a leaked credential works from anywhere that can reach it.",
+          "manual_check": "Check that port 3010 isn't reachable from the internet: router port forwards, firewall, Tor or a reverse proxy.",
+          "source": "https://blog.btcpayserver.org/security-advisory-btcpay-server-2-4-2/"
+        }
+      ],
       "findings": [
         {
           "advisory_id": "FW-2026-003",
@@ -55,7 +64,16 @@
       "build_check": {
         "status": "not_checked"
       },
-      "exposure": [],
+      "exposure": [
+        {
+          "api": "rest",
+          "status": "exposed",
+          "addresses": ["0.0.0.0:3010"],
+          "reason": "The REST API listens on all interfaces (0.0.0.0:3010), so a leaked credential works from anywhere that can reach it.",
+          "manual_check": "Check that port 3010 isn't reachable from the internet: router port forwards, firewall, Tor or a reverse proxy.",
+          "source": "https://blog.btcpayserver.org/security-advisory-btcpay-server-2-4-2/"
+        }
+      ],
       "findings": [
         {
           "advisory_id": "FW-2026-003",
@@ -99,7 +117,24 @@
       "build_check": {
         "status": "match"
       },
-      "exposure": [],
+      "exposure": [
+        {
+          "api": "rest",
+          "status": "unknown",
+          "addresses": [],
+          "reason": "The REST API's listen address can't be read: lnd_conf isn't set.",
+          "manual_check": "Check where the REST API listens, and that it isn't reachable from the internet.",
+          "source": "https://blog.btcpayserver.org/security-advisory-btcpay-server-2-4-2/"
+        },
+        {
+          "api": "grpc",
+          "status": "unknown",
+          "addresses": [],
+          "reason": "The gRPC API's listen address can't be read: lnd_conf isn't set.",
+          "manual_check": "Check where the gRPC API listens, and that it isn't reachable from the internet.",
+          "source": "https://blog.btcpayserver.org/security-advisory-btcpay-server-2-4-2/"
+        }
+      ],
       "findings": [
         {
           "advisory_id": "FW-2026-007",
@@ -218,7 +253,24 @@
       "build_check": {
         "status": "match"
       },
-      "exposure": [],
+      "exposure": [
+        {
+          "api": "rest",
+          "status": "unknown",
+          "addresses": [],
+          "reason": "The REST API's listen address can't be read: lnd_conf isn't set.",
+          "manual_check": "Check where the REST API listens, and that it isn't reachable from the internet.",
+          "source": "https://blog.btcpayserver.org/security-advisory-btcpay-server-2-4-2/"
+        },
+        {
+          "api": "grpc",
+          "status": "unknown",
+          "addresses": [],
+          "reason": "The gRPC API's listen address can't be read: lnd_conf isn't set.",
+          "manual_check": "Check where the gRPC API listens, and that it isn't reachable from the internet.",
+          "source": "https://blog.btcpayserver.org/security-advisory-btcpay-server-2-4-2/"
+        }
+      ],
       "findings": [
         {
           "advisory_id": "FW-2026-012",
@@ -343,7 +395,24 @@
         "actual": "fc472ef100000000000000000000000000000000",
         "build": "v0.20.0-beta"
       },
-      "exposure": [],
+      "exposure": [
+        {
+          "api": "rest",
+          "status": "unknown",
+          "addresses": [],
+          "reason": "The REST API's listen address can't be read: lnd_conf isn't set.",
+          "manual_check": "Check where the REST API listens, and that it isn't reachable from the internet.",
+          "source": "https://blog.btcpayserver.org/security-advisory-btcpay-server-2-4-2/"
+        },
+        {
+          "api": "grpc",
+          "status": "unknown",
+          "addresses": [],
+          "reason": "The gRPC API's listen address can't be read: lnd_conf isn't set.",
+          "manual_check": "Check where the gRPC API listens, and that it isn't reachable from the internet.",
+          "source": "https://blog.btcpayserver.org/security-advisory-btcpay-server-2-4-2/"
+        }
+      ],
       "findings": [
         {
           "advisory_id": "FW-2026-010",

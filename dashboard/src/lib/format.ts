@@ -1,4 +1,11 @@
-import type { Finding, Implementation, NodeReport, Severity, Status } from '../types/report'
+import type {
+  Exposure,
+  Finding,
+  Implementation,
+  NodeReport,
+  Severity,
+  Status,
+} from '../types/report'
 
 export const implementationName: Record<Implementation, string> = {
   cln: 'Core Lightning',
@@ -164,6 +171,11 @@ export function amberReason(node: NodeReport): string {
     return 'This build was made with local changes, so Firewatch can’t confirm a fix is intact.'
   }
   return 'Something an advisory depends on can’t be read from the node, so check it by hand.'
+}
+
+/** Whether any of a node's APIs can be reached from other machines. */
+export function isExposed(exposure: Exposure[] | undefined): boolean {
+  return (exposure ?? []).some((e) => e.status === 'exposed')
 }
 
 /** Compare dotted version numbers ("26.06.9", "0.20.1-beta"); suffixes are ignored. */

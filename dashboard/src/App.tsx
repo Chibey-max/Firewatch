@@ -5,6 +5,7 @@ import { EmptyState, Loading, SkeletonRows } from './components/EmptyState'
 import { FontPicker } from './components/FontPicker'
 import { Hero } from './components/Hero'
 import { NodeDetail } from './components/NodeDetail'
+import { ChangesBanner } from './components/ChangesBanner'
 import { NodeList } from './components/NodeList'
 import { Scene } from './components/Scene'
 import { ThemeToggle } from './components/ThemeToggle'
@@ -14,6 +15,7 @@ import { isFixtureName } from './fixtures'
 import { sortNodes, worstReading } from './lib/format'
 import { useMedia, useWide } from './lib/useMedia'
 import { useNow, useReport } from './lib/useReport'
+import { useSinceLastLook } from './lib/useSeen'
 
 /** The selected node lives in the URL (#node=old-cln), so a presenter can link to it. */
 function nodeFromHash(): string | null {
@@ -61,6 +63,7 @@ export default function App() {
   // The type experiment's picker: open the page with ?fonts.
   const showFonts = new URLSearchParams(window.location.search).has('fonts')
   const { report, phase, receivedAt, failures, checking, checkNow } = useReport(fixture)
+  const seen = useSinceLastLook(report, fixture ? 'sample' : 'live')
   const now = useNow()
   const wide = useWide()
   const tablet = useMedia('(min-width: 640px)')
@@ -121,10 +124,22 @@ export default function App() {
             />
           </div>
           <div className="flex min-h-0 flex-1 flex-col gap-7 overflow-y-auto p-5 sm:p-6 sm:pt-9">
+            <ChangesBanner
+              changes={seen.changes}
+              since={seen.since}
+              now={now}
+              onSelect={select}
+              onDismiss={seen.dismiss}
+            />
             <Hero report={report} phase={phase} />
             {!report && phase !== 'offline' && <SkeletonRows />}
             {report && nodes.length > 0 && (
-              <NodeList nodes={nodes} selected={selected?.name ?? null} onSelect={select} />
+              <NodeList
+                nodes={nodes}
+                selected={selected?.name ?? null}
+                changed={new Set(seen.changes.map((c) => c.node))}
+                onSelect={select}
+              />
             )}
           </div>
           <p className="border-t border-line px-6 py-3.5 text-[0.78rem] leading-snug text-ink-2">

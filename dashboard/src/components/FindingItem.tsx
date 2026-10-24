@@ -47,7 +47,8 @@ function Meta({ f }: { f: Finding }) {
 }
 
 /** One advisory on the selected node. What it shows depends on its verdict. */
-export function FindingItem({ finding: f }: { finding: Finding }) {
+/** `node` scopes what's remembered about it: the node's name and version. */
+export function FindingItem({ finding: f, node }: { finding: Finding; node: string }) {
   return (
     <motion.li variants={rise} className="fw-glass rounded-2xl px-5 py-4.5">
       <Meta f={f} />
@@ -81,7 +82,11 @@ export function FindingItem({ finding: f }: { finding: Finding }) {
           <p id={`${f.advisory_id}-why`} className="mb-2.5 text-[0.86rem] font-semibold text-amber">
             Check by hand. Firewatch won’t guess, so this stays amber.
           </p>
-          <ManualChecklist id={f.advisory_id} checks={f.manual_checks} />
+          <ManualChecklist
+            id={f.advisory_id}
+            scope={`${node}/${f.advisory_id}`}
+            checks={f.manual_checks}
+          />
         </div>
       )}
 

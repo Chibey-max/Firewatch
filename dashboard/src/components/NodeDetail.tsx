@@ -13,7 +13,9 @@ import {
 } from '../lib/format'
 import { rise, SOFT } from '../lib/motion'
 import type { Finding, NodeReport } from '../types/report'
+import { CopyHelp } from './CopyHelp'
 import { Disclosure } from './Disclosure'
+import { ExposureNote } from './ExposureNote'
 import { FindingItem } from './FindingItem'
 import { StatusPill } from './StatusPill'
 import { WhyAmber } from './WhyAmber'
@@ -43,8 +45,9 @@ function Section({
   )
 }
 
-function items(findings: Finding[]) {
-  return findings.map((f) => <FindingItem key={f.advisory_id} finding={f} />)
+function items(findings: Finding[], node: NodeReport) {
+  const scope = `${node.name}@${node.version ?? '?'}`
+  return findings.map((f) => <FindingItem key={f.advisory_id} finding={f} node={scope} />)
 }
 
 function Callout({
@@ -237,17 +240,23 @@ function Detail({ node }: { node: NodeReport }) {
         <StatusPill reading={reading} large />
       </motion.header>
 
-      <motion.p variants={rise} className="relative mt-3 text-[0.95rem] text-ink-2">
-        {nodeSummary(node)}
-        {reading === 'cant_tell' && (
-          <>
-            <span aria-hidden className="mx-2 text-ink-3">
-              ·
-            </span>
-            <WhyAmber node={node} />
-          </>
-        )}
-      </motion.p>
+      <motion.div
+        variants={rise}
+        className="mt-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2.5"
+      >
+        <p className="relative min-w-0 text-[0.95rem] text-ink-2">
+          {nodeSummary(node)}
+          {reading === 'cant_tell' && (
+            <>
+              <span aria-hidden className="mx-2 text-ink-3">
+                ·
+              </span>
+              <WhyAmber node={node} />
+            </>
+          )}
+        </p>
+        <CopyHelp node={node} />
+      </motion.div>
 
       <div className="mt-5">
         <Action node={node} />
@@ -261,21 +270,23 @@ function Detail({ node }: { node: NodeReport }) {
       )}
 
       <Section title="Affected" count={affected.length}>
-        {items(affected)}
+        {items(affected, node)}
       </Section>
       <Section title="Check by hand" count={toCheck.length}>
-        {items(toCheck)}
+        {items(toCheck, node)}
       </Section>
       <Section title="Ruled out by a condition" count={ruledOut.length}>
-        {items(ruledOut)}
+        {items(ruledOut, node)}
       </Section>
+
+      <ExposureNote exposure={node.exposure} />
 
       {clear.length > 0 && (
         <motion.div variants={rise} className="mt-8">
           <Disclosure
             label={`${plural(clear.length, 'advisory doesn’t apply', 'advisories don’t apply')} to this version`}
           >
-            {items(clear)}
+            {items(clear, node)}
           </Disclosure>
         </motion.div>
       )}

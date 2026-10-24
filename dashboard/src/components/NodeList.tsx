@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from 'motion/react'
-import { implementationName, nodeSummary, readingOf, splitVersion } from '../lib/format'
+import { implementationName, isExposed, nodeSummary, readingOf, splitVersion } from '../lib/format'
 import { EASE, SOFT, spring } from '../lib/motion'
 import { tone } from '../lib/tone'
 import type { NodeReport } from '../types/report'
@@ -9,11 +9,14 @@ function NodeRow({
   node,
   index,
   selected,
+  changed,
   onSelect,
 }: {
   node: NodeReport
   index: number
   selected: boolean
+  /** something about this node changed since the last look */
+  changed: boolean
   onSelect: () => void
 }) {
   const reading = readingOf(node)
@@ -67,10 +70,22 @@ function NodeRow({
             className={`h-9 w-1 rounded-full transition-colors duration-500 ${tone[reading].bar}`}
           />
           <span className="min-w-0">
-            <span className="block truncate text-[1.02rem] font-semibold">{node.name}</span>
+            <span className="flex items-center gap-2">
+              <span className="truncate text-[1.02rem] font-semibold">{node.name}</span>
+              {changed && (
+                <span className="shrink-0 rounded-full bg-ink/8 px-1.5 py-px text-[0.7rem] font-semibold text-ink-2">
+                  Changed
+                </span>
+              )}
+            </span>
             <span className="mt-0.5 block truncate text-[0.84rem] text-ink-2">
               {implementationName[node.implementation]}
               {version && <span className="font-mono text-[0.8rem]"> {version}</span>}
+              {isExposed(node.exposure) && (
+                <span className="ml-2 rounded-full border border-line px-1.5 py-px text-[0.72rem] text-ink-2">
+                  API exposed
+                </span>
+              )}
             </span>
           </span>
           <StatusPill reading={reading} />
@@ -86,10 +101,12 @@ function NodeRow({
 export function NodeList({
   nodes,
   selected,
+  changed,
   onSelect,
 }: {
   nodes: NodeReport[]
   selected: string | null
+  changed: Set<string>
   onSelect: (name: string) => void
 }) {
   return (
@@ -104,6 +121,7 @@ export function NodeList({
             node={n}
             index={i}
             selected={n.name === selected}
+            changed={changed.has(n.name)}
             onSelect={() => onSelect(n.name)}
           />
         ))}

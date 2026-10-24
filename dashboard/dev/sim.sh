@@ -26,7 +26,8 @@ echo v26.06.9 > "$state/current-cln.version"
 
 pids=()
 trap 'kill "${pids[@]}" 2>/dev/null || true' EXIT
-python3 -I "$here/fake_cln.py" 18182 "$state/old-cln.version" & pids+=($!)
+# old-cln listens on all interfaces, as Polar's nodes do; current-cln on this machine only.
+python3 -I "$here/fake_cln.py" 18182 "$state/old-cln.version" 0.0.0.0 & pids+=($!)
 python3 -I "$here/fake_cln.py" 18183 "$state/current-cln.version" & pids+=($!)
 
 echo "Simulated nodes: old-cln (v26.06.7) on :18182, current-cln (v26.06.9) on :18183"
