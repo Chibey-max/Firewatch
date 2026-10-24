@@ -1,6 +1,6 @@
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { useState, type ReactNode } from 'react'
-import { checkedAgo, clockTime } from '../lib/format'
+import { checkedAgo, clockTime, type Reading } from '../lib/format'
 import { EASE } from '../lib/motion'
 import { POLL_MS, type Phase } from '../lib/useReport'
 import { Logo } from './Logo'
@@ -255,20 +255,20 @@ export function RecheckButton({
   )
 }
 
-function Wordmark() {
+function Wordmark({ reading }: { reading: Reading }) {
   return (
     <>
-      <Logo />
+      <Logo reading={reading} />
       <span className="text-[0.98rem] font-semibold tracking-[0.01em]">Firewatch</span>
     </>
   )
 }
 
-/** The wordmark pill. */
-export function Brand() {
+/** The wordmark pill. `reading` points the logo's needle. */
+export function Brand({ reading }: { reading: Reading }) {
   return (
-    <div className="fw-glass flex h-10 items-center gap-2.5 rounded-full pr-4 pl-3.5">
-      <Wordmark />
+    <div className="fw-glass flex h-10 items-center gap-2 rounded-full pr-4 pl-1.5">
+      <Wordmark reading={reading} />
     </div>
   )
 }
@@ -279,10 +279,12 @@ export function Brand() {
  */
 export function NavBar({
   children,
+  reading,
   inert,
   narrow = false,
 }: {
   children: ReactNode
+  reading: Reading
   inert?: boolean
   /** On a tablet: the phone's width, centred, instead of the full page. */
   narrow?: boolean
@@ -295,7 +297,7 @@ export function NavBar({
     >
       <div className="fw-bar flex h-[60px] items-center justify-between gap-3 rounded-full pr-2 pl-4">
         <span className="flex min-w-0 items-center gap-2.5">
-          <Wordmark />
+          <Wordmark reading={reading} />
         </span>
         <div className="flex items-center gap-2">{children}</div>
       </div>
@@ -308,13 +310,13 @@ export function NavBar({
  * thumb rests when holding a tablet, with just the mark and the two
  * controls, so the content keeps the rest of the screen.
  */
-export function SideRail({ children }: { children: ReactNode }) {
+export function SideRail({ children, reading }: { children: ReactNode; reading: Reading }) {
   return (
     // Above the detail dialog's backdrop: the pill stays usable while it's open.
     <header className="fixed top-1/2 right-5 z-50 -translate-y-1/2">
       <div className="fw-bar flex flex-col items-center gap-3 rounded-full px-1.5 py-3.5">
         <span className="grid size-10 place-items-center" title="Firewatch">
-          <Logo />
+          <Logo reading={reading} size={32} />
         </span>
         {children}
       </div>
