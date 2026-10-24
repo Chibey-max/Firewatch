@@ -98,9 +98,9 @@ export default function App() {
       <Scene reading={scene} />
       {!wide &&
         (rail ? (
-          <SideRail>{controls}</SideRail>
+          <SideRail reading={scene}>{controls}</SideRail>
         ) : (
-          <NavBar inert={sheetOpen} narrow={tablet}>
+          <NavBar inert={sheetOpen} narrow={tablet} reading={scene}>
             {controls}
           </NavBar>
         ))}
@@ -113,7 +113,7 @@ export default function App() {
       >
         <aside className="fw-shell flex min-h-0 flex-col overflow-hidden rounded-[28px]">
           <div className="flex flex-wrap items-center gap-2.5 p-5 pb-0 sm:p-6 sm:pb-0">
-            {wide && <Brand />}
+            {wide && <Brand reading={scene} />}
             <LiveChip
               phase={phase}
               fixture={fixture}

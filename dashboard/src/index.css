@@ -757,6 +757,18 @@
   box-shadow: var(--fw-shadow-raised);
 }
 
+/* The logo's needle swings to the fleet's verdict on load, and eases to
+   any new one. */
+@keyframes fw-needle-in {
+  from {
+    transform: rotate(-80deg);
+  }
+}
+.fw-needle {
+  animation: fw-needle-in 1.3s cubic-bezier(0.34, 1.4, 0.64, 1) 0.2s backwards;
+  transition: transform 0.9s cubic-bezier(0.34, 1.4, 0.64, 1);
+}
+
 /* Skeleton bars while the first report loads: a faint ink tint with a slow
    sheen across it. */
 .fw-skeleton {
@@ -784,6 +796,7 @@
 @media (prefers-reduced-motion: reduce) {
   .fw-breathe,
   .fw-skeleton,
+  .fw-needle,
   .fw-horizon,
   .fw-chrome-rim,
   .fw-droplet,
