@@ -673,6 +673,7 @@ dependencies = [
  "serde_json",
  "tokio",
  "toml",
+ "tower",
  "tower-http 0.7.1",
 ]
 
@@ -681,11 +682,13 @@ name = "firewatch-connectors"
 version = "0.1.0"
 dependencies = [
  "firewatch-core",
+ "hyper",
  "reqwest",
  "rustls",
  "serde",
  "serde_json",
  "thiserror 2.0.21",
+ "tokio",
 ]
 
 [[package]]
@@ -693,6 +696,7 @@ name = "firewatch-core"
 version = "0.1.0"
 dependencies = [
  "serde",
+ "serde_json",
  "thiserror 2.0.21",
  "toml",
 ]

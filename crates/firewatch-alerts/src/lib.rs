@@ -220,6 +220,7 @@ mod tests {
             status: Status::Affected,
             error: None,
             build_check: Default::default(),
+            exposure: vec![],
             findings: vec![],
         }
     }

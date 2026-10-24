@@ -22,6 +22,8 @@ name = "alice"
 url = "https://127.0.0.1:8081"
 macaroon_file = "/path/to/readonly.macaroon"
 tls_cert = "/path/to/tls.cert"
+# lnd_conf = "/path/to/lnd.conf"   # optional: check where LND's REST and gRPC listen;
+#                                    # the file LND loads (its lnddir or --configfile)
 
 [watch]
 interval_secs = 10            # seconds between checks

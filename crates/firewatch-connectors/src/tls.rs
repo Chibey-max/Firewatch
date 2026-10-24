@@ -11,7 +11,7 @@ use rustls::client::danger::{HandshakeSignatureValid, ServerCertVerified, Server
 use rustls::crypto::{verify_tls12_signature, verify_tls13_signature, CryptoProvider};
 use rustls::pki_types::pem::PemObject;
 use rustls::pki_types::{CertificateDer, ServerName, UnixTime};
-use rustls::{ClientConfig, DigitallySignedStruct, SignatureScheme};
+use rustls::{CertificateError, ClientConfig, DigitallySignedStruct, SignatureScheme};
 
 use crate::ConnectorError;
 
@@ -49,8 +49,9 @@ impl ServerCertVerifier for PinnedCert {
         if end_entity.as_ref() == self.pinned.as_ref() {
             Ok(ServerCertVerified::assertion())
         } else {
-            Err(rustls::Error::General(
-                "server certificate does not match the pinned tls_cert".into(),
+            // A certificate error, so the connector reports "check tls_cert".
+            Err(rustls::Error::InvalidCertificate(
+                CertificateError::ApplicationVerificationFailure,
             ))
         }
     }

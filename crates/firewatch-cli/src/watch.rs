@@ -8,12 +8,15 @@
 //! - `GET  /api/health`     liveness and alert status
 
 use std::collections::{HashMap, HashSet};
+use std::net::IpAddr;
+use std::path::Path;
 use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::{Context, Result};
-use axum::extract::State;
-use axum::http::StatusCode;
+use axum::extract::{Request, State};
+use axum::http::{header, Method, StatusCode};
+use axum::middleware::{self, Next};
 use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
 use axum::{Json, Router};
@@ -22,7 +25,7 @@ use firewatch_connectors::NodeConfig;
 use firewatch_core::{changes, Advisory, Change, NodeReport, ReleaseTable, Report};
 use serde_json::json;
 use tokio::sync::{Mutex, RwLock};
-use tower_http::cors::CorsLayer;
+use tower_http::cors::{AllowOrigin, CorsLayer};
 use tower_http::services::ServeDir;
 
 use crate::config::Config;
@@ -159,17 +162,7 @@ pub async fn run(
         }
     });
 
-    let mut router = Router::new()
-        .route("/api/report", get(get_report))
-        .route("/api/check", post(post_check))
-        .route("/api/advisories", get(get_advisories))
-        .route("/api/health", get(get_health))
-        .layer(CorsLayer::permissive())
-        .with_state(app);
-    if let Some(dir) = &config.watch.dashboard_dir {
-        router = router.fallback_service(ServeDir::new(dir));
-    }
-
+    let router = router(app, config.watch.dashboard_dir.as_deref(), allow_remote);
     let listener = tokio::net::TcpListener::bind(&config.watch.listen)
         .await
         .with_context(|| format!("listening on {}", config.watch.listen))?;
@@ -180,6 +173,119 @@ pub async fn run(
     ));
     axum::serve(listener, router).await?;
     Ok(())
+}
+
+/// The API, and the dashboard when `dashboard_dir` is set. Every request,
+/// static files included, passes `local_only` first: the fallback is added
+/// before the layers because axum only layers what is already routed.
+fn router(app: Arc<App>, dashboard_dir: Option<&Path>, allow_remote: bool) -> Router {
+    let mut router = Router::new()
+        .route("/api/report", get(get_report))
+        .route("/api/check", post(post_check))
+        .route("/api/advisories", get(get_advisories))
+        .route("/api/health", get(get_health));
+    if let Some(dir) = dashboard_dir {
+        router = router.fallback_service(ServeDir::new(dir));
+    }
+    // The dashboard is same-origin (served here, or through Vite's proxy), so
+    // CORS is only for a dev page on another localhost port (VITE_API_BASE).
+    let cors = CorsLayer::new()
+        .allow_origin(AllowOrigin::predicate(|origin, _| {
+            origin.to_str().is_ok_and(is_local_origin)
+        }))
+        .allow_methods([Method::GET, Method::POST]);
+    router
+        .layer(cors)
+        .layer(middleware::from_fn_with_state(allow_remote, local_only))
+        .with_state(app)
+}
+
+/// Turns away requests a hostile web page can make from the operator's own
+/// browser. The report says which nodes are vulnerable, and `listen` being
+/// 127.0.0.1 doesn't help when the request comes from a browser on this
+/// machine:
+/// - DNS rebinding: a site whose name resolves to 127.0.0.1 is same-origin
+///   with itself, so CORS never applies. Its requests still carry its own
+///   name in `Host`, so only localhost names are served. With
+///   `--allow-remote`, IP addresses are served too: a rebinding site needs a
+///   domain name, and a LAN browser can use the address.
+/// - A cross-site `POST /api/check` runs a check without reading the answer,
+///   and no preflight is sent for it. Browsers do send `Origin`, which must
+///   be this server or localhost.
+///
+/// A request without `Host` didn't come from a browser, so it isn't refused.
+async fn local_only(State(allow_remote): State<bool>, request: Request, next: Next) -> Response {
+    let host = request
+        .headers()
+        .get(header::HOST)
+        .and_then(|h| h.to_str().ok())
+        .or_else(|| request.uri().authority().map(|a| a.as_str()))
+        .map(str::to_owned);
+    if let Some(h) = host.as_deref() {
+        let allowed = is_local_host(h) || (allow_remote && is_ip_host(h));
+        if !allowed {
+            return refuse(if allow_remote {
+                "this server only answers to localhost or an IP address (a guard against DNS rebinding); open it by its IP address"
+            } else {
+                "this server only answers to localhost, 127.0.0.1 or [::1] (a guard against DNS rebinding); open it by one of those names"
+            });
+        }
+    }
+    if let Some(origin) = request.headers().get(header::ORIGIN) {
+        let origin = origin.to_str().unwrap_or_default();
+        let same_origin = host
+            .as_deref()
+            .is_some_and(|h| origin == format!("http://{h}") || origin == format!("https://{h}"));
+        if !same_origin && !is_local_origin(origin) {
+            return refuse(
+                "cross-site request refused: only pages served by this machine may use this API",
+            );
+        }
+    }
+    next.run(request).await
+}
+
+fn refuse(why: &str) -> Response {
+    log(&format!("refused a request: {why}"));
+    (StatusCode::FORBIDDEN, Json(json!({ "error": why }))).into_response()
+}
+
+/// The name in a `Host` value, without its port: `localhost:5173` gives
+/// `localhost`, `[::1]:7070` gives `::1`. `None` if it's malformed.
+fn host_name(host: &str) -> Option<&str> {
+    match host.strip_prefix('[') {
+        Some(rest) => match rest.split_once(']') {
+            Some((ip, port)) if port.is_empty() || port.starts_with(':') => Some(ip),
+            _ => None,
+        },
+        None => match host.rsplit_once(':') {
+            Some((name, port)) if port.bytes().all(|b| b.is_ascii_digit()) => Some(name),
+            Some(_) => None,
+            None => Some(host),
+        },
+    }
+}
+
+/// `localhost` or a loopback address, with or without a port:
+/// `localhost:5173`, `127.0.0.1`, `[::1]:7070`.
+fn is_local_host(host: &str) -> bool {
+    host_name(host).is_some_and(|name| {
+        name.eq_ignore_ascii_case("localhost")
+            || name.parse::<IpAddr>().is_ok_and(|ip| ip.is_loopback())
+    })
+}
+
+/// An IP address rather than a name, e.g. `192.168.1.20:7070`.
+fn is_ip_host(host: &str) -> bool {
+    host_name(host).is_some_and(|name| name.parse::<IpAddr>().is_ok())
+}
+
+/// An `Origin` header naming a page served from this machine.
+fn is_local_origin(origin: &str) -> bool {
+    origin
+        .strip_prefix("http://")
+        .or_else(|| origin.strip_prefix("https://"))
+        .is_some_and(|host| !host.contains('/') && is_local_host(host))
 }
 
 /// Refuses a non-loopback `listen` address unless `allow_remote` is set: the
@@ -247,6 +353,7 @@ mod tests {
                 status,
                 error: None,
                 build_check: Default::default(),
+                exposure: vec![],
                 findings: vec![Finding {
                     advisory_id: "FW-2026-003".into(),
                     title: "t".into(),
@@ -319,5 +426,220 @@ mod tests {
             first_words(&back),
             ["Firewatch: old-cln can be read again."]
         );
+    }
+}
+
+/// The guard against hostile web pages (B4), through the real router.
+#[cfg(test)]
+mod guard_tests {
+    use axum::body::Body;
+    use axum::http::Request;
+    use tower::ServiceExt;
+
+    use super::*;
+
+    fn app() -> Arc<App> {
+        Arc::new(App {
+            nodes: vec![],
+            advisories: vec![],
+            releases: None,
+            alerter: None,
+            latest: RwLock::new(None),
+            tracker: Mutex::new(Tracker::default()),
+        })
+    }
+
+    async fn send(
+        router: &Router,
+        method: &str,
+        path: &str,
+        headers: &[(&str, &str)],
+    ) -> axum::response::Response {
+        let mut request = Request::builder().method(method).uri(path);
+        for (name, value) in headers {
+            request = request.header(*name, *value);
+        }
+        router
+            .clone()
+            .oneshot(request.body(Body::empty()).unwrap())
+            .await
+            .unwrap()
+    }
+
+    #[test]
+    fn local_hosts() {
+        for h in [
+            "localhost",
+            "localhost:5173",
+            "LOCALHOST:7070",
+            "127.0.0.1:7070",
+            "127.9.9.9",
+            "[::1]:7070",
+            "[::1]",
+        ] {
+            assert!(is_local_host(h), "{h}");
+        }
+        for h in [
+            "evil.example:7070",
+            "127.0.0.1.evil.example",
+            "localhost.evil.example",
+            "0.0.0.0:7070",
+            "192.168.1.20:7070",
+            "[::]:7070",
+            "localhost:abc",
+            "[::1]x",
+            "",
+        ] {
+            assert!(!is_local_host(h), "{h}");
+        }
+    }
+
+    #[test]
+    fn ip_hosts_for_remote_mode() {
+        assert!(is_ip_host("192.168.1.20:7070"));
+        assert!(is_ip_host("[fe80::1]:7070"));
+        assert!(!is_ip_host("mynode.local:7070"));
+        assert!(!is_ip_host("evil.example"));
+    }
+
+    #[test]
+    fn local_origins() {
+        assert!(is_local_origin("http://localhost:5173"));
+        assert!(is_local_origin("https://127.0.0.1:7070"));
+        assert!(is_local_origin("http://[::1]:7070"));
+        for o in [
+            "https://evil.example",
+            "http://localhost.evil.example",
+            "null",
+            "file://",
+            "http://localhost:5173/path",
+        ] {
+            assert!(!is_local_origin(o), "{o}");
+        }
+    }
+
+    #[tokio::test]
+    async fn localhost_and_the_vite_proxy_are_served() {
+        let r = router(app(), None, false);
+        for host in [
+            "127.0.0.1:7070",
+            "localhost:7070",
+            "localhost:5173",
+            "[::1]:7070",
+        ] {
+            let res = send(&r, "GET", "/api/health", &[("host", host)]).await;
+            assert_eq!(res.status(), StatusCode::OK, "{host}");
+        }
+        // Vite's proxy keeps the page's Host and Origin; a POST carries Origin.
+        let res = send(
+            &r,
+            "POST",
+            "/api/check",
+            &[
+                ("host", "localhost:5173"),
+                ("origin", "http://localhost:5173"),
+            ],
+        )
+        .await;
+        assert_eq!(res.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn dns_rebinding_is_refused() {
+        let r = router(app(), None, false);
+        for host in ["evil.example:7070", "0.0.0.0:7070", "192.168.1.20:7070"] {
+            let res = send(&r, "GET", "/api/report", &[("host", host)]).await;
+            assert_eq!(res.status(), StatusCode::FORBIDDEN, "{host}");
+        }
+    }
+
+    #[tokio::test]
+    async fn another_site_can_neither_read_nor_trigger_a_check() {
+        let r = router(app(), None, false);
+        let evil = [
+            ("host", "127.0.0.1:7070"),
+            ("origin", "https://evil.example"),
+        ];
+        let res = send(&r, "GET", "/api/report", &evil).await;
+        assert_eq!(res.status(), StatusCode::FORBIDDEN);
+        assert!(res.headers().get("access-control-allow-origin").is_none());
+
+        let res = send(&r, "POST", "/api/check", &evil).await;
+        assert_eq!(res.status(), StatusCode::FORBIDDEN);
+        // The refused POST ran no check: the first report is still pending.
+        let res = send(&r, "GET", "/api/report", &[("host", "127.0.0.1:7070")]).await;
+        assert_eq!(res.status(), StatusCode::SERVICE_UNAVAILABLE);
+
+        let preflight = [
+            ("host", "127.0.0.1:7070"),
+            ("origin", "https://evil.example"),
+            ("access-control-request-method", "POST"),
+        ];
+        let res = send(&r, "OPTIONS", "/api/check", &preflight).await;
+        assert_eq!(res.status(), StatusCode::FORBIDDEN);
+    }
+
+    #[tokio::test]
+    async fn a_dev_page_on_another_localhost_port_gets_cors() {
+        // VITE_API_BASE=http://127.0.0.1:7070 with the page on :5173.
+        let r = router(app(), None, false);
+        let res = send(
+            &r,
+            "GET",
+            "/api/health",
+            &[
+                ("host", "127.0.0.1:7070"),
+                ("origin", "http://localhost:5173"),
+            ],
+        )
+        .await;
+        assert_eq!(res.status(), StatusCode::OK);
+        assert_eq!(
+            res.headers()["access-control-allow-origin"],
+            "http://localhost:5173"
+        );
+    }
+
+    #[tokio::test]
+    async fn remote_mode_serves_ip_addresses_but_not_names() {
+        let r = router(app(), None, true);
+        let lan = [("host", "192.168.1.20:7070")];
+        assert_eq!(
+            send(&r, "GET", "/api/health", &lan).await.status(),
+            StatusCode::OK
+        );
+        let same_origin = [
+            ("host", "192.168.1.20:7070"),
+            ("origin", "http://192.168.1.20:7070"),
+        ];
+        assert_eq!(
+            send(&r, "POST", "/api/check", &same_origin).await.status(),
+            StatusCode::OK
+        );
+        for headers in [
+            &[("host", "evil.example:7070")][..],
+            &[
+                ("host", "192.168.1.20:7070"),
+                ("origin", "https://evil.example"),
+            ][..],
+        ] {
+            assert_eq!(
+                send(&r, "GET", "/api/health", headers).await.status(),
+                StatusCode::FORBIDDEN
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn the_served_dashboard_is_guarded_too() {
+        let dir = std::env::temp_dir().join(format!("firewatch-guard-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("index.html"), "<p>dashboard</p>").unwrap();
+        let r = router(app(), Some(&dir), false);
+        let ok = send(&r, "GET", "/index.html", &[("host", "127.0.0.1:7070")]).await;
+        let evil = send(&r, "GET", "/index.html", &[("host", "evil.example:7070")]).await;
+        let _ = std::fs::remove_dir_all(&dir);
+        assert_eq!(ok.status(), StatusCode::OK);
+        assert_eq!(evil.status(), StatusCode::FORBIDDEN);
     }
 }
