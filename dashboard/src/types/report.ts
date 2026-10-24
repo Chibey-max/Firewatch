@@ -22,10 +22,27 @@ export interface Finding {
   reason: string
   /** non-empty for amber findings */
   manual_checks: string[]
+  /** the version is inside the affected range; with not_affected, a condition ruled it out */
+  in_range: boolean
   action: Action
   /** the developers' words, quoted; never reworded */
   steps: string
 }
+
+/**
+ * Whether the binary is the official release its version claims (docs/API.md).
+ * match / mismatch / unknown_release: LND, by commit. unreleased / modified:
+ * Core Lightning, from its version string (git describe).
+ */
+export type BuildCheck =
+  | { status: 'match' }
+  | { status: 'mismatch'; release: string; expected: string; actual: string; build?: string }
+  /** a commit after the tag: every finding is already cant_tell */
+  | { status: 'unreleased'; release: string; build: string }
+  /** the tag with local changes: reds stay red, would-be-greens are cant_tell */
+  | { status: 'modified'; release: string; build: string }
+  | { status: 'unknown_release' }
+  | { status: 'not_checked' }
 
 export interface NodeReport {
   name: string
@@ -37,6 +54,8 @@ export interface NodeReport {
   status: Status
   /** set when the node couldn't be read */
   error: string | null
+  /** absent on daemons from before the build check */
+  build_check?: BuildCheck
   /** worst first */
   findings: Finding[]
 }

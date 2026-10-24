@@ -1,5 +1,5 @@
 {
-  "checked_at": 1792705518,
+  "checked_at": 1792753038,
   "nodes": [
     {
       "name": "old-cln",
@@ -8,6 +8,9 @@
       "network": "regtest",
       "status": "affected",
       "error": null,
+      "build_check": {
+        "status": "not_checked"
+      },
       "findings": [
         {
           "advisory_id": "FW-2026-003",
@@ -20,6 +23,7 @@
           "status": "affected",
           "reason": "Version 26.06.7 is in the affected range < 26.06.8. Fixed in 26.06.8.",
           "manual_checks": [],
+          "in_range": true,
           "action": "upgrade",
           "steps": "We strongly recommend upgrading to this release."
         },
@@ -34,22 +38,9 @@
           "status": "affected",
           "reason": "Version 26.06.7 is in the affected range < 26.06.9. Fixed in 26.06.9.",
           "manual_checks": [],
+          "in_range": true,
           "action": "upgrade",
           "steps": "We strongly encourage everyone to upgrade to 26.06.9 as soon as practical."
-        },
-        {
-          "advisory_id": "FW-2026-004",
-          "title": "Operators on 26.04 and earlier told to go offline before a patch existed",
-          "severity": "critical",
-          "exploited_in_wild": false,
-          "verified": false,
-          "fixed": null,
-          "source": "https://cryptobriefing.com/core-lightning-node-operators-offline-patch/",
-          "status": "not_affected",
-          "reason": "Version 26.06.7 is outside the affected range < 26.06.",
-          "manual_checks": [],
-          "action": "offline",
-          "steps": "UNVERIFIED: quote the official Core Lightning statement here before marking this advisory verified."
         }
       ]
     },
@@ -59,7 +50,10 @@
       "version": null,
       "network": null,
       "status": "cant_tell",
-      "error": "request failed: error sending request for url (http://127.0.0.1:9/v1/getinfo): client error (Connect): tcp connect error: Connection refused (os error 111)",
+      "error": "Can't connect to http://127.0.0.1:8183; is the node running?",
+      "build_check": {
+        "status": "not_checked"
+      },
       "findings": []
     }
   ]

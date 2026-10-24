@@ -13,7 +13,7 @@ export const severityName: Record<Severity, string> = {
   low: 'Low',
 }
 
-/** What the dial shows. "none" is a node no advisory applies to: not proof of safety. */
+/** A node's overall status. "none" is a node no advisory applies to: not proof of safety. */
 export type Reading = Status | 'none'
 
 export function readingOf(node: NodeReport): Reading {
@@ -38,12 +38,10 @@ export function splitVersion(raw: string): { version: string; build: string | nu
 /**
  * True when the version is in range but a condition (e.g. "mainnet only") rules
  * the advisory out. These are worth showing: they're where a version check alone
- * would have raised a false alarm. Keyed on the engine's wording in
- * crates/firewatch-core/src/engine.rs; if that changes, these fold away with the
- * other ruled-out findings, which is safe.
+ * would have raised a false alarm.
  */
 export function ruledOutByCondition(f: Finding): boolean {
-  return f.status === 'not_affected' && f.reason.includes(' is in the affected range ')
+  return f.status === 'not_affected' && f.in_range
 }
 
 export function countBy(findings: Finding[]): Record<Status, number> {
@@ -73,10 +71,14 @@ export function sourceLabel(url: string, max = 44): string {
 }
 
 /**
- * A plain-English first line for a connector error. The raw error is still shown
- * underneath; this only names the likely cause. Returns null when unsure.
+ * A plain-English first line for a raw connector error. The connectors now
+ * write plain sentences themselves ("Can't connect to …; is the node
+ * running?"); those are shown as they are. This only steps in for an older
+ * daemon's raw transport text, which is then shown underneath. Null when the
+ * error is already plain, or when unsure.
  */
 export function describeError(error: string): string | null {
+  if (!/^request failed:|error sending request|client error \(/.test(error)) return null
   const host = error.match(/url \((?:https?:\/\/)?([^/)]+)/)?.[1]
   const at = host ? ` at ${host}` : ''
   const e = error.toLowerCase()
@@ -108,4 +110,95 @@ export function checkedAgo(checkedAt: number, now: number): string {
 
 export function clockTime(ms: number): string {
   return new Date(ms).toLocaleTimeString(undefined, { hour12: false })
+}
+
+const rank: Record<Reading, number> = { affected: 0, cant_tell: 1, not_affected: 2, none: 3 }
+
+function exploited(node: NodeReport): number {
+  return node.findings.filter((f) => f.status === 'affected' && f.exploited_in_wild).length
+}
+
+/** Worst first: affected (exploited first), then can't tell, then the rest; ties by name. */
+export function sortNodes(nodes: NodeReport[]): NodeReport[] {
+  return [...nodes].sort(
+    (a, b) =>
+      rank[readingOf(a)] - rank[readingOf(b)] ||
+      exploited(b) - exploited(a) ||
+      a.name.localeCompare(b.name),
+  )
+}
+
+/** Nodes that are affected or can't be confirmed. */
+export function needsAction(nodes: NodeReport[]): number {
+  return nodes.filter((n) => n.status !== 'not_affected').length
+}
+
+/** One short line for a node's row: what its status rests on. */
+export function nodeSummary(node: NodeReport): string {
+  if (node.error) return "Couldn't read this node"
+  if (node.build_check?.status === 'mismatch') return "Build doesn't match the release"
+  if (node.build_check?.status === 'unreleased') return 'Build is a commit after the release'
+  const counts = countBy(node.findings)
+  const parts: string[] = []
+  if (counts.affected) parts.push(plural(counts.affected, 'advisory applies', 'advisories apply'))
+  if (exploited(node)) parts.push('exploited in the wild')
+  if (counts.cant_tell) parts.push(`${counts.cant_tell} to check by hand`)
+  if (parts.length) return parts.join(' · ')
+  if (node.findings.length === 0) return 'No advisory covers this node'
+  return `None of ${plural(node.findings.length, 'advisory', 'advisories')} apply`
+}
+
+/** Compare dotted version numbers ("26.06.9", "0.20.1-beta"); suffixes are ignored. */
+export function compareVersions(a: string, b: string): number {
+  const parts = (v: string) => (v.match(/\d+(\.\d+)*/)?.[0] ?? '').split('.').map(Number)
+  const [x, y] = [parts(a), parts(b)]
+  for (let i = 0; i < Math.max(x.length, y.length); i++) {
+    const d = (x[i] ?? 0) - (y[i] ?? 0)
+    if (d) return d
+  }
+  return 0
+}
+
+/**
+ * The release that carries every fix this node is affected by: the highest
+ * `fixed` among its red findings. Null when any of them has no fix yet, or
+ * lists fixes on several release lines (then each finding says its own).
+ */
+export function fixedTarget(node: NodeReport): string | null {
+  const fixes = node.findings.filter((f) => f.status === 'affected').map((f) => f.fixed)
+  if (fixes.length === 0 || fixes.some((f) => !f || f.includes(','))) return null
+  return (fixes as string[]).reduce((max, f) => (compareVersions(f, max) > 0 ? f : max))
+}
+
+export function shortHash(hash: string): string {
+  return hash.slice(0, 7)
+}
+
+export function readingCounts(nodes: NodeReport[]): Record<Reading, number> {
+  const counts: Record<Reading, number> = { affected: 0, cant_tell: 0, not_affected: 0, none: 0 }
+  for (const n of nodes) counts[readingOf(n)] += 1
+  return counts
+}
+
+/** The worst reading across the fleet: what the ambient light shows. */
+export function worstReading(nodes: NodeReport[]): Reading {
+  return sortNodes(nodes)[0] ? readingOf(sortNodes(nodes)[0]) : 'none'
+}
+
+/** Where to start: one sentence naming the node to look at first, and why. */
+export function priorityLine(nodes: NodeReport[]): string {
+  const first = sortNodes(nodes)[0]
+  if (!first) return 'Add a node to firewatch.toml and Firewatch starts watching it.'
+  const reading = readingOf(first)
+  if (reading === 'affected') {
+    return exploited(first)
+      ? `Start with ${first.name}: an advisory on it is exploited in the wild.`
+      : `Start with ${first.name}: ${nodeSummary(first).toLowerCase()}.`
+  }
+  if (reading === 'cant_tell') {
+    return first.error
+      ? `${first.name} can’t be read, so Firewatch won’t call it safe.`
+      : `${first.name} can’t be confirmed over RPC. Check it by hand.`
+  }
+  return 'Nothing the developers have published applies to your nodes right now.'
 }

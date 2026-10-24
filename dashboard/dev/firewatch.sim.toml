@@ -1,0 +1,24 @@
+# Firewatch config for dashboard/dev/sim.sh: two simulated Core Lightning nodes
+# and one address with nothing on it. Not for real nodes.
+
+[watch]
+interval_secs = 5
+listen = "127.0.0.1:7070"
+
+[[nodes]]
+kind = "cln"
+name = "old-cln"
+url = "http://127.0.0.1:18182"
+rune = "simulated"
+
+[[nodes]]
+kind = "cln"
+name = "current-cln"
+url = "http://127.0.0.1:18183"
+rune = "simulated"
+
+[[nodes]]
+kind = "cln"
+name = "stopped-cln"
+url = "http://127.0.0.1:18184"   # nothing listens here: shows the unreadable state
+rune = "simulated"

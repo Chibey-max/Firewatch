@@ -107,6 +107,7 @@ cargo run -- check --nodes examples/nodes.json --json --include-unverified > rep
 | `source` | URL | The developers' own notes. Always link it. |
 | `status` | status | |
 | `reason` | string | One sentence. Show it next to the colour. |
+| `in_range` | bool | The node's version is inside the affected range. `false` when it is outside or can't be parsed. A `not_affected` finding with `in_range: true` was ruled out by a condition (for example "mainnet only"): worth showing, since a version check alone would have flagged it. |
 | `manual_checks` | string[] | Non-empty for amber findings: what the operator should check by hand. Show them as a checklist. |
 | `action` | `"upgrade" \| "offline" \| "disable_feature"` | |
 | `steps` | string | The developers' words, quoted. Show it in quotation marks, never reworded. |

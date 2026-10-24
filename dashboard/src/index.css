@@ -1,72 +1,806 @@
 @import 'tailwindcss';
-/* Self-hosted fonts so the dashboard works without venue internet. */
-@import '@fontsource/big-shoulders-display/700';
-@import '@fontsource/big-shoulders-display/800';
-@import '@fontsource/public-sans/400';
-@import '@fontsource/public-sans/600';
-@import '@fontsource/public-sans/700';
-@import '@fontsource/jetbrains-mono/400';
-@import '@fontsource/jetbrains-mono/500';
+/* Self-hosted variable fonts, so the dashboard works without venue internet. */
+@import '@fontsource-variable/fraunces/standard.css';
+@import '@fontsource-variable/fraunces/standard-italic.css';
+@import '@fontsource-variable/hanken-grotesk';
+@import '@fontsource-variable/geist-mono';
+/* Type experiment: faces popular with Bitcoin and crypto projects. A face only
+   downloads when its set is picked. */
+@import '@fontsource-variable/space-grotesk';
+@import '@fontsource/space-mono/400.css';
+@import '@fontsource/space-mono/700.css';
+@import '@fontsource-variable/unbounded';
+@import '@fontsource-variable/manrope';
+@import '@fontsource-variable/sora';
+@import '@fontsource-variable/jetbrains-mono';
+@import '@fontsource-variable/inter';
+@import '@fontsource/ibm-plex-mono/400.css';
+@import '@fontsource/ibm-plex-mono/500.css';
+
+/* Satoshi, self-hosted from Fontshare (public/fonts/satoshi/README.txt). */
+@font-face {
+  font-family: 'Satoshi';
+  src: url('/fonts/satoshi/Satoshi-400.woff2') format('woff2');
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Satoshi';
+  src: url('/fonts/satoshi/Satoshi-500.woff2') format('woff2');
+  font-weight: 500;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Satoshi';
+  src: url('/fonts/satoshi/Satoshi-700.woff2') format('woff2');
+  font-weight: 600 700;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Satoshi';
+  src: url('/fonts/satoshi/Satoshi-900.woff2') format('woff2');
+  font-weight: 800 900;
+  font-display: swap;
+}
 
 /*
- * Firewatch tokens.
- * Colour is reserved for verdicts: red, amber and green never decorate.
- * Light "lookout paper" ground because projectors wash out dark themes.
+ * Type sets. The display face sets the headline and node names; the accent
+ * word is italic only where the face has a real italic worth showing.
+ * Switch with ?font=<set> or the picker (open the page with ?fonts).
  */
-@theme {
-  --color-paper: #edf0ea;
-  --color-panel: #fafbf8;
-  --color-ink: #142420;
-  --color-ink-2: #4a5a54;
-  --color-rule: #cbd3cb;
+:root,
+:root[data-font='satoshi'] {
+  --fw-font-display: 'Satoshi', system-ui, sans-serif;
+  --fw-font-body: 'Satoshi', system-ui, sans-serif;
+  --fw-font-mono: 'JetBrains Mono Variable', ui-monospace, monospace;
+  --fw-display-weight: 700;
+  --fw-display-tracking: -0.035em;
+  --fw-accent-style: normal;
+}
+:root[data-font='space'] {
+  --fw-font-display: 'Space Grotesk Variable', system-ui, sans-serif;
+  --fw-font-body: 'Space Grotesk Variable', system-ui, sans-serif;
+  --fw-font-mono: 'Space Mono', ui-monospace, monospace;
+  --fw-display-weight: 600;
+  --fw-display-tracking: -0.035em;
+  --fw-accent-style: normal;
+}
+:root[data-font='unbounded'] {
+  --fw-font-display: 'Unbounded Variable', system-ui, sans-serif;
+  --fw-font-body: 'Manrope Variable', system-ui, sans-serif;
+  --fw-font-mono: 'JetBrains Mono Variable', ui-monospace, monospace;
+  --fw-display-weight: 600;
+  --fw-display-tracking: -0.03em;
+  --fw-accent-style: normal;
+}
+:root[data-font='inter'] {
+  --fw-font-display: 'Inter Variable', system-ui, sans-serif;
+  --fw-font-body: 'Inter Variable', system-ui, sans-serif;
+  --fw-font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+  --fw-display-weight: 650;
+  --fw-display-tracking: -0.04em;
+  --fw-accent-style: normal;
+}
+:root[data-font='sora'] {
+  --fw-font-display: 'Sora Variable', system-ui, sans-serif;
+  --fw-font-body: 'Sora Variable', system-ui, sans-serif;
+  --fw-font-mono: 'JetBrains Mono Variable', ui-monospace, monospace;
+  --fw-display-weight: 600;
+  --fw-display-tracking: -0.04em;
+  --fw-accent-style: normal;
+}
+:root[data-font='editorial'] {
+  --fw-font-display: 'Fraunces Variable', Georgia, serif;
+  --fw-font-body: 'Hanken Grotesk Variable', system-ui, sans-serif;
+  --fw-font-mono: 'Geist Mono Variable', ui-monospace, monospace;
+  --fw-display-weight: 500;
+  --fw-display-tracking: -0.025em;
+  --fw-accent-style: italic;
+}
 
-  --color-affected: #c42a1c;
-  --color-affected-tint: #f8e3df;
-  --color-canttell: #c27a0e;
-  --color-canttell-ink: #8a5200;
-  --color-canttell-tint: #f7ebd3;
-  --color-safe: #1f7a4a;
-  --color-safe-tint: #ddefe3;
-  --color-none: #5f6d67; /* 4.7:1 on paper, for the small tally text */
+/*
+ * Firewatch tokens. "Lookout stone" by day, "night watch" by toggle.
+ * Red, amber and green only ever mean a verdict; the ambient light behind the
+ * page takes the fleet's worst verdict, so the room itself says how things are.
+ */
+:root {
+  --fw-bg: #f2eee6;
+  --fw-bg-2: #e9e3d8;
+  /* Glass, after HackOdds: a warm translucent fill, a strong blur and a hairline. */
+  --fw-shell: rgb(247 240 226 / 0.56);
+  --fw-surface: rgb(247 240 226 / 0.5);
+  --fw-surface-solid: rgb(250 246 238 / 0.56);
+  --fw-surface-hover: rgb(250 246 238 / 0.7);
+  --fw-line: rgb(169 155 128 / 0.4);
+  --fw-line-strong: rgb(150 134 106 / 0.55);
+  --fw-ink: #1c1915;
+  --fw-ink-2: #51493f;
+  --fw-ink-3: #625a4e;
+  /* The scene: the day photo's base colour, and a haze that lifts its dark
+     foreground so text over the glass keeps its contrast. */
+  --fw-sky-1: #e9ece6;
+  --fw-veil-top: rgb(244 240 232 / 0.06);
+  --fw-veil-bottom: rgb(242 236 226 / 0.6);
+  --fw-ember: #e0613f;
+  --fw-on-red: #ffffff;
+  --fw-gloss: rgb(255 255 255 / 0.7);
+  /* Liquid metal, after Mirror: hard-stopped chrome bands for the rims, and
+     the face of the one metal button. Warm bronze on stone. */
+  --fw-chrome:
+    #4a2a16, #ffe2c7 11%, #8a4f26 23%, #ffc08f 37%, #3a1e0e 51%, #fff1e3 64%, #9a5a2c 78%,
+    #f7b683 91%, #4a2a16;
+  --fw-chrome-line: rgb(138 79 38 / 0.55);
+  --fw-metal-tint: #ffb27a;
+  --fw-red: #b3301d;
+  --fw-red-soft: rgb(179 48 29 / 0.09);
+  --fw-amber: #8a4f00;
+  --fw-amber-soft: rgb(194 122 14 / 0.12);
+  --fw-green: #1a633e;
+  --fw-green-soft: rgb(29 107 67 / 0.09);
+  --fw-neutral: #5c5d55;
+  --fw-neutral-soft: rgb(92 93 85 / 0.09);
+  --fw-button: #1f1b16;
+  --fw-button-fg: #f7f3ec;
+  --fw-shadow: inset 0 1px 0 rgb(255 255 255 / 0.55), 0 18px 40px -32px rgb(94 71 48 / 0.45);
+  --fw-shadow-raised:
+    inset 0 1px 0 rgb(255 255 255 / 0.7), 0 2px 6px -2px rgb(94 71 48 / 0.12),
+    0 28px 56px -34px rgb(94 71 48 / 0.55);
+  --fw-sheen: rgb(255 255 255 / 0.55);
+  --fw-grain-opacity: 0.35;
+  color-scheme: light;
+}
 
-  --font-display: 'Big Shoulders Display', 'Arial Narrow', sans-serif;
-  --font-sans: 'Public Sans', system-ui, sans-serif;
-  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+:root[data-theme='dark'] {
+  --fw-bg: #100f0c;
+  --fw-bg-2: #16140f;
+  /* Night glass is tinted dark, so the photo's bright sky never shows
+     through as a mid-tone behind text. */
+  --fw-shell: rgb(7 11 18 / 0.47);
+  --fw-surface: rgb(255 255 255 / 0.05);
+  --fw-surface-solid: rgb(9 13 21 / 0.56);
+  --fw-surface-hover: rgb(255 255 255 / 0.07);
+  --fw-line: rgb(255 255 255 / 0.13);
+  --fw-line-strong: rgb(255 255 255 / 0.24);
+  --fw-sky-1: #0d1a2a;
+  --fw-veil-top: rgb(6 10 18 / 0.3);
+  --fw-veil-bottom: rgb(6 9 14 / 0.45);
+  --fw-ember: #ff8a5c;
+  /* the night red is light, so text on it is dark */
+  --fw-on-red: #1d0d09;
+  --fw-gloss: rgb(255 255 255 / 0.22);
+  --fw-chrome:
+    #3b3b40, #f2f2f6 11%, #6a6a72 23%, #d6d6dc 37%, #2c2c33 51%, #fafaff 64%, #77777f 78%,
+    #cbcbd3 91%, #3b3b40;
+  --fw-chrome-line: rgb(223 225 230 / 0.5);
+  --fw-metal-tint: #ffffff;
+  --fw-ink: #eef2f6;
+  --fw-ink-2: #bcc6d0;
+  --fw-ink-3: #97a3b0;
+  --fw-red: #ff7d68;
+  --fw-red-soft: rgb(255 125 104 / 0.13);
+  --fw-amber: #f3b75a;
+  --fw-amber-soft: rgb(243 183 90 / 0.13);
+  --fw-green: #63d39d;
+  --fw-green-soft: rgb(99 211 157 / 0.12);
+  --fw-neutral: #a8a194;
+  --fw-neutral-soft: rgb(168 161 148 / 0.12);
+  --fw-button: #eef2f6;
+  --fw-button-fg: #14120e;
+  --fw-shadow: inset 0 1px 0 rgb(255 255 255 / 0.06), 0 18px 40px -28px rgb(0 0 0 / 0.8);
+  --fw-shadow-raised: inset 0 1px 0 rgb(255 255 255 / 0.1), 0 30px 60px -30px rgb(0 0 0 / 0.9);
+  --fw-sheen: rgb(255 255 255 / 0.14);
+  --fw-grain-opacity: 0.2;
+  color-scheme: dark;
+}
+
+@theme inline {
+  --color-bg: var(--fw-bg);
+  --color-surface: var(--fw-surface);
+  --color-surface-solid: var(--fw-surface-solid);
+  --color-surface-hover: var(--fw-surface-hover);
+  --color-line: var(--fw-line);
+  --color-line-strong: var(--fw-line-strong);
+  --color-ink: var(--fw-ink);
+  --color-ink-2: var(--fw-ink-2);
+  --color-ink-3: var(--fw-ink-3);
+  --color-red: var(--fw-red);
+  --color-red-soft: var(--fw-red-soft);
+  --color-amber: var(--fw-amber);
+  --color-amber-soft: var(--fw-amber-soft);
+  --color-green: var(--fw-green);
+  --color-green-soft: var(--fw-green-soft);
+  --color-neutral: var(--fw-neutral);
+  --color-neutral-soft: var(--fw-neutral-soft);
+  --color-button: var(--fw-button);
+  --color-button-fg: var(--fw-button-fg);
+
+  --font-serif: var(--fw-font-display);
+  --font-sans: var(--fw-font-body);
+  --font-mono: var(--fw-font-mono);
+
+  --shadow-card: var(--fw-shadow);
+  --shadow-raised: var(--fw-shadow-raised);
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/*
+ * Every colour token is a registered colour, so when the theme changes the
+ * browser eases each one (text, glass, borders, verdicts) instead of snapping.
+ * The theme toggle also runs a circular reveal over the top (View
+ * Transitions); this is what you see where that isn't supported.
+ */
+@property --fw-bg {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: transparent;
+}
+@property --fw-bg-2 {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: transparent;
+}
+@property --fw-shell {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: transparent;
+}
+@property --fw-surface {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: transparent;
+}
+@property --fw-surface-solid {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: transparent;
+}
+@property --fw-surface-hover {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: transparent;
+}
+@property --fw-line {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: transparent;
+}
+@property --fw-line-strong {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: transparent;
+}
+@property --fw-ink {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: transparent;
+}
+@property --fw-ink-2 {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: transparent;
+}
+@property --fw-ink-3 {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: transparent;
+}
+@property --fw-red {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: transparent;
+}
+@property --fw-red-soft {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: transparent;
+}
+@property --fw-amber {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: transparent;
+}
+@property --fw-amber-soft {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: transparent;
+}
+@property --fw-green {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: transparent;
+}
+@property --fw-green-soft {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: transparent;
+}
+@property --fw-neutral {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: transparent;
+}
+@property --fw-neutral-soft {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: transparent;
+}
+@property --fw-button {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: transparent;
+}
+@property --fw-button-fg {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: transparent;
+}
+@property --fw-sheen {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: transparent;
+}
+@property --fw-gloss {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: transparent;
+}
+@property --fw-chrome-line {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: transparent;
+}
+@property --fw-ember {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: transparent;
+}
+@property --fw-sky-1 {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: transparent;
+}
+@property --fw-veil-top {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: transparent;
+}
+@property --fw-veil-bottom {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: transparent;
+}
+:root {
+  --fw-theme-ease: 900ms cubic-bezier(0.65, 0, 0.35, 1);
+  --fw-blur: 6px;
+  transition:
+    --fw-bg var(--fw-theme-ease),
+    --fw-bg-2 var(--fw-theme-ease),
+    --fw-shell var(--fw-theme-ease),
+    --fw-surface var(--fw-theme-ease),
+    --fw-surface-solid var(--fw-theme-ease),
+    --fw-surface-hover var(--fw-theme-ease),
+    --fw-line var(--fw-theme-ease),
+    --fw-line-strong var(--fw-theme-ease),
+    --fw-ink var(--fw-theme-ease),
+    --fw-ink-2 var(--fw-theme-ease),
+    --fw-ink-3 var(--fw-theme-ease),
+    --fw-red var(--fw-theme-ease),
+    --fw-red-soft var(--fw-theme-ease),
+    --fw-amber var(--fw-theme-ease),
+    --fw-amber-soft var(--fw-theme-ease),
+    --fw-green var(--fw-theme-ease),
+    --fw-green-soft var(--fw-theme-ease),
+    --fw-neutral var(--fw-theme-ease),
+    --fw-neutral-soft var(--fw-theme-ease),
+    --fw-button var(--fw-theme-ease),
+    --fw-button-fg var(--fw-theme-ease),
+    --fw-sheen var(--fw-theme-ease),
+    --fw-gloss var(--fw-theme-ease),
+    --fw-chrome-line var(--fw-theme-ease),
+    --fw-ember var(--fw-theme-ease),
+    --fw-sky-1 var(--fw-theme-ease),
+    --fw-veil-top var(--fw-theme-ease),
+    --fw-veil-bottom var(--fw-theme-ease);
+}
+
+/* The turn of every chrome rim. */
+@property --fw-metal {
+  syntax: '<angle>';
+  inherits: true;
+  initial-value: 0deg;
+}
+
+/* The ambient light's colour animates between verdicts. */
+@property --fw-glow {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: rgb(92 93 85 / 0.2);
 }
 
 @layer base {
   html {
-    background: var(--color-paper);
-    color: var(--color-ink);
+    background: var(--fw-bg);
+    color: var(--fw-ink);
     font-family: var(--font-sans);
+    font-size: 15px;
     -webkit-font-smoothing: antialiased;
+    transition:
+      background-color 0.5s ease,
+      color 0.5s ease;
   }
 
   body {
     min-height: 100vh;
   }
 
-  /* Projectors and 1080p screens: use the width and scale everything up a step. */
   @media (min-width: 1600px) {
     html {
-      font-size: 18px;
+      font-size: 17px;
     }
   }
 
   :focus-visible {
-    outline: 3px solid var(--color-ink);
-    outline-offset: 2px;
-    border-radius: 2px;
+    outline: 2px solid var(--fw-ink);
+    outline-offset: 3px;
+    border-radius: 10px;
+  }
+
+  ::selection {
+    background: var(--fw-amber-soft);
   }
 }
 
-/* The needle swing is the one animation on the page: it marks a change of verdict. */
-.dial-needle {
-  transition: transform 1s cubic-bezier(0.34, 1.4, 0.64, 1);
+/* Type that follows the chosen set (see the type sets at the top). */
+.fw-display {
+  font-family: var(--fw-font-display);
+  font-weight: var(--fw-display-weight);
+  letter-spacing: var(--fw-display-tracking);
+}
+.fw-accent {
+  font-style: var(--fw-accent-style);
+}
+.fw-quote {
+  font-family: var(--fw-font-display);
+  font-style: var(--fw-accent-style);
+}
+
+/* --- The scene behind the glass: two photos, a veil, the verdict light, grain. --- */
+.fw-scene {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  overflow: hidden;
+  background: var(--fw-sky-1);
+  transition: --fw-glow 1.8s var(--ease-out-expo);
+}
+/*
+ * Both photos stay mounted. The one for the other theme drifts back, blurs and
+ * fades; the active one settles into focus. A very slow drift (translate, so
+ * it never fights the scale transition) keeps the landscape alive.
+ */
+.fw-photo {
+  position: absolute;
+  inset: -4%;
+  background-size: cover;
+  background-position: center 55%;
+  will-change: opacity, scale, filter;
+  transition:
+    opacity 1.2s cubic-bezier(0.65, 0, 0.35, 1),
+    scale 2.2s var(--ease-out-expo),
+    filter 1.2s cubic-bezier(0.65, 0, 0.35, 1);
+  animation: fw-photo-drift 70s ease-in-out infinite alternate;
+}
+.fw-photo-light {
+  background-image: url('/bg/light-2560.webp');
+  /* a touch of warmth, so the cool haze sits with the stone glass */
+  filter: sepia(0.16) saturate(1.04);
+}
+.fw-photo-dark {
+  background-image: url('/bg/dark-2560.webp');
+  opacity: 0;
+  scale: 1.07;
+  filter: blur(10px) brightness(0.8);
+}
+:root[data-theme='dark'] .fw-photo-light {
+  opacity: 0;
+  scale: 1.07;
+  filter: blur(10px) sepia(0.16) brightness(1.1);
+}
+:root[data-theme='dark'] .fw-photo-dark {
+  opacity: 1;
+  scale: 1;
+  filter: none;
+}
+@media (max-width: 1440px) {
+  .fw-photo-light {
+    background-image: url('/bg/light-1440.webp');
+  }
+  .fw-photo-dark {
+    background-image: url('/bg/dark-1440.webp');
+  }
+}
+@media (orientation: portrait) {
+  .fw-photo-light {
+    background-image: url('/bg/light-portrait.webp');
+  }
+  .fw-photo-dark {
+    background-image: url('/bg/dark-portrait.webp');
+  }
+}
+@keyframes fw-photo-drift {
+  from {
+    translate: -1.2% 0.6%;
+  }
+  to {
+    translate: 1.2% -0.6%;
+  }
+}
+.fw-veil {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    180deg,
+    var(--fw-veil-top) 0%,
+    var(--fw-veil-top) 35%,
+    var(--fw-veil-bottom) 100%
+  );
+}
+/* The verdict light, low on the horizon: it tints the photo rather than
+   painting over it, and breathes slowly. */
+.fw-horizon {
+  position: absolute;
+  left: 50%;
+  bottom: 6%;
+  width: 150vmax;
+  height: 60vmax;
+  translate: -45% 0;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, var(--fw-glow), transparent 72%);
+  mix-blend-mode: soft-light;
+  animation: fw-horizon 9s ease-in-out infinite;
+}
+@keyframes fw-horizon {
+  0%,
+  100% {
+    opacity: 0.8;
+    scale: 1;
+  }
+  50% {
+    opacity: 1;
+    scale: 1.05;
+  }
+}
+.fw-grain {
+  position: absolute;
+  inset: 0;
+  opacity: calc(var(--fw-grain-opacity) * 0.5);
+  mix-blend-mode: multiply;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .35 0 0 0 0 .28 0 0 0 0 .2 0 0 0 .5 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+:root[data-theme='dark'] .fw-grain {
+  mix-blend-mode: screen;
+}
+
+/* Liquid glass: the shell, the panels and the small pills. A soft light along
+   each pane's top rim is part of its fill. */
+.fw-glass,
+.fw-glass-strong,
+.fw-shell {
+  position: relative;
+  border: 1px solid var(--fw-line);
+  /* Enough blur to frost the glass, little enough that the mountains read. */
+  -webkit-backdrop-filter: blur(var(--fw-blur)) saturate(1.2);
+  backdrop-filter: blur(var(--fw-blur)) saturate(1.2);
+}
+.fw-glass {
+  background: var(--fw-surface);
+}
+.fw-glass-strong {
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--fw-sheen) 45%, transparent), transparent 26%),
+    var(--fw-surface-solid);
+  box-shadow: var(--fw-shadow-raised);
+}
+.fw-shell {
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--fw-sheen) 40%, transparent), transparent 24%),
+    var(--fw-shell);
+  box-shadow: var(--fw-shadow);
+}
+
+/* The phone's detail sheet, the tablet's dialog and the nav bar: denser than the panes, since the
+   page passes right behind them. The sheet sits over a scrim that dims and
+   softens the page. */
+.fw-sheet,
+.fw-bar {
+  border: 1px solid var(--fw-line);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--fw-sheen) 45%, transparent), transparent 18%),
+    color-mix(in srgb, var(--fw-surface-solid) 72%, var(--fw-bg));
+  -webkit-backdrop-filter: blur(calc(var(--fw-blur) * 3)) saturate(1.2);
+  backdrop-filter: blur(calc(var(--fw-blur) * 3)) saturate(1.2);
+}
+.fw-sheet {
+  border-bottom: 0;
+  box-shadow: 0 -18px 50px -20px rgb(0 0 0 / 0.45);
+}
+/* The tablet's centred dialog: the same glass, edged all round. */
+.fw-sheet.fw-dialog {
+  border-bottom: 1px solid var(--fw-line);
+  box-shadow: 0 30px 80px -30px rgb(0 0 0 / 0.55);
+}
+.fw-bar {
+  position: relative;
+  box-shadow: var(--fw-shadow);
+}
+.fw-scrim {
+  background: rgb(8 10 14 / 0.38);
+  -webkit-backdrop-filter: blur(2px);
+  backdrop-filter: blur(2px);
+}
+
+/* --- Liquid metal --- */
+
+/* Cuts a layer down to a thin ring along its rounded edge, so a liquid-metal
+   fill shows only as a rim around clear glass. */
+.fw-ring-mask {
+  padding: 1.5px;
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+}
+
+/* A turning chrome rim: a conic of chrome bands, cut down to a ring by a mask. */
+.fw-chrome-rim {
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  padding: 1.5px;
+  pointer-events: none;
+  background: conic-gradient(from var(--fw-metal, 0deg), var(--fw-chrome));
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  animation: fw-metal-turn 5s linear infinite;
+}
+@keyframes fw-metal-turn {
+  to {
+    --fw-metal: 360deg;
+  }
+}
+
+/* A drop of clear glass for the action's icon: its outline wobbles like a
+   drop settling, a chrome rim turns around it, and it splashes once. */
+.fw-droplet {
+  position: relative;
+  background:
+    radial-gradient(circle at 32% 26%, var(--fw-gloss), transparent 46%), var(--fw-surface);
+  -webkit-backdrop-filter: blur(10px) saturate(1.3);
+  backdrop-filter: blur(10px) saturate(1.3);
+  box-shadow:
+    inset 0 -6px 12px -8px color-mix(in srgb, currentColor 40%, transparent),
+    0 8px 18px -10px color-mix(in srgb, currentColor 55%, transparent);
+  animation: fw-blob 3.4s ease-in-out infinite;
+}
+.fw-droplet::before {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: 9999px;
+  border: 1px solid var(--fw-chrome-line);
+  pointer-events: none;
+  animation: fw-splash 900ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+@keyframes fw-blob {
+  0%,
+  100% {
+    border-radius: 50%;
+  }
+  25% {
+    border-radius: 56% 44% 52% 48% / 46% 55% 45% 54%;
+  }
+  50% {
+    border-radius: 45% 55% 47% 53% / 55% 45% 56% 44%;
+  }
+  75% {
+    border-radius: 53% 47% 44% 56% / 48% 52% 50% 50%;
+  }
+}
+@keyframes fw-splash {
+  from {
+    opacity: 0.7;
+    scale: 1;
+  }
+  to {
+    opacity: 0;
+    scale: 2.1;
+  }
+}
+
+/* The live dot breathes; a dot that stops breathing has stopped receiving. */
+@keyframes fw-breathe {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, currentColor 45%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 0 6px color-mix(in srgb, currentColor 0%, transparent);
+  }
+}
+.fw-breathe {
+  animation: fw-breathe 2.6s ease-in-out infinite;
+}
+
+/* Skeleton shimmer while the first report loads. */
+@keyframes fw-shimmer {
+  from {
+    background-position: -200% 0;
+  }
+  to {
+    background-position: 200% 0;
+  }
+}
+.fw-shimmer {
+  background: linear-gradient(
+      100deg,
+      transparent 30%,
+      color-mix(in srgb, var(--fw-ink) 6%, transparent) 50%,
+      transparent 70%
+    )
+    var(--fw-surface);
+  background-size: 200% 100%;
+  animation: fw-shimmer 1.6s linear infinite;
+}
+
+/* Countdown ring around the retry dot while reconnecting. */
+@keyframes fw-countdown {
+  from {
+    stroke-dashoffset: 0;
+  }
+  to {
+    stroke-dashoffset: 44;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .dial-needle {
+  .fw-breathe,
+  .fw-shimmer,
+  .fw-horizon,
+  .fw-chrome-rim,
+  .fw-droplet,
+  .fw-droplet::before {
+    animation: none;
+  }
+  .fw-scene,
+  .fw-photo,
+  :root {
     transition: none;
   }
+  .fw-photo {
+    animation: none;
+  }
+}
+
+/*
+ * Theme switch as a circular reveal from the toggle (View Transitions). The
+ * reveal is the only animation: the default crossfade is off, and while the
+ * switch runs nothing else transitions, so the new snapshot is the finished
+ * theme.
+ */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+::view-transition-new(root) {
+  z-index: 2;
+}
+.fw-theme-switching,
+.fw-theme-switching * {
+  transition: none !important;
 }

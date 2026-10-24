@@ -1,5 +1,5 @@
 {
-  "checked_at": 1792705532,
+  "checked_at": 1792753038,
   "nodes": [
     {
       "name": "old-cln",
@@ -8,6 +8,9 @@
       "network": "regtest",
       "status": "not_affected",
       "error": null,
+      "build_check": {
+        "status": "not_checked"
+      },
       "findings": [
         {
           "advisory_id": "FW-2026-003",
@@ -20,6 +23,7 @@
           "status": "not_affected",
           "reason": "Version 26.06.9 includes the fix (fixed in 26.06.8).",
           "manual_checks": [],
+          "in_range": false,
           "action": "upgrade",
           "steps": "We strongly recommend upgrading to this release."
         },
@@ -34,6 +38,7 @@
           "status": "not_affected",
           "reason": "Version 26.06.9 includes the fix (fixed in 26.06.9).",
           "manual_checks": [],
+          "in_range": false,
           "action": "upgrade",
           "steps": "We strongly encourage everyone to upgrade to 26.06.9 as soon as practical."
         }
@@ -46,6 +51,9 @@
       "network": "regtest",
       "status": "not_affected",
       "error": null,
+      "build_check": {
+        "status": "not_checked"
+      },
       "findings": [
         {
           "advisory_id": "FW-2026-003",
@@ -58,6 +66,7 @@
           "status": "not_affected",
           "reason": "Version 26.06.9 includes the fix (fixed in 26.06.8).",
           "manual_checks": [],
+          "in_range": false,
           "action": "upgrade",
           "steps": "We strongly recommend upgrading to this release."
         },
@@ -72,6 +81,7 @@
           "status": "not_affected",
           "reason": "Version 26.06.9 includes the fix (fixed in 26.06.9).",
           "manual_checks": [],
+          "in_range": false,
           "action": "upgrade",
           "steps": "We strongly encourage everyone to upgrade to 26.06.9 as soon as practical."
         }
@@ -84,7 +94,70 @@
       "network": "regtest",
       "status": "not_affected",
       "error": null,
+      "build_check": {
+        "status": "not_checked"
+      },
       "findings": [
+        {
+          "advisory_id": "FW-2026-010",
+          "title": "update_fee breach fee-burn exploit",
+          "severity": "high",
+          "exploited_in_wild": false,
+          "verified": true,
+          "fixed": "0.18.3",
+          "source": "https://security.lightning.engineering/2026/08/11/lnd-update-fee-breach-exploit.html",
+          "status": "not_affected",
+          "reason": "Version 0.21.4 includes the fix (fixed in 0.18.3).",
+          "manual_checks": [],
+          "in_range": false,
+          "action": "upgrade",
+          "steps": "Users should update to v0.18.3-beta or later to be protected."
+        },
+        {
+          "advisory_id": "FW-2026-011",
+          "title": "Pending commitment excessive HTLC failback exploit",
+          "severity": "high",
+          "exploited_in_wild": false,
+          "verified": true,
+          "fixed": "0.18.0",
+          "source": "https://security.lightning.engineering/2026/08/11/lnd-pending-commitment-failback-exploit.html",
+          "status": "not_affected",
+          "reason": "Version 0.21.4 includes the fix (fixed in 0.18.0).",
+          "manual_checks": [],
+          "in_range": false,
+          "action": "upgrade",
+          "steps": "Users should update to v0.18.0-beta or later to be protected."
+        },
+        {
+          "advisory_id": "FW-2026-012",
+          "title": "HTLC first-stage sweep failure due to wallet budget constraint",
+          "severity": "high",
+          "exploited_in_wild": false,
+          "verified": true,
+          "fixed": "0.19.0",
+          "source": "https://security.lightning.engineering/2026/08/11/lnd-htlc-sweep-budget-failure.html",
+          "status": "not_affected",
+          "reason": "Version 0.21.4 includes the fix (fixed in 0.19.0).",
+          "manual_checks": [],
+          "in_range": false,
+          "action": "upgrade",
+          "steps": "Users should update to v0.19.0-beta or later to be protected."
+        },
+        {
+          "advisory_id": "FW-2026-013",
+          "title": "Invoice marked settled after HTLC cancelled by interceptor",
+          "severity": "high",
+          "exploited_in_wild": false,
+          "verified": true,
+          "fixed": "0.19.0",
+          "source": "https://security.lightning.engineering/2026/09/21/lnd-tapd-cancelled-htlc-marked-settled.html",
+          "status": "not_affected",
+          "reason": "Version 0.21.4 includes the fix (fixed in 0.19.0).",
+          "manual_checks": [],
+          "in_range": false,
+          "action": "upgrade",
+          "steps": "lnd fix released in v0.19.0-beta"
+        },
         {
           "advisory_id": "FW-2026-007",
           "title": "Gossip stall via malformed channel_announcement flood",
@@ -96,6 +169,7 @@
           "status": "not_affected",
           "reason": "Version 0.21.4 includes the fix (fixed in 0.20.1).",
           "manual_checks": [],
+          "in_range": false,
           "action": "upgrade",
           "steps": "Users should update to v0.20.1-beta or later on their release line."
         },
@@ -110,6 +184,7 @@
           "status": "not_affected",
           "reason": "Version 0.21.4 includes the fix (fixed in 0.20.1).",
           "manual_checks": [],
+          "in_range": false,
           "action": "upgrade",
           "steps": "Users should update to a version >= v0.20.1-beta to be protected."
         },
@@ -124,6 +199,7 @@
           "status": "not_affected",
           "reason": "Version 0.21.4 includes the fix (fixed in 0.20.2, 0.21.1).",
           "manual_checks": [],
+          "in_range": false,
           "action": "upgrade",
           "steps": "Users should update to the patched release on their line."
         }

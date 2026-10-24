@@ -1,4 +1,7 @@
 # Firewatch
+
+[![CI](https://github.com/Chibey-max/Firewatch/actions/workflows/ci.yml/badge.svg)](https://github.com/Chibey-max/Firewatch/actions/workflows/ci.yml)
+
 Firewatch tells a Lightning node operator, within minutes, whether a published security flaw actually affects their node and exactly what to do about it.
 
 It is read-only by design: it holds no credential that can change or spend from a node, it never upgrades or shuts anything down, and it quotes the developers' own fix instead of writing one.
@@ -77,6 +80,16 @@ cargo run -p firewatch-alerts --example inbox -- <nsec>         # print DMs sent
 
 `watch` serves the latest report on `http://127.0.0.1:7070`. See [docs/API.md](docs/API.md) for the endpoints and the JSON format.
 
+## Dashboard
+
+`dashboard/` is the web page the operator watches: every node in one list, worst first, and the selected node's action, the developers' quoted fixes with links, what to check by hand and what a condition ruled out. Light by default, with a dark theme for dim rooms; it animates every change of verdict, and a lost or recovered connection arrives as a toast.
+
+```sh
+cd dashboard && npm install && npm run dev      # http://localhost:5173, reads the watch API
+```
+
+For the demo, `scripts/demo-up.sh` builds it and serves it from `watch` at `http://127.0.0.1:7070` (by hand: `npm run build`, then `watch --dashboard dashboard/dist`). Without a node network, `dashboard/dev/sim.sh` runs `watch` against simulated Core Lightning nodes, and `?fixture=demo` shows recorded sample data. See [dashboard/README.md](dashboard/README.md).
+
 ## Demo
 
 The demo runs on a [Polar](https://lightningpolar.com) regtest network named `Firewatch-demo`: an old Core Lightning (`old-cln`, 26.06.7), a current one (`current-cln`, 26.06.9), and two LND nodes (`alice` on 0.20.0-beta, `lnd-old` on 0.18.5-beta). The step-by-step script is in [docs/DEMO.md](docs/DEMO.md).
@@ -132,6 +145,8 @@ Firewatch never shows green when it is unsure.
 | `scripts/` | `demo-up.sh`, `verify-demo.py`, `audit-quotes.py`, `lnd-releases.sh`. |
 | `demo/` | Polar images, the upgrade and reset scripts, and the expected verdicts. |
 | `examples/nodes.json` | Node snapshots for working without a live network. |
+| `dashboard/` | The operator's web dashboard (React, TypeScript, Vite), its fixtures, the live sim and the backup-video recorder. |
+| `.github/workflows/ci.yml` | CI: Rust fmt, clippy and tests, and the dashboard's lint, format check and build. |
 
 ## Advisory format
 

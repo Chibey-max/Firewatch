@@ -22,3 +22,7 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# backup demo recordings (dev/record-backup.mjs); keep them out of git
+*.mp4
+*.webm
