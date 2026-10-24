@@ -63,7 +63,7 @@ impl ClnClient {
         Ok(ClnClient {
             http,
             name: config.name.clone(),
-            url: config.url.trim_end_matches('/').to_string(),
+            url: crate::node_url(&config.name, &config.url)?,
             rune: rune.trim().to_string(),
         })
     }
@@ -76,12 +76,9 @@ impl ClnClient {
             .json(&serde_json::json!({}))
             .send()
             .await
-            .map_err(|e| crate::transport_error(e, &self.url, &self.name))?;
+            .map_err(|e| crate::transport_error(e, &self.url, &self.name, Implementation::Cln))?;
         let ok = response.status().is_success();
-        let body: Value = response
-            .json()
-            .await
-            .map_err(|e| crate::transport_error(e, &self.url, &self.name))?;
+        let body = crate::read_json(response, &self.url, &self.name, Implementation::Cln).await?;
         if ok {
             return Ok(body);
         }

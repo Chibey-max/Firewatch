@@ -55,7 +55,7 @@ impl LndClient {
                 .build()
                 .map_err(|e| ConnectorError::Config(e.to_string()))?,
             name: config.name.clone(),
-            url: config.url.trim_end_matches('/').to_string(),
+            url: crate::node_url(&config.name, &config.url)?,
             macaroon,
         })
     }
@@ -69,12 +69,9 @@ impl LndClient {
             .header("Grpc-Metadata-macaroon", &self.macaroon)
             .send()
             .await
-            .map_err(|e| crate::transport_error(e, &self.url, &self.name))?;
+            .map_err(|e| crate::transport_error(e, &self.url, &self.name, Implementation::Lnd))?;
         let ok = response.status().is_success();
-        let body: Value = response
-            .json()
-            .await
-            .map_err(|e| crate::transport_error(e, &self.url, &self.name))?;
+        let body = crate::read_json(response, &self.url, &self.name, Implementation::Lnd).await?;
         if ok {
             return Ok(body);
         }
