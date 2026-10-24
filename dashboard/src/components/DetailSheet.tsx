@@ -55,7 +55,8 @@ export function DetailSheet({
     const root = document.documentElement
     root.style.overflow = 'hidden'
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
+      // A popover inside handles its own Escape first.
+      if (e.key === 'Escape' && !e.defaultPrevented) onClose()
     }
     window.addEventListener('keydown', onKey)
     requestAnimationFrame(() => panel.current?.focus({ preventScroll: true }))

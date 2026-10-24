@@ -16,6 +16,7 @@ import type { Finding, NodeReport } from '../types/report'
 import { Disclosure } from './Disclosure'
 import { FindingItem } from './FindingItem'
 import { StatusPill } from './StatusPill'
+import { WhyAmber } from './WhyAmber'
 
 const list = { hidden: {}, show: { transition: { staggerChildren: 0.04, delayChildren: 0.1 } } }
 
@@ -236,8 +237,16 @@ function Detail({ node }: { node: NodeReport }) {
         <StatusPill reading={reading} large />
       </motion.header>
 
-      <motion.p variants={rise} className="mt-3 text-[0.95rem] text-ink-2">
+      <motion.p variants={rise} className="relative mt-3 text-[0.95rem] text-ink-2">
         {nodeSummary(node)}
+        {reading === 'cant_tell' && (
+          <>
+            <span aria-hidden className="mx-2 text-ink-3">
+              ·
+            </span>
+            <WhyAmber node={node} />
+          </>
+        )}
       </motion.p>
 
       <div className="mt-5">

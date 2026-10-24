@@ -1,7 +1,7 @@
 import { MotionConfig } from 'motion/react'
 import { useCallback, useEffect, useState } from 'react'
 import { DetailSheet } from './components/DetailSheet'
-import { EmptyState, Loading } from './components/EmptyState'
+import { EmptyState, Loading, SkeletonRows } from './components/EmptyState'
 import { FontPicker } from './components/FontPicker'
 import { Hero } from './components/Hero'
 import { NodeDetail } from './components/NodeDetail'
@@ -122,6 +122,7 @@ export default function App() {
           </div>
           <div className="flex min-h-0 flex-1 flex-col gap-7 overflow-y-auto p-5 sm:p-6 sm:pt-9">
             <Hero report={report} phase={phase} />
+            {!report && phase !== 'offline' && <SkeletonRows />}
             {report && nodes.length > 0 && (
               <NodeList nodes={nodes} selected={selected?.name ?? null} onSelect={select} />
             )}
@@ -132,8 +133,10 @@ export default function App() {
           </p>
         </aside>
 
+        {/* On a phone or tablet the column only holds the empty and offline
+            states: nodes open over the list, and loading shows in the list. */}
         <section
-          className={`flex min-h-0 flex-col gap-4 ${!wide && nodes.length > 0 ? 'hidden' : ''}`}
+          className={`flex min-h-0 flex-col gap-4 ${!wide && (report ? nodes.length > 0 : phase !== 'offline') ? 'hidden' : ''}`}
         >
           {wide && <div className="flex items-center justify-end gap-2.5">{controls}</div>}
           <div id="detail" className="min-h-0 flex-1 overflow-y-auto rounded-[28px]">

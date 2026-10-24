@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { fixtures } from '../fixtures'
 import type { Finding, NodeReport } from '../types/report'
 import {
+  amberReason,
   checkedAgo,
   compareVersions,
   describeError,
@@ -117,6 +118,18 @@ describe('nodeSummary', () => {
       build_check: { status: 'unreleased', release: 'v26.06.7', build: 'v26.06.7-12-gabc1234' },
     })
     expect(nodeSummary(n)).toBe('Build is a commit after the release')
+  })
+})
+
+describe('amberReason', () => {
+  it('names what the amber rests on', () => {
+    expect(amberReason(node({ error: 'down', status: 'cant_tell' }))).toMatch(/couldn't read/)
+    expect(amberReason(byName('lnd-unofficial'))).toMatch(/isn't the official release/)
+    const modified = node({
+      build_check: { status: 'modified', release: 'v26.06.7', build: 'v26.06.7-modded' },
+    })
+    expect(amberReason(modified)).toMatch(/local changes/)
+    expect(amberReason(node({ findings: [finding({ status: 'cant_tell' })] }))).toMatch(/by hand/)
   })
 })
 
