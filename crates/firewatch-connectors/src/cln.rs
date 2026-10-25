@@ -37,6 +37,10 @@ pub struct ClnConfig {
     pub rune: Option<String>,
     #[serde(default)]
     pub rune_file: Option<PathBuf>,
+    /// For clnrest over HTTPS: its self-signed `server.pem` (in the node's
+    /// network folder), trusted for this node only. Not needed over HTTP.
+    #[serde(default)]
+    pub tls_cert: Option<PathBuf>,
 }
 
 pub struct ClnClient {
@@ -58,6 +62,19 @@ impl ClnClient {
                     "node '{}': set exactly one of rune or rune_file",
                     config.name
                 )))
+            }
+        };
+        let http = match &config.tls_cert {
+            None => http,
+            Some(path) => {
+                let pem = std::fs::read(path).map_err(|e| {
+                    ConnectorError::Config(format!("reading tls_cert {}: {e}", path.display()))
+                })?;
+                reqwest::Client::builder()
+                    .timeout(crate::TIMEOUT)
+                    .tls_backend_preconfigured(crate::tls::pinned_config(&pem)?)
+                    .build()
+                    .map_err(|e| ConnectorError::Config(e.to_string()))?
             }
         };
         Ok(ClnClient {
@@ -304,6 +321,7 @@ mod tests {
             url: "http://x".into(),
             rune: None,
             rune_file: None,
+            tls_cert: None,
         };
         assert!(matches!(
             ClnClient::new(&config, reqwest::Client::new()),

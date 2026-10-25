@@ -204,6 +204,8 @@ fn router(app: Arc<App>, dashboard_dir: Option<&Path>, allow_remote: bool) -> Ro
         .route("/api/health", get(get_health));
     if let Some(dir) = dashboard_dir {
         router = router.fallback_service(ServeDir::new(dir));
+    } else if crate::embedded::has_dashboard() {
+        router = router.fallback(crate::embedded::dashboard);
     }
     // The dashboard is same-origin (served here, or through Vite's proxy), so
     // CORS is only for a dev page on another localhost port (VITE_API_BASE).

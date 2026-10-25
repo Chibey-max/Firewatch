@@ -13,7 +13,9 @@ pub mod releases;
 pub mod report;
 pub mod version;
 
-pub use advisory::{load_dir, Action, Advisory, Condition, Implementation, LoadError, Severity};
+pub use advisory::{
+    load_dir, load_texts, Action, Advisory, Condition, Implementation, LoadError, Severity,
+};
 pub use changes::{changes, Change};
 pub use engine::{evaluate, Status, Verdict};
 pub use exposure::{Exposure, ExposureStatus};

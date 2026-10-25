@@ -1,9 +1,12 @@
 //! `firewatch`: check nodes against the advisory database.
 //!
 //! Nodes come from `firewatch.toml` (live, read-only connectors) or from a
-//! JSON snapshot (a list of `NodeInfo`, e.g. `examples/nodes.json`).
+//! JSON snapshot (a list of `NodeInfo`, e.g. `examples/nodes.json`). The
+//! advisories, release table and dashboard are built in; flags override them.
 
 mod config;
+mod embedded;
+mod init;
 mod watch;
 
 use std::io::IsTerminal;
@@ -29,14 +32,14 @@ use crate::config::Config;
     about = "Security alerts for Lightning nodes"
 )]
 struct Cli {
-    /// Directory of advisory TOML files.
-    #[arg(long, global = true, default_value = "advisories")]
-    advisories: PathBuf,
+    /// Directory of advisory TOML files, instead of the built-in advisories.
+    #[arg(long, global = true)]
+    advisories: Option<PathBuf>,
 
-    /// Official release table for the build check. Required, like the
-    /// advisories; regenerate it with scripts/lnd-releases.sh.
-    #[arg(long, global = true, default_value = "releases/lnd.toml")]
-    releases: PathBuf,
+    /// Official LND release table for the build check, instead of the
+    /// built-in one. Regenerate it with scripts/lnd-releases.sh.
+    #[arg(long, global = true)]
+    releases: Option<PathBuf>,
 
     #[command(subcommand)]
     command: Command,
@@ -48,9 +51,10 @@ enum Command {
     ///
     /// Exit code: 0 nothing found, 1 error, 2 something can't be told, 3 affected.
     Check {
-        /// Node config with read-only credentials.
-        #[arg(long, default_value = "firewatch.toml", conflicts_with = "nodes")]
-        config: PathBuf,
+        /// Node config with read-only credentials. Default: ./firewatch.toml if
+        /// it exists, else ~/.config/firewatch/firewatch.toml.
+        #[arg(long, conflicts_with = "nodes")]
+        config: Option<PathBuf>,
         /// Read nodes from a JSON snapshot instead of connecting to them.
         #[arg(long)]
         nodes: Option<PathBuf>,
@@ -63,8 +67,9 @@ enum Command {
     },
     /// Re-check every N seconds, alert on changes, and serve the dashboard API.
     Watch {
-        #[arg(long, default_value = "firewatch.toml")]
-        config: PathBuf,
+        /// Default: ./firewatch.toml if it exists, else ~/.config/firewatch/firewatch.toml.
+        #[arg(long)]
+        config: Option<PathBuf>,
         /// Also run advisories not yet verified against an official source.
         #[arg(long)]
         include_unverified: bool,
@@ -72,14 +77,24 @@ enum Command {
         /// who can reach it which nodes are vulnerable.
         #[arg(long)]
         allow_remote: bool,
-        /// Serve a built dashboard at `/`, overriding `dashboard_dir`.
+        /// Serve a dashboard from this folder instead of the built-in one.
         #[arg(long)]
         dashboard: Option<PathBuf>,
     },
     /// Send a test alert to check that it reaches your phone.
     TestAlert {
-        #[arg(long, default_value = "firewatch.toml")]
-        config: PathBuf,
+        /// Default: ./firewatch.toml if it exists, else ~/.config/firewatch/firewatch.toml.
+        #[arg(long)]
+        config: Option<PathBuf>,
+    },
+    /// Find your node, set up a read-only connection and write the config.
+    Init {
+        /// Where to write it. Default: ~/.config/firewatch/firewatch.toml.
+        #[arg(long)]
+        config: Option<PathBuf>,
+        /// Replace an existing config.
+        #[arg(long)]
+        force: bool,
     },
     /// Load and validate every advisory file, then list them.
     Validate,
@@ -99,9 +114,20 @@ async fn main() -> ExitCode {
 
 async fn run() -> Result<ExitCode> {
     let cli = Cli::parse();
-    let advisories = load_dir(&cli.advisories)
-        .with_context(|| format!("loading advisories from {}", cli.advisories.display()))?;
-    let releases = Some(load_releases(&cli.releases)?);
+    if let Command::Init { config, force } = cli.command {
+        init::run(config, force).await?;
+        return Ok(ExitCode::SUCCESS);
+    }
+    let advisories = match &cli.advisories {
+        Some(dir) => {
+            load_dir(dir).with_context(|| format!("loading advisories from {}", dir.display()))?
+        }
+        None => embedded::advisories().context("loading the built-in advisories")?,
+    };
+    let releases = Some(match &cli.releases {
+        Some(path) => load_releases(path)?,
+        None => embedded::releases().context("loading the built-in release table")?,
+    });
 
     match cli.command {
         Command::Validate => {
@@ -124,7 +150,11 @@ async fn run() -> Result<ExitCode> {
                     a.title
                 );
             }
-            println!("{} advisories OK", advisories.len());
+            let from = cli
+                .advisories
+                .as_ref()
+                .map_or("built in".to_string(), |d| d.display().to_string());
+            println!("{} advisories OK ({from})", advisories.len());
             Ok(ExitCode::SUCCESS)
         }
         Command::Check {
@@ -143,7 +173,7 @@ async fn run() -> Result<ExitCode> {
                 ),
                 None => {
                     check_live(
-                        &Config::load(&config)?.nodes,
+                        &Config::load(&config::resolve(config))?.nodes,
                         &advisories,
                         releases.as_ref(),
                     )
@@ -167,7 +197,7 @@ async fn run() -> Result<ExitCode> {
             allow_remote,
             dashboard,
         } => {
-            let mut config = Config::load(&config)?;
+            let mut config = Config::load(&config::resolve(config))?;
             if dashboard.is_some() {
                 config.watch.dashboard_dir = dashboard;
             }
@@ -181,7 +211,7 @@ async fn run() -> Result<ExitCode> {
             Ok(ExitCode::SUCCESS)
         }
         Command::TestAlert { config } => {
-            let config = Config::load(&config)?;
+            let config = Config::load(&config::resolve(config))?;
             let nostr = config
                 .alerts
                 .nostr
@@ -203,6 +233,7 @@ async fn run() -> Result<ExitCode> {
             );
             Ok(ExitCode::SUCCESS)
         }
+        Command::Init { .. } => unreachable!("handled above"),
     }
 }
 
