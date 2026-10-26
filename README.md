@@ -6,37 +6,187 @@ Firewatch tells a Lightning node operator, within minutes, whether a published s
 
 It is read-only by design: it holds no credential that can change or spend from a node, it never upgrades or shuts anything down, and it quotes the developers' own fix instead of writing one.
 
-## Install
+## Getting started
 
-One command, no Rust or Node needed (Linux and macOS, Intel and ARM):
+Six steps, about ten minutes. Firewatch only ever reads your node: nothing in this guide gives it a credential that can spend or change settings.
+
+### What you need
+
+- **Linux or macOS**, on Intel or ARM (a Raspberry Pi works). Run Firewatch on the node's machine, or on one that can reach the node's REST API.
+- **The node's REST API turned on:**
+  - **LND:** on by default, at `https://127.0.0.1:8080`.
+  - **Core Lightning:** `clnrest` is off until it has a port. Add `clnrest-port=3010` to the node's config file (usually `~/.lightning/config`) and restart the node. It serves HTTPS with a self-signed certificate by default; Firewatch pins that certificate, and `firewatch init` sets it up.
+- **Umbrel or Start9:** SSH into the box first (for example `ssh umbrel@umbrel.local`) and run every command below there.
+- **For phone alerts (optional):** a Nostr app that shows NIP-17 private messages. On iPhone use **Nostur**; on Android, **Amethyst** or **0xchat**. Damus doesn't show these messages. Step 2 walks through it.
+
+### 1. Install
+
+**Option A: the installer.** No Rust or Node.js needed.
 
 ```sh
-curl --proto '=https' --tlsv1.2 -LsSf https://github.com/Chibey-max/Firewatch/releases/latest/download/firewatch-installer.sh | sh
+curl --proto '=https' --tlsv1.2 -LsSf https://github.com/Chibey-max/Firewatch/releases/download/v0.1.0-rc.2/firewatch-installer.sh | sh
 ```
 
-It puts a single `firewatch` binary in `~/.local/bin`, with the advisories, the LND release table and the dashboard built in. Each release also has plain archives and SHA-256 checksums on the [releases page](https://github.com/Chibey-max/Firewatch/releases).
+It downloads one `firewatch` binary into `~/.local/bin`, with the advisories, the LND release table and the dashboard built in. If your shell then says `firewatch: command not found`, open a new terminal, or run `source ~/.local/bin/env`.
 
-Then:
+Once `v0.1.0` is out, the same command with `releases/latest/download/` in place of `releases/download/v0.1.0-rc.2/` always installs the newest release. Every release also has plain archives and SHA-256 checksums on the [releases page](https://github.com/Chibey-max/Firewatch/releases).
+
+**Option B: from crates.io.** For people who already use Rust. It compiles for a few minutes.
+
+1. Install Rust with [rustup](https://rustup.rs), if you haven't: `curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh`
+2. Make sure there's a C compiler: `sudo apt install build-essential` on Ubuntu or Debian, `xcode-select --install` on macOS.
+3. Install:
+   ```sh
+   cargo install firewatch --version 0.1.0-rc.2 --locked
+   ```
+   `--version` is needed while the release is a pre-release. `--locked` builds with the exact dependency versions we tested.
+
+Either way, check it worked:
 
 ```sh
-firewatch init      # finds your node, sets up a read-only connection, asks for your npub
-firewatch check     # check your nodes once
-firewatch watch     # keep checking, alert your phone, dashboard at http://127.0.0.1:7070
+firewatch --version      # firewatch 0.1.0-rc.2
+firewatch validate       # lists the built-in advisories
 ```
 
-`init` finds LND in `~/.lnd` (or `$LND_DIR`, or Umbrel's folder), Core Lightning in `~/.lightning`, and Polar networks, then tests each connection before writing `~/.config/firewatch/firewatch.toml`. LND needs nothing else: its `readonly.macaroon` already exists. Core Lightning needs one read-only rune, and creating a rune changes the node, which Firewatch never does, so `init` prints the command and asks you to paste the result.
+### 2. Set up your phone for alerts (optional)
 
-For phone alerts, install **Nostur** (iPhone) or **Amethyst** (Android), give `init` your npub, and accept the first message request.
+Firewatch sends alerts as **encrypted Nostr direct messages** (NIP-17). Nostr has no accounts or passwords: your identity is a pair of keys that your phone app creates for you.
 
-With Rust installed you can build it instead: `cargo install --git https://github.com/Chibey-max/Firewatch firewatch` (that build serves the API without the dashboard, unless `dashboard/dist` was built first).
+| Key | Looks like | What it's for |
+|---|---|---|
+| **Public key** (npub) | `npub1…` | Your address. Give it to Firewatch: alerts are encrypted to it. Safe to share. |
+| **Private key** (nsec) | `nsec1…` | Opens your messages and proves you're you. **Never share it**, not with Firewatch, a teammate or a website. |
 
-Advisories are built into each release, so update Firewatch (run the installer again) to get new ones.
+**a. Install an app that shows NIP-17 messages**
+
+| Phone | App | |
+|---|---|---|
+| iPhone | **Nostur** (App Store) | Tested with Firewatch. |
+| Android | **Amethyst** (Play Store) or **0xchat** | |
+
+Damus doesn't show these messages, so alerts never appear there. Check you have the right app: it talks about Nostr, and it never asks for a phone number or password.
+
+**b. Create your keys**
+
+Open the app and choose **create a new account** (the wording varies by app). It generates your keys on the phone. A fresh account just for alerts is a good idea: it keeps node alerts separate from anything social.
+
+**c. Back up the private key**
+
+The app shows or lets you export your `nsec1…` key, usually under your profile, account or keys settings. Save it in a password manager. If you lose the phone without it, you lose the account, and you'd set up a new one and run `firewatch init --force` with the new npub.
+
+**d. Copy your public key**
+
+Open your profile. Your `npub1…` is shown there, usually with a copy button or a share or QR option. Copy the whole string.
+
+**e. Give it to Firewatch**
+
+Paste the npub when `firewatch init` asks (step 3). To change it later, edit `recipient` in `~/.config/firewatch/firewatch.toml`.
+
+**f. Accept the first message**
+
+After `firewatch test-alert` (step 4), the message arrives under **message requests**, because the app doesn't know the sender yet:
+
+1. Open it and tap **Accept message request**.
+2. Follow the sender. That's Firewatch's own key, which it created on first run in `~/.config/firewatch/firewatch.nsec`, and `test-alert` prints it.
+3. Optionally rename the contact to "Firewatch", so alerts are easy to spot.
+
+From then on, alerts land in your normal inbox.
+
+**Relays.** Messages travel through Nostr relays. Firewatch sends to `relay.damus.io`, `nos.lol` and `relay.primal.net`, and also to any DM relays your app has published for your key. Most apps use some of these by default. If `test-alert` succeeds but nothing arrives, add `wss://relay.damus.io` and `wss://nos.lol` in the app's relay settings and reopen your messages.
+
+**One recipient per config.** Firewatch sends to one npub. For a team, share one alerts account between the phones that need it, or run one Firewatch config per person.
+
+### 3. Set up with `firewatch init`
+
+```sh
+firewatch init
+```
+
+It looks for your node in the usual places: LND in `~/.lnd` (or `$LND_DIR`, or Umbrel's folder), Core Lightning in `~/.lightning`, and Polar networks. For each node it finds, it asks whether to watch it, then tests the connection:
+
+- **LND:** answer yes. Nothing else to do: LND already has a `readonly.macaroon`, and `init` uses it and LND's `tls.cert`. Confirm the REST address if yours isn't `https://127.0.0.1:8080`.
+- **Core Lightning:** Firewatch needs a rune that can only read. Creating a rune is a change to the node, which Firewatch never makes, so `init` prints the command:
+  ```sh
+  lightning-cli createrune restrictions='[["method=getinfo","method=listconfigs"]]'
+  ```
+  Run it in another terminal and paste the `rune` value it prints. `init` won't show the rune back on screen.
+- **A node it didn't find,** or one on another machine: answer yes to "Add a node by hand?" and give the address and credential paths.
+
+Then paste your npub, or press Enter to skip alerts.
+
+`init` writes `~/.config/firewatch/firewatch.toml`, readable only by you, since it holds runes. Run `firewatch init --force` to start over, or edit the file: [firewatch.example.toml](firewatch.example.toml) shows every option.
+
+### 4. Check it works
+
+```sh
+firewatch check
+```
+
+Each node gets one of three answers: **Affected**, **Can't tell** (with what to check by hand), or **Not affected** (with the reason). It exits with `0` when nothing applies, `2` when something can't be told, `3` when a node is affected, and `1` on error.
+
+If you gave an npub:
+
+```sh
+firewatch test-alert
+```
+
+The first message lands in your app's **message requests**. Tap **Accept message request**, and follow the sender so later alerts go straight to your inbox (step 2f).
+
+### 5. Keep it running
+
+```sh
+firewatch watch
+```
+
+It checks every 30 seconds, sends one alert per node when something turns red or amber, and another when it's fixed. Open the dashboard at **http://127.0.0.1:7070**. Alerts only come while `watch` runs, so on a node that's always on, run it as a background service.
+
+**Linux (systemd):**
+
+```sh
+mkdir -p ~/.config/systemd/user
+cat > ~/.config/systemd/user/firewatch.service <<'UNIT'
+[Unit]
+Description=Firewatch: security alerts for Lightning nodes
+After=network-online.target
+
+[Service]
+ExecStart=%h/.local/bin/firewatch watch
+Restart=on-failure
+
+[Install]
+WantedBy=default.target
+UNIT
+systemctl --user enable --now firewatch
+loginctl enable-linger "$USER"      # keep it running after you log out
+```
+
+If you installed with `cargo install`, use `%h/.cargo/bin/firewatch` in `ExecStart`. Read its log with `journalctl --user -u firewatch -f`.
+
+The dashboard only answers on the machine itself, because the report says which nodes are vulnerable. To see it from your laptop when Firewatch runs on the node, tunnel the port: `ssh -L 7070:127.0.0.1:7070 you@your-node`, then open http://127.0.0.1:7070.
+
+### 6. Update and uninstall
+
+Advisories are built into each release, so **update Firewatch to get new ones**: run the installer again, or `cargo install firewatch --locked --force` (add `--version` while releases are pre-releases). Your config stays.
+
+To uninstall: `rm ~/.local/bin/firewatch` (installer) or `cargo uninstall firewatch`. Then remove the config with `rm -r ~/.config/firewatch`, and the service, if you made one, with `systemctl --user disable --now firewatch` and `rm ~/.config/systemd/user/firewatch.service`.
+
+### Troubleshooting
+
+| You see | Do this |
+|---|---|
+| `firewatch: command not found` | Open a new terminal, or `source ~/.local/bin/env` (installer) or `source ~/.cargo/env` (cargo). |
+| `no config at …` | Run `firewatch init`. |
+| `Can't connect to …; is the node running?` | Start the node. For Core Lightning, check `clnrest-port` is set. Check the port in the config matches the node's REST port. |
+| `TLS certificate not trusted` | `tls_cert` must point at the node's own certificate: LND's `tls.cert`, or Core Lightning's `server.pem` in its network folder (e.g. `~/.lightning/bitcoin/server.pem`). |
+| `Credential rejected by the node` | The rune or macaroon belongs to another node. Make a new one on this node and run `firewatch init --force`. |
+| `Credential is not read-only` | Firewatch refuses credentials that can do more than read. Use LND's `readonly.macaroon`, or a rune made with the restrictions above. |
+| No message on the phone | Use Nostur, Amethyst or 0xchat (not Damus), look in message requests, and make sure this machine has internet. `firewatch test-alert` prints which relays took the message. |
 
 ## Working on Firewatch
 
 ```sh
 scripts/demo-up.sh                              # build everything, check the nodes, start the demo
-cargo test --workspace                          # 121 tests: engine, connectors, alerts, one per advisory
+cargo test --workspace                          # 128 tests: engine, connectors, alerts, one per advisory
 cargo run -- validate                           # load and list every advisory
 cargo run -- check                              # check the live nodes in firewatch.toml once
 cargo run -- check --nodes examples/nodes.json  # check a JSON snapshot instead
