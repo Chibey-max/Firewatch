@@ -102,6 +102,7 @@ async fn cln_error(url: String) -> String {
         rune: Some("rune".into()),
         rune_file: None,
         tls_cert: None,
+        allow_plain_http: false,
     });
     fetch(&node, &http_client()).await.unwrap_err().to_string()
 }
@@ -118,6 +119,7 @@ async fn lnd_error(test: &str, url: String, cert: &[u8]) -> String {
         macaroon_file: write(&dir, "readonly.macaroon", b"\x02\x01"),
         tls_cert: Some(write(&dir, "pinned.pem", cert)),
         lnd_conf: None,
+        allow_plain_http: false,
     });
     let message = fetch(&node, &http_client()).await.unwrap_err().to_string();
     let _ = std::fs::remove_dir_all(&dir);
@@ -277,4 +279,34 @@ async fn the_pinned_certificate_gets_through_tls() {
         &lnd_error("right-cert", url.clone(), CERT_A).await,
         &format!("{url} answered with HTTP 404, but not as a node's REST API"),
     );
+}
+
+/// Plain http:// to another machine is refused before anything is sent:
+/// 192.0.2.1 is a documentation address that never answers, so an attempt to
+/// connect would take the full timeout instead of failing at once.
+#[tokio::test]
+async fn plain_http_to_another_machine_is_refused_before_sending() {
+    for (message, credential) in [
+        (cln_error("http://192.0.2.1:3010".into()).await, "rune"),
+        (
+            lnd_error("plain-http", "http://192.0.2.1:8080".into(), CERT_A).await,
+            "macaroon",
+        ),
+    ] {
+        assert!(message.starts_with("config: "), "{message}");
+        assert!(
+            message.contains(&format!(
+                "the {credential} would cross the network unencrypted"
+            )),
+            "{message}"
+        );
+        assert!(message.contains("allow_plain_http = true"), "{message}");
+    }
+}
+
+#[tokio::test]
+async fn plain_http_is_refused_quickly() {
+    let started = std::time::Instant::now();
+    cln_error("http://192.0.2.1:3010".into()).await;
+    assert!(started.elapsed() < std::time::Duration::from_secs(1));
 }

@@ -177,6 +177,7 @@ To uninstall: `rm ~/.local/bin/firewatch` (installer) or `cargo uninstall firewa
 | `firewatch: command not found` | Open a new terminal, or `source ~/.local/bin/env` (installer) or `source ~/.cargo/env` (cargo). |
 | `no config at …` | Run `firewatch init`. |
 | `Can't connect to …; is the node running?` | Start the node. For Core Lightning, check `clnrest-port` is set. Check the port in the config matches the node's REST port. |
+| `... is plain http:// to another machine` | Use `https://` with `tls_cert` (see [Configuration](#configuration)), or set `allow_plain_http = true` on the node if the connection is already private. |
 | `TLS certificate not trusted` | `tls_cert` must point at the node's own certificate: LND's `tls.cert`, or Core Lightning's `server.pem` in its network folder (e.g. `~/.lightning/bitcoin/server.pem`). |
 | `Credential rejected by the node` | The rune or macaroon belongs to another node. Make a new one on this node and run `firewatch init --force`. |
 | `Credential is not read-only` | Firewatch refuses credentials that can do more than read. Use LND's `readonly.macaroon`, or a rune made with the restrictions above. |
@@ -186,7 +187,7 @@ To uninstall: `rm ~/.local/bin/firewatch` (installer) or `cargo uninstall firewa
 
 ```sh
 scripts/demo-up.sh                              # build everything, check the nodes, start the demo
-cargo test --workspace                          # 137 tests: engine, connectors, alerts, one per advisory
+cargo test --workspace                          # 142 tests: engine, connectors, alerts, one per advisory
 cargo run -- validate                           # load and list every advisory
 cargo run -- check                              # check the live nodes in firewatch.toml once
 cargo run -- check --nodes examples/nodes.json  # check a JSON snapshot instead
@@ -229,6 +230,8 @@ tls_cert = "/home/you/.polar/networks/2/volumes/lnd/lnd-old/tls.cert"
 Use absolute paths; `~` isn't expanded. Add `lnd_conf = "/path/to/lnd.conf"` to also check where LND's APIs listen (see [Exposure](#exposure)): LND doesn't report it over RPC.
 
 Firewatch probes every credential before trusting it and refuses one that can do more than read: a rune that can call `listfunds`, or a macaroon that can sign messages.
+
+**A node on another machine** must be read over `https://`: the rune or macaroon goes in a header with every request, and over plain `http://` anyone on the network path can copy it. Firewatch refuses a plain `http://` url unless its host is `localhost` or a loopback address, before sending anything. For Core Lightning, run clnrest over HTTPS (its default) and set `tls_cert` to its `server.pem`; Firewatch pins it, so the self-signed certificate works. If the connection is already private (a Docker container on this machine, a VPN), set `allow_plain_http = true` on that node; `check` and `watch` then warn that the credential is sent unencrypted.
 
 When a node can't be read, the report says why in plain words: the node isn't running, the request timed out, the TLS certificate isn't the pinned one, the url points at the wrong port or scheme, or the node rejected the credential. [docs/API.md](docs/API.md) lists every message. That node is Can't tell, never green, and the other nodes are still checked.
 
