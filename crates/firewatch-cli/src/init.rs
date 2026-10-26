@@ -6,8 +6,8 @@
 //! change to the node, which Firewatch never makes, so `init` prints the
 //! command and asks for the result.
 
-use std::io::{BufRead, Write};
-use std::os::unix::fs::OpenOptionsExt;
+use std::io::Write;
+use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
 use std::path::{Path, PathBuf};
 
 use anyhow::{bail, Context, Result};
@@ -38,7 +38,8 @@ pub async fn run(path: Option<PathBuf>, force: bool) -> Result<()> {
     println!("Firewatch setup.");
     println!("Firewatch only reads your node. It never needs a credential that can spend or change settings.\n");
 
-    let found = detect(&home, &mut ask);
+    let lnd_dir = std::env::var_os("LND_DIR").map(PathBuf::from);
+    let found = detect(&home, lnd_dir, &mut ask);
     if found.is_empty() {
         println!("No node found in the usual places (~/.lnd, ~/.lightning, Umbrel, Polar).");
     } else {
@@ -65,15 +66,7 @@ pub async fn run(path: Option<PathBuf>, force: bool) -> Result<()> {
             nodes.push(toml);
         }
     }
-    while ask.yes("Add a node by hand?", nodes.is_empty()) {
-        let Some(toml) = manual(&mut ask, &names) else {
-            continue;
-        };
-        if keep_after_test(&toml, &http, &mut ask).await {
-            names.push(node_name(&toml));
-            nodes.push(toml);
-        }
-    }
+    add_by_hand(&mut ask, &http, &mut nodes, &mut names).await;
     if nodes.is_empty() {
         bail!("no nodes to watch, so no config was written");
     }
@@ -98,15 +91,7 @@ pub async fn run(path: Option<PathBuf>, force: bool) -> Result<()> {
 
     let text = render(&nodes, npub.as_deref(), &dir.join("firewatch.nsec"));
     std::fs::create_dir_all(&dir).with_context(|| format!("creating {}", dir.display()))?;
-    // Runes are credentials: only this user may read the file.
-    let mut file = std::fs::OpenOptions::new()
-        .write(true)
-        .create(true)
-        .truncate(true)
-        .mode(0o600)
-        .open(&path)
-        .with_context(|| format!("writing {}", path.display()))?;
-    file.write_all(text.as_bytes())?;
+    write_private(&path, &text)?;
 
     println!("\nWrote {} ({} node(s)).\n", path.display(), nodes.len());
     println!("Next:");
@@ -116,6 +101,42 @@ pub async fn run(path: Option<PathBuf>, force: bool) -> Result<()> {
     }
     println!("  firewatch watch        # keep checking, alert on changes, dashboard at http://127.0.0.1:7070");
     Ok(())
+}
+
+/// Asks for nodes by hand until the operator says no. Stops at end of input:
+/// "yes" is the default while there are no nodes, so it would ask forever.
+async fn add_by_hand(
+    ask: &mut Prompt,
+    http: &reqwest::Client,
+    nodes: &mut Vec<String>,
+    names: &mut Vec<String>,
+) {
+    while ask.yes("Add a node by hand?", nodes.is_empty()) && !ask.ended() {
+        let Some(toml) = manual(ask, names) else {
+            continue;
+        };
+        if keep_after_test(&toml, http, ask).await {
+            names.push(node_name(&toml));
+            nodes.push(toml);
+        }
+    }
+}
+
+/// Writes the config so only this user can read it: it holds runes.
+/// `mode` only applies when the file is created, so a file that `--force`
+/// replaces is set to 0600 too, before anything is written to it.
+fn write_private(path: &Path, text: &str) -> Result<()> {
+    let mut file = std::fs::OpenOptions::new()
+        .write(true)
+        .create(true)
+        .truncate(true)
+        .mode(0o600)
+        .open(path)
+        .with_context(|| format!("writing {}", path.display()))?;
+    file.set_permissions(std::fs::Permissions::from_mode(0o600))
+        .with_context(|| format!("making {} private", path.display()))?;
+    file.write_all(text.as_bytes())
+        .with_context(|| format!("writing {}", path.display()))
 }
 
 /// A node found on this machine, before the operator has confirmed it.
@@ -184,22 +205,24 @@ impl Candidate {
 }
 
 /// Everything Firewatch can find on this machine.
-fn detect(home: &Path, ask: &mut Prompt) -> Vec<Candidate> {
+fn detect(home: &Path, lnd_dir: Option<PathBuf>, ask: &mut Prompt) -> Vec<Candidate> {
     let mut found = Vec::new();
 
     // LND in its usual data folders. The REST port is the default unless the
     // operator says otherwise.
     let lnd_dirs = [
-        std::env::var_os("LND_DIR").map(PathBuf::from),
+        lnd_dir,
         Some(home.join(".lnd")),
         Some(home.join("umbrel/app-data/lightning/data/lnd")),
     ];
     let mut seen = Vec::new();
     for dir in lnd_dirs.into_iter().flatten() {
-        if seen.contains(&dir) || !dir.join("tls.cert").is_file() {
+        // LND_DIR is often ~/.lnd itself, or a link to it.
+        let real = dir.canonicalize().unwrap_or_else(|_| dir.clone());
+        if seen.contains(&real) || !dir.join("tls.cert").is_file() {
             continue;
         }
-        seen.push(dir.clone());
+        seen.push(real);
         for network in ["mainnet", "testnet", "testnet4", "signet", "regtest"] {
             let macaroon = dir.join(format!("data/chain/bitcoin/{network}/readonly.macaroon"));
             if macaroon.is_file() {
@@ -240,7 +263,23 @@ fn detect(home: &Path, ask: &mut Prompt) -> Vec<Candidate> {
     }
 
     found.extend(polar(home, ask));
+    unique_names(&mut found);
     found
+}
+
+/// Gives each candidate its own name: two LND folders on one network would
+/// both be `lnd-mainnet`, and `watch` keeps each node's state by name.
+fn unique_names(found: &mut [Candidate]) {
+    let mut used: Vec<String> = Vec::new();
+    for c in found.iter_mut() {
+        let base = c.name.clone();
+        let mut n = 2;
+        while used.contains(&c.name) {
+            c.name = format!("{base}-{n}");
+            n += 1;
+        }
+        used.push(c.name.clone());
+    }
 }
 
 /// Nodes in a Polar network, with their real ports. Polar serves clnrest over
@@ -333,8 +372,15 @@ fn manual(ask: &mut Prompt, taken: &[String]) -> Option<String> {
         .default("  Implementation: lnd or cln", "lnd")
         .to_lowercase();
     let mut name = ask.default("  A name for it", &format!("my-{kind}"));
-    while taken.contains(&name) {
-        name = ask.line(&format!("  \"{name}\" is taken. Another name: "));
+    while name.is_empty() || taken.contains(&name) {
+        if ask.ended() {
+            return None;
+        }
+        name = if name.is_empty() {
+            ask.line("  The node needs a name: ")
+        } else {
+            ask.line(&format!("  \"{name}\" is taken. Another name: "))
+        };
     }
     match kind.as_str() {
         "lnd" => {
@@ -473,18 +519,31 @@ fn expand(path: &str) -> PathBuf {
     }
 }
 
-/// Reads answers one line at a time. At end of input every question takes
-/// its default, so `init` can't hang when stdin isn't a terminal.
+/// Reads answers one line at a time, as they're typed. At end of input every
+/// question takes its default, and loops check `ended` so `init` can't hang
+/// when stdin isn't a terminal.
 struct Prompt {
     lines: Box<dyn Iterator<Item = String>>,
+    ended: bool,
 }
 
 impl Prompt {
     fn stdin() -> Self {
-        let lines = std::io::stdin().lock().lines().map_while(Result::ok);
+        // Lazy: collecting the lines first would wait for Ctrl-D before the
+        // first question is shown.
+        Prompt::new(std::io::stdin().lines().map_while(Result::ok))
+    }
+
+    fn new(lines: impl Iterator<Item = String> + 'static) -> Self {
         Prompt {
-            lines: Box::new(lines.collect::<Vec<_>>().into_iter()),
+            lines: Box::new(lines),
+            ended: false,
         }
+    }
+
+    /// Whether input has run out.
+    fn ended(&self) -> bool {
+        self.ended
     }
 
     fn line(&mut self, prompt: &str) -> String {
@@ -499,7 +558,13 @@ impl Prompt {
     fn read(&mut self, prompt: &str, echo: bool) -> String {
         print!("{prompt}");
         std::io::stdout().flush().ok();
-        let answer = self.lines.next().unwrap_or_default().trim().to_string();
+        let answer = match self.lines.next() {
+            Some(line) => line.trim().to_string(),
+            None => {
+                self.ended = true;
+                String::new()
+            }
+        };
         // A terminal already shows what was typed; piped answers don't.
         if !std::io::IsTerminal::is_terminal(&std::io::stdin()) {
             println!("{}", if echo { answer.as_str() } else { "(hidden)" });
@@ -535,9 +600,7 @@ mod tests {
 
     fn scripted(answers: &[&str]) -> Prompt {
         let answers: Vec<String> = answers.iter().map(|s| s.to_string()).collect();
-        Prompt {
-            lines: Box::new(answers.into_iter()),
-        }
+        Prompt::new(answers.into_iter())
     }
 
     fn temp_home(name: &str) -> PathBuf {
@@ -558,7 +621,7 @@ mod tests {
             "x",
         )
         .unwrap();
-        let found = detect(&home, &mut scripted(&[]));
+        let found = detect(&home, None, &mut scripted(&[]));
         assert_eq!(found.len(), 1);
         assert_eq!(found[0].name, "lnd-mainnet");
         std::fs::remove_dir_all(home).unwrap();
@@ -575,7 +638,7 @@ mod tests {
                 {"name":"old-cln","implementation":"c-lightning","ports":{"rest":8182}}]}}]}"#,
         )
         .unwrap();
-        let found = detect(&home, &mut scripted(&[]));
+        let found = detect(&home, None, &mut scripted(&[]));
         assert_eq!(found.len(), 2);
         assert!(matches!(&found[0].kind, Kind::Lnd { url, .. } if url == "https://127.0.0.1:8081"));
         assert!(matches!(&found[1].kind, Kind::Cln { rune_command, .. }
@@ -614,5 +677,63 @@ mod tests {
             },
         };
         assert!(c.into_toml(&mut scripted(&[""])).is_none());
+    }
+
+    #[tokio::test]
+    async fn end_of_input_stops_adding_nodes() {
+        let (mut nodes, mut names) = (Vec::new(), Vec::new());
+        let http = firewatch_connectors::http_client();
+        let done = tokio::time::timeout(
+            std::time::Duration::from_secs(5),
+            add_by_hand(&mut scripted(&[]), &http, &mut nodes, &mut names),
+        )
+        .await;
+        assert!(done.is_ok(), "asked forever at end of input");
+        assert!(nodes.is_empty());
+    }
+
+    #[test]
+    fn a_taken_or_empty_name_is_asked_again() {
+        let mut ask = scripted(&["lnd", "", "", "b", "", "/m", ""]);
+        let toml = manual(&mut ask, &["my-lnd".into()]).unwrap();
+        assert_eq!(node_name(&toml), "b");
+        // At end of input the node is dropped, not given an empty name.
+        assert!(manual(&mut scripted(&["lnd", ""]), &["my-lnd".into()]).is_none());
+    }
+
+    #[test]
+    fn two_lnd_folders_get_their_own_names() {
+        let home = temp_home("two-lnd");
+        let other = home.join("other");
+        for dir in [home.join(".lnd"), other.clone()] {
+            std::fs::create_dir_all(dir.join("data/chain/bitcoin/mainnet")).unwrap();
+            std::fs::write(dir.join("tls.cert"), "x").unwrap();
+            std::fs::write(
+                dir.join("data/chain/bitcoin/mainnet/readonly.macaroon"),
+                "x",
+            )
+            .unwrap();
+        }
+        let found = detect(&home, Some(other), &mut scripted(&[]));
+        let names: Vec<&str> = found.iter().map(|c| c.name.as_str()).collect();
+        assert_eq!(names, ["lnd-mainnet", "lnd-mainnet-2"]);
+        // LND_DIR pointing at ~/.lnd through a link is the same folder.
+        let link = home.join("link");
+        std::os::unix::fs::symlink(home.join(".lnd"), &link).unwrap();
+        assert_eq!(detect(&home, Some(link), &mut scripted(&[])).len(), 1);
+        std::fs::remove_dir_all(home).unwrap();
+    }
+
+    #[test]
+    fn a_replaced_config_is_private() {
+        let home = temp_home("force");
+        let path = home.join("firewatch.toml");
+        std::fs::write(&path, "old").unwrap();
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o644)).unwrap();
+        write_private(&path, "new").unwrap();
+        let mode = std::fs::metadata(&path).unwrap().permissions().mode();
+        assert_eq!(mode & 0o777, 0o600);
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), "new");
+        std::fs::remove_dir_all(home).unwrap();
     }
 }
