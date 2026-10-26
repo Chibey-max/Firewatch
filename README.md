@@ -175,15 +175,14 @@ Firewatch never shows green when it is unsure.
 | `crates/firewatch-connectors` | Read-only Core Lightning and LND connectors. |
 | `crates/firewatch-alerts` | NIP-17 Nostr DM alerts. |
 | `crates/firewatch-cli` | The `firewatch` binary: `check`, `watch` (loop and API), `test-alert`, `validate`. |
-| `dashboard/` | The web dashboard (Vite, React, Tailwind). |
+| `dashboard/` | The operator's web dashboard (React, TypeScript, Vite, Tailwind), its fixtures, the live sim and the backup-video recorder. |
 | `advisories/` | One TOML file per advisory. Only `verified = true` advisories run by default. |
 | `docs/sources/` | The evidence for each Lightning Labs advisory: what was copied from where, and the audit. |
 | `releases/` | Official release commits for the build check. |
 | `scripts/` | `demo-up.sh`, `verify-demo.py`, `audit-quotes.py`, `lnd-releases.sh`. |
 | `demo/` | Polar images, the upgrade and reset scripts, and the expected verdicts. |
 | `examples/nodes.json` | Node snapshots for working without a live network. |
-| `dashboard/` | The operator's web dashboard (React, TypeScript, Vite), its fixtures, the live sim and the backup-video recorder. |
-| `.github/workflows/ci.yml` | CI: Rust fmt, clippy and tests, and the dashboard's lint, format check and build. |
+| `.github/workflows/ci.yml` | CI: Rust fmt, clippy and tests, and the dashboard's lint, format check, tests and build. |
 
 ## Docs
 
