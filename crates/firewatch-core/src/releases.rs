@@ -82,8 +82,14 @@ impl ReleaseTable {
             path: path.to_path_buf(),
             source,
         })?;
-        toml::from_str(&text).map_err(|e| LoadError::Parse {
-            path: path.to_path_buf(),
+        Self::from_toml(path, &text)
+    }
+
+    /// Parses a table already in memory, such as the one built into the
+    /// `firewatch` binary. `name` only labels errors.
+    pub fn from_toml(name: &Path, text: &str) -> Result<Self, LoadError> {
+        toml::from_str(text).map_err(|e| LoadError::Parse {
+            path: name.to_path_buf(),
             source: Box::new(e),
         })
     }

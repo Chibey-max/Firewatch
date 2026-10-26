@@ -42,6 +42,14 @@ pub struct NostrConfig {
     pub relays: Vec<String>,
 }
 
+/// Checks that `recipient` is a Nostr public key (npub or hex) before it's
+/// written to a config.
+pub fn check_recipient(recipient: &str) -> Result<(), AlertError> {
+    PublicKey::parse(recipient.trim())
+        .map(|_| ())
+        .map_err(|e| AlertError::Config(format!("not a Nostr public key: {e}")))
+}
+
 pub struct NostrAlerter {
     client: Client,
     keys: Keys,

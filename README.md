@@ -6,7 +6,33 @@ Firewatch tells a Lightning node operator, within minutes, whether a published s
 
 It is read-only by design: it holds no credential that can change or spend from a node, it never upgrades or shuts anything down, and it quotes the developers' own fix instead of writing one.
 
-## Quick start
+## Install
+
+One command, no Rust or Node needed (Linux and macOS, Intel and ARM):
+
+```sh
+curl --proto '=https' --tlsv1.2 -LsSf https://github.com/Chibey-max/Firewatch/releases/latest/download/firewatch-installer.sh | sh
+```
+
+It puts a single `firewatch` binary in `~/.local/bin`, with the advisories, the LND release table and the dashboard built in. Each release also has plain archives and SHA-256 checksums on the [releases page](https://github.com/Chibey-max/Firewatch/releases).
+
+Then:
+
+```sh
+firewatch init      # finds your node, sets up a read-only connection, asks for your npub
+firewatch check     # check your nodes once
+firewatch watch     # keep checking, alert your phone, dashboard at http://127.0.0.1:7070
+```
+
+`init` finds LND in `~/.lnd` (or `$LND_DIR`, or Umbrel's folder), Core Lightning in `~/.lightning`, and Polar networks, then tests each connection before writing `~/.config/firewatch/firewatch.toml`. LND needs nothing else: its `readonly.macaroon` already exists. Core Lightning needs one read-only rune, and creating a rune changes the node, which Firewatch never does, so `init` prints the command and asks you to paste the result.
+
+For phone alerts, install **Nostur** (iPhone) or **Amethyst** (Android), give `init` your npub, and accept the first message request.
+
+With Rust installed you can build it instead: `cargo install --git https://github.com/Chibey-max/Firewatch firewatch` (that build serves the API without the dashboard, unless `dashboard/dist` was built first).
+
+Advisories are built into each release, so update Firewatch (run the installer again) to get new ones.
+
+## Working on Firewatch
 
 ```sh
 scripts/demo-up.sh                              # build everything, check the nodes, start the demo

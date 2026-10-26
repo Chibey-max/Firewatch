@@ -101,6 +101,7 @@ async fn cln_error(url: String) -> String {
         url,
         rune: Some("rune".into()),
         rune_file: None,
+        tls_cert: None,
     });
     fetch(&node, &http_client()).await.unwrap_err().to_string()
 }

@@ -207,13 +207,36 @@ pub fn load_dir(dir: &Path) -> Result<Vec<Advisory>, LoadError> {
     paths.retain(|p| p.extension().is_some_and(|ext| ext == "toml"));
     paths.sort();
 
-    let mut advisories = Vec::with_capacity(paths.len());
+    let files = paths
+        .into_iter()
+        .map(|path| {
+            let text = std::fs::read_to_string(&path).map_err(|source| LoadError::Io {
+                path: path.clone(),
+                source,
+            })?;
+            Ok((path, text))
+        })
+        .collect::<Result<Vec<_>, LoadError>>()?;
+    load_files(files)
+}
+
+/// Parses advisories from `(name, text)` pairs, such as the files built
+/// into the `firewatch` binary. Same checks as [`load_dir`].
+pub fn load_texts<'a>(
+    files: impl IntoIterator<Item = (&'a str, &'a str)>,
+) -> Result<Vec<Advisory>, LoadError> {
+    load_files(
+        files
+            .into_iter()
+            .map(|(name, text)| (PathBuf::from(name), text.to_string()))
+            .collect(),
+    )
+}
+
+fn load_files(files: Vec<(PathBuf, String)>) -> Result<Vec<Advisory>, LoadError> {
+    let mut advisories = Vec::with_capacity(files.len());
     let mut seen = HashSet::new();
-    for path in paths {
-        let text = std::fs::read_to_string(&path).map_err(|source| LoadError::Io {
-            path: path.clone(),
-            source,
-        })?;
+    for (path, text) in files {
         let advisory = Advisory::from_toml(&path, &text)?;
         if !seen.insert(advisory.id.clone()) {
             return Err(LoadError::Invalid {
@@ -295,6 +318,16 @@ mod tests {
 
         let text = text.replace("0.20.2, 0.21.1", "0.20.2, 0.21.0");
         assert!(matches!(load(&text), Err(LoadError::Invalid { .. })));
+    }
+
+    #[test]
+    fn loads_texts_and_rejects_duplicate_ids() {
+        let loaded = load_texts([("a.toml", VALID)]).unwrap();
+        assert_eq!(loaded.len(), 1);
+        assert!(matches!(
+            load_texts([("a.toml", VALID), ("b.toml", VALID)]),
+            Err(LoadError::Invalid { .. })
+        ));
     }
 
     #[test]
