@@ -83,9 +83,9 @@ Do this once per machine. Polar is a GUI, so the Polar steps are by hand.
    - **Core Lightning:** `url = "http://127.0.0.1:<port>"`, and a restricted rune made on each node:
      ```sh
      docker exec -u clightning polar-n<id>-old-cln lightning-cli --network=regtest \
-       createrune restrictions='[["method=getinfo","method=listconfigs"]]'
+       createrune restrictions='[["method=getinfo","method=listconfigs"],["method/listconfigs","pnameconfig=clnrest-host","pnameconfig=clnrest-port","pnameconfig=grpc-host","pnameconfig=grpc-port"]]'
      ```
-     Save the `rune` value to a file and point `rune_file` at it. `*.rune` is git-ignored.
+     Save the `rune` value to a file and point `rune_file` at it. `*.rune` is git-ignored. A rune made with the older `[["method=getinfo","method=listconfigs"]]` still works, but `check` and `watch` print a warning about it, so remake it with this command before rehearsing.
    - **LND:** `url = "https://127.0.0.1:<port>"`, `macaroon_file = "/home/<you>/.polar/networks/<id>/volumes/lnd/<name>/data/chain/bitcoin/regtest/readonly.macaroon"` and `tls_cert = "/home/<you>/.polar/networks/<id>/volumes/lnd/<name>/tls.cert"`.
 7. **Check it:** `scripts/verify-demo.py` must end with "All demo checks pass."
 

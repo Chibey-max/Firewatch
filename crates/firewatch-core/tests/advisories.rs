@@ -31,6 +31,7 @@ fn on_network(implementation: Implementation, version: &str, network: &str) -> N
         features: None,
         commit_hash: None,
         apis: vec![],
+        warnings: vec![],
     }
 }
 

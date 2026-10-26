@@ -1,7 +1,9 @@
 """A simulated Core Lightning clnrest endpoint, for dashboard work without Polar.
 
-Answers getinfo and listconfigs; refuses every other method the way a rune
-restricted to those two does (code 1502), so Firewatch's read-only check passes.
+Answers getinfo, and listconfigs for one named option; refuses everything else
+the way Firewatch's recommended rune does (code 1502), so its read-only check
+passes and it sees a narrow rune. It has no cln-grpc, so grpc-host and
+grpc-port are unknown options (code -32602), as on a node with gRPC off.
 The version is read from a file on every request, so writing a new version to
 it simulates an upgrade.
 
@@ -24,20 +26,25 @@ PORT = port
 
 class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
-        self.rfile.read(int(self.headers.get("Content-Length") or 0))
+        raw = self.rfile.read(int(self.headers.get("Content-Length") or 0))
+        try:
+            params = json.loads(raw or b"{}")
+        except ValueError:
+            params = {}
         method = self.path.rsplit("/", 1)[-1]
+        options = {
+            "clnrest-host": {"value_str": HOST, "source": "cmdline"},
+            "clnrest-port": {"value_int": PORT, "source": "cmdline"},
+        }
+        option = params.get("config") if isinstance(params, dict) else None
         if method == "getinfo":
             with open(version_file) as f:
                 version = f.read().strip()
             code, body = 200, {"version": version, "network": "regtest"}
-        elif method == "listconfigs":
-            code, body = 200, {
-                "configs": {
-                    "experimental-splicing": {"set": False, "source": "default"},
-                    "clnrest-host": {"value_str": HOST, "source": "cmdline"},
-                    "clnrest-port": {"value_int": PORT, "source": "cmdline"},
-                }
-            }
+        elif method == "listconfigs" and option in options:
+            code, body = 200, {"configs": {option: options[option]}}
+        elif method == "listconfigs" and option in ("grpc-host", "grpc-port"):
+            code, body = 500, {"code": -32602, "message": f"config: Unknown config option: invalid token '\"{option}\"'"}
         else:
             code, body = 403, {"code": 1502, "message": "Not permitted: method not allowed by rune"}
         data = json.dumps(body).encode()

@@ -15,7 +15,7 @@ const CMD = {
   version: 'firewatch --version',
   clnPort: 'clnrest-port=3010',
   init: 'firewatch init',
-  rune: `lightning-cli createrune restrictions='[["method=getinfo","method=listconfigs"]]'`,
+  rune: `lightning-cli createrune restrictions='[["method=getinfo","method=listconfigs"],["method/listconfigs","pnameconfig=clnrest-host","pnameconfig=clnrest-port","pnameconfig=grpc-host","pnameconfig=grpc-port"]]'`,
   check: 'firewatch check',
   testAlert: 'firewatch test-alert',
   watch: 'firewatch watch',

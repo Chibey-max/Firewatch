@@ -30,6 +30,11 @@ pub struct NodeInfo {
     /// when the connector didn't look (e.g. a snapshot without it).
     #[serde(default)]
     pub apis: Vec<ApiListen>,
+    /// Problems with how this node is read, e.g. a credential that allows
+    /// more than Firewatch needs. `check` and `watch` print them; they are
+    /// not part of the report and never change a verdict.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub warnings: Vec<String>,
 }
 
 /// One API of a node and the addresses it listens on.

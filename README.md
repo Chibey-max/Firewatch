@@ -107,7 +107,7 @@ It looks for your node in the usual places: LND in `~/.lnd` (or `$LND_DIR`, or U
 - **LND:** answer yes. Nothing else to do: LND already has a `readonly.macaroon`, and `init` uses it and LND's `tls.cert`. Confirm the REST address if yours isn't `https://127.0.0.1:8080`.
 - **Core Lightning:** Firewatch needs a rune that can only read. Creating a rune is a change to the node, which Firewatch never makes, so `init` prints the command:
   ```sh
-  lightning-cli createrune restrictions='[["method=getinfo","method=listconfigs"]]'
+  lightning-cli createrune restrictions='[["method=getinfo","method=listconfigs"],["method/listconfigs","pnameconfig=clnrest-host","pnameconfig=clnrest-port","pnameconfig=grpc-host","pnameconfig=grpc-port"]]'
   ```
   Run it in another terminal and paste the `rune` value it prints. `init` won't show the rune back on screen.
 - **A node it didn't find,** or one on another machine: answer yes to "Add a node by hand?" and give the address and credential paths.
@@ -186,7 +186,7 @@ To uninstall: `rm ~/.local/bin/firewatch` (installer) or `cargo uninstall firewa
 
 ```sh
 scripts/demo-up.sh                              # build everything, check the nodes, start the demo
-cargo test --workspace                          # 133 tests: engine, connectors, alerts, one per advisory
+cargo test --workspace                          # 137 tests: engine, connectors, alerts, one per advisory
 cargo run -- validate                           # load and list every advisory
 cargo run -- check                              # check the live nodes in firewatch.toml once
 cargo run -- check --nodes examples/nodes.json  # check a JSON snapshot instead
@@ -207,11 +207,13 @@ A web page open in your browser can reach localhost too, so `watch` also turns a
 
 Copy [firewatch.example.toml](firewatch.example.toml) to `firewatch.toml` (git-ignored) and add your nodes.
 
-**Core Lightning** is read over `clnrest` with a rune restricted to `getinfo` and `listconfigs`:
+**Core Lightning** is read over `clnrest` with a rune restricted to `getinfo`, and to `listconfigs` for the four options Firewatch reads (where clnrest and cln-grpc listen):
 
 ```sh
-lightning-cli createrune restrictions='[["method=getinfo","method=listconfigs"]]'
+lightning-cli createrune restrictions='[["method=getinfo","method=listconfigs"],["method/listconfigs","pnameconfig=clnrest-host","pnameconfig=clnrest-port","pnameconfig=grpc-host","pnameconfig=grpc-port"]]'
 ```
+
+Asked for every option, `listconfigs` on Core Lightning before 26.06.9 returns secrets: bitcoind's RPC password, a `--recover` seed, the `wallet` database address and `tor-service-password` ([26.06.9 release notes](https://github.com/ElementsProject/lightning/releases/tag/v26.06.9)). This rune can't ask for those. A rune made with the older `[["method=getinfo","method=listconfigs"]]` still works, but `check` and `watch` warn about it: make the new one, then retire the old one with `lightning-cli blacklistrune start=<its unique_id>`.
 
 **LND** is read over REST with `readonly.macaroon`. LND's self-signed `tls.cert` is pinned: Firewatch accepts exactly that certificate and nothing else.
 
@@ -234,7 +236,7 @@ When a node can't be read, the report says why in plain words: the node isn't ru
 
 Each node also gets an `exposure` list: whether its REST and gRPC APIs listen beyond this machine. A leaked rune or macaroon only works for someone who can reach the API. In August 2026 a BTCPay Server flaw let attackers obtain LND macaroons, and funds were stolen; the [BTCPay Server 2.4.2 advisory](https://blog.btcpayserver.org/security-advisory-btcpay-server-2-4-2/) says: *"Do not leave an affected LND deployment accessible from the internet."*
 
-- **Core Lightning:** `clnrest-host`/`clnrest-port` and `grpc-host`/`grpc-port`, read with `listconfigs` through the same restricted rune.
+- **Core Lightning:** `clnrest-host`/`clnrest-port` and `grpc-host`/`grpc-port`, read with `listconfigs`, one option per call, through the same restricted rune.
 - **LND:** `restlisten` and `rpclisten` from `lnd.conf`, when `lnd_conf` is set, read the way LND reads them: quoted values, `tcp://` and `unix://` forms, a bare port meaning localhost, and LND's default ports (8080, 10009). Flags on LND's command line override the file and can't be seen, so an option the file doesn't set is `unknown`, not LND's localhost default. Point `lnd_conf` at the file LND actually loads (`lnd.conf` in its `lnddir`, or its `--configfile`): Firewatch can't tell which file LND read.
 
 An API on `0.0.0.0`, `::` or a bare `:port` is `exposed`, with a hand check for the port. It's not an advisory verdict, so it never changes a node's red, amber or green. On Polar, Core Lightning nodes show `exposed` (Polar binds their APIs to `0.0.0.0` inside Docker), and LND nodes show `unknown` (Polar sets their listen addresses as command-line flags).
@@ -372,7 +374,7 @@ Other condition kinds:
 
 ```toml
 [[conditions]]
-kind = "config_enabled"                # CLN listconfigs
+kind = "config_enabled"                # CLN: Can't tell for now; the rune reads only the API options
 option = "experimental-splicing"
 
 [[conditions]]

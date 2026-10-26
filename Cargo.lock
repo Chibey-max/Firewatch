@@ -683,6 +683,7 @@ name = "firewatch-connectors"
 version = "0.1.0-rc.3"
 dependencies = [
  "firewatch-core",
+ "futures",
  "hyper",
  "reqwest",
  "rustls",

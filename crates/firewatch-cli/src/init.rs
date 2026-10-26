@@ -11,11 +11,11 @@ use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
 use std::path::{Path, PathBuf};
 
 use anyhow::{bail, Context, Result};
+use firewatch_connectors::cln::RUNE_RESTRICTIONS;
 use firewatch_connectors::NodeConfig;
 
 use crate::config;
 
-const RUNE_RESTRICTIONS: &str = r#"'[["method=getinfo","method=listconfigs"]]'"#;
 const RELAYS: [&str; 3] = [
     "wss://relay.damus.io",
     "wss://nos.lol",
@@ -256,7 +256,7 @@ fn detect(home: &Path, lnd_dir: Option<PathBuf>, ask: &mut Prompt) -> Vec<Candid
                 url_known: false,
                 tls_cert: https.then_some(server_pem),
                 rune_command: format!(
-                    "lightning-cli --network={network} createrune restrictions={RUNE_RESTRICTIONS}"
+                    "lightning-cli --network={network} createrune restrictions='{RUNE_RESTRICTIONS}'"
                 ),
             },
         });
@@ -356,7 +356,7 @@ fn polar(home: &Path, ask: &mut Prompt) -> Vec<Candidate> {
                     url_known: true,
                     tls_cert: None,
                     rune_command: format!(
-                        "docker exec polar-n{id}-{name} lightning-cli --lightning-dir=/home/clightning/.lightning --network=regtest createrune restrictions={RUNE_RESTRICTIONS}"
+                        "docker exec polar-n{id}-{name} lightning-cli --lightning-dir=/home/clightning/.lightning --network=regtest createrune restrictions='{RUNE_RESTRICTIONS}'"
                     ),
                 },
             }),
@@ -406,7 +406,7 @@ fn manual(ask: &mut Prompt, taken: &[String]) -> Option<String> {
             } else {
                 None
             };
-            println!("  Create a read-only rune on the node with:\n\n    lightning-cli createrune restrictions={RUNE_RESTRICTIONS}\n");
+            println!("  Create a read-only rune on the node with:\n\n    lightning-cli createrune restrictions='{RUNE_RESTRICTIONS}'\n");
             let rune = ask.secret("  Paste the rune: ");
             let rune = rune.trim_matches('"').to_string();
             (!rune.is_empty()).then(|| cln_toml(&name, &url, &rune, cert.as_deref()))
@@ -431,10 +431,14 @@ async fn keep_after_test(toml: &str, http: &reqwest::Client, ask: &mut Prompt) -
     match firewatch_connectors::fetch(&node, http).await {
         Ok(info) => {
             println!(
-                "  Connected: {} {}, read-only.\n",
+                "  Connected: {} {}, read-only.",
                 node.implementation(),
                 info.version
             );
+            for warning in &info.warnings {
+                println!("  Warning: {warning}");
+            }
+            println!();
             true
         }
         Err(e) => {
