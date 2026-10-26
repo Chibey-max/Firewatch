@@ -9,3 +9,5 @@ tls.cert
 tls.key
 .env
 __pycache__/
+# Filled by scripts/package-data.sh for crates.io only
+/crates/firewatch-cli/data/

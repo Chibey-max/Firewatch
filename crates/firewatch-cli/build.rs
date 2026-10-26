@@ -2,8 +2,8 @@
 //! binary, so an installed `firewatch` needs no files from this repo.
 //!
 //! Inside the workspace the data comes from the repo root (`advisories/`,
-//! `releases/lnd.toml`, `dashboard/dist`). A packaged crate carries a copy in
-//! `data/` instead, which wins when present. The dashboard is optional: build
+//! `releases/lnd.toml`, `dashboard/dist`). A packaged crate has no repo
+//! around it, so it carries a copy in `data/` (see scripts/package-data.sh). The dashboard is optional: build
 //! it first (`cd dashboard && npm run build`) or the binary serves the API only.
 
 use std::fmt::Write as _;
@@ -11,15 +11,15 @@ use std::path::{Path, PathBuf};
 
 fn main() {
     let manifest = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap());
+    let root = manifest.join("../..");
     let packaged = manifest.join("data");
-    let (advisories, releases, dashboard) = if packaged.is_dir() {
+    let (advisories, releases, dashboard) = if !root.join("advisories").is_dir() {
         (
             packaged.join("advisories"),
             packaged.join("releases/lnd.toml"),
             packaged.join("dashboard"),
         )
     } else {
-        let root = manifest.join("../..");
         (
             root.join("advisories"),
             root.join("releases/lnd.toml"),

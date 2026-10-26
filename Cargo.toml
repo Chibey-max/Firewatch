@@ -10,6 +10,10 @@ repository = "https://github.com/Chibey-max/Firewatch"
 homepage = "https://github.com/Chibey-max/Firewatch"
 
 [workspace.dependencies]
+# Path plus version: the version is what crates.io resolves after publishing.
+firewatch-alerts = { path = "crates/firewatch-alerts", version = "0.1.0-rc.2" }
+firewatch-connectors = { path = "crates/firewatch-connectors", version = "0.1.0-rc.2" }
+firewatch-core = { path = "crates/firewatch-core", version = "0.1.0-rc.2" }
 anyhow = "1"
 axum = "0.8"
 clap = { version = "4", features = ["derive"] }

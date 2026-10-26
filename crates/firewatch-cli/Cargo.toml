@@ -6,6 +6,12 @@ license.workspace = true
 version.workspace = true
 repository.workspace = true
 homepage.workspace = true
+readme = "../../README.md"
+keywords = ["lightning", "bitcoin", "security", "lnd", "core-lightning"]
+categories = ["command-line-utilities", "cryptography::cryptocurrencies"]
+# data/ is git-ignored but must ship: scripts/package-data.sh fills it with the
+# advisories, release table and dashboard before publishing.
+include = ["src/**", "build.rs", "data/**", "Cargo.toml"]
 
 [[bin]]
 name = "firewatch"
@@ -15,9 +21,9 @@ path = "src/main.rs"
 anyhow.workspace = true
 axum.workspace = true
 clap.workspace = true
-firewatch-alerts = { path = "../firewatch-alerts" }
-firewatch-connectors = { path = "../firewatch-connectors" }
-firewatch-core = { path = "../firewatch-core" }
+firewatch-alerts.workspace = true
+firewatch-connectors.workspace = true
+firewatch-core.workspace = true
 futures.workspace = true
 reqwest = { version = "0.13", default-features = false }
 serde.workspace = true
