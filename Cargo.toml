@@ -5,7 +5,9 @@ members = ["crates/firewatch-core", "crates/firewatch-connectors", "crates/firew
 [workspace.package]
 edition = "2021"
 license = "MIT"
-version = "0.1.0"
+version = "0.1.0-rc.2"
+repository = "https://github.com/Chibey-max/Firewatch"
+homepage = "https://github.com/Chibey-max/Firewatch"
 
 [workspace.dependencies]
 anyhow = "1"
@@ -18,3 +20,8 @@ thiserror = "2"
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 toml = "0.8"
 tower-http = { version = "0.7", features = ["cors", "fs"] }
+
+# The profile that 'dist' will build with
+[profile.dist]
+inherits = "release"
+lto = "thin"

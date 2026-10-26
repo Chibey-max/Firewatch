@@ -1,9 +1,11 @@
 [package]
-name = "firewatch-cli"
-description = "The firewatch command-line tool"
+name = "firewatch"
+description = "Security alerts for Lightning nodes: checks your node against published advisories"
 edition.workspace = true
 license.workspace = true
 version.workspace = true
+repository.workspace = true
+homepage.workspace = true
 
 [[bin]]
 name = "firewatch"
