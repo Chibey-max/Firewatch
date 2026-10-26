@@ -187,7 +187,7 @@ export function RecheckButton({
       title={icon ? 'Re-check now' : undefined}
       layout
       transition={{ duration: 0.4, ease: EASE }}
-      className={`fw-glass group relative isolate flex items-center rounded-full ${shape} text-[0.9rem] font-semibold tracking-[-0.01em] text-ink transition-[transform,background-color] duration-200 hover:bg-surface-hover active:translate-y-px active:scale-[0.98] disabled:cursor-wait`}
+      className={`fw-glass group relative isolate flex items-center rounded-full whitespace-nowrap ${shape} text-[0.9rem] font-semibold tracking-[-0.01em] text-ink transition-[transform,background-color] duration-200 hover:bg-surface-hover active:translate-y-px active:scale-[0.98] disabled:cursor-wait`}
     >
       <LiquidRim speed={speed} />
       <AnimatePresence mode="popLayout" initial={false}>
@@ -259,7 +259,10 @@ function Wordmark({ reading }: { reading: Reading }) {
   return (
     <>
       <Logo reading={reading} />
-      <span className="text-[0.98rem] font-semibold tracking-[0.01em]">Firewatch</span>
+      {/* On the narrowest phones the bar keeps the mark and its controls. */}
+      <span className="text-[0.98rem] font-semibold tracking-[0.01em] max-[379px]:hidden">
+        Firewatch
+      </span>
     </>
   )
 }
@@ -310,10 +313,18 @@ export function NavBar({
  * thumb rests when holding a tablet, with just the mark and the two
  * controls, so the content keeps the rest of the screen.
  */
-export function SideRail({ children, reading }: { children: ReactNode; reading: Reading }) {
+export function SideRail({
+  children,
+  reading,
+  inert,
+}: {
+  children: ReactNode
+  reading: Reading
+  inert?: boolean
+}) {
   return (
     // Above the detail dialog's backdrop: the pill stays usable while it's open.
-    <header className="fixed top-1/2 right-5 z-50 -translate-y-1/2">
+    <header inert={inert} className="fixed top-1/2 right-5 z-50 -translate-y-1/2">
       <div className="fw-bar flex flex-col items-center gap-3 rounded-full px-1.5 py-3.5">
         <span className="grid size-10 place-items-center" title="Firewatch">
           <Logo reading={reading} size={32} />

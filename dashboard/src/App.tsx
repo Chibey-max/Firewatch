@@ -3,16 +3,19 @@ import { useCallback, useEffect, useState } from 'react'
 import { DetailSheet } from './components/DetailSheet'
 import { EmptyState, Loading, SkeletonRows } from './components/EmptyState'
 import { FontPicker } from './components/FontPicker'
+import { Guide, GuideButton } from './components/Guide'
 import { Hero } from './components/Hero'
 import { NodeDetail } from './components/NodeDetail'
 import { ChangesBanner } from './components/ChangesBanner'
 import { NodeList } from './components/NodeList'
 import { Scene } from './components/Scene'
+import { Sheet } from './components/Sheet'
 import { ThemeToggle } from './components/ThemeToggle'
 import { Toasts } from './components/Toasts'
 import { Brand, LiveChip, NavBar, RecheckButton, SideRail } from './components/TopBar'
 import { isFixtureName } from './fixtures'
 import { sortNodes, worstReading } from './lib/format'
+import { useGuide } from './lib/useGuide'
 import { useMedia, useWide } from './lib/useMedia'
 import { useNow, useReport } from './lib/useReport'
 import { useSinceLastLook } from './lib/useSeen'
@@ -70,6 +73,7 @@ export default function App() {
   // Tablets get a side rail; ?nav=top tries the phone's bar there instead.
   const rail = tablet && !wide && new URLSearchParams(window.location.search).get('nav') !== 'top'
   const { wanted, select, close } = useSelectedNode(wide)
+  const guide = useGuide()
 
   const nodes = report ? sortNodes(report.nodes) : []
   const chosen = nodes.find((n) => n.name === wanted) ?? null
@@ -78,6 +82,8 @@ export default function App() {
   // only opens when asked.
   const selected = wide ? (chosen ?? nodes[0] ?? null) : chosen
   const sheetOpen = !wide && selected !== null
+  // Anything open over the page makes the page behind it inert.
+  const covered = sheetOpen || guide.tab !== null
   const scene = report ? worstReading(report.nodes) : phase === 'offline' ? 'cant_tell' : 'none'
 
   const controls = (
@@ -89,8 +95,18 @@ export default function App() {
           size={wide ? 'full' : rail ? 'icon' : 'compact'}
         />
       )}
+      <GuideButton onOpen={() => guide.open()} />
       <ThemeToggle />
     </>
+  )
+  const guideLink = (label: string) => (
+    <button
+      type="button"
+      onClick={() => guide.open('setup')}
+      className="font-semibold text-ink underline underline-offset-4"
+    >
+      {label}
+    </button>
   )
 
   return (
@@ -98,9 +114,11 @@ export default function App() {
       <Scene reading={scene} />
       {!wide &&
         (rail ? (
-          <SideRail reading={scene}>{controls}</SideRail>
+          <SideRail reading={scene} inert={guide.tab !== null}>
+            {controls}
+          </SideRail>
         ) : (
-          <NavBar inert={sheetOpen} narrow={tablet} reading={scene}>
+          <NavBar inert={covered} narrow={tablet} reading={scene}>
             {controls}
           </NavBar>
         ))}
@@ -108,7 +126,7 @@ export default function App() {
           and the slab (the selected node). On large screens each scrolls on
           its own and the page stays put; on a phone the slab is a sheet. */}
       <div
-        inert={sheetOpen}
+        inert={covered}
         className={`mx-auto grid max-w-[1720px] gap-5 p-3 sm:p-5 ${rail ? 'min-h-[100dvh] content-center sm:pr-[92px]' : ''} lg:h-[100dvh] lg:grid-cols-[minmax(400px,500px)_1fr] lg:p-6 min-[1600px]:grid-cols-[560px_1fr]`}
       >
         <aside className="fw-shell flex min-h-0 flex-col overflow-hidden rounded-[28px]">
@@ -153,21 +171,26 @@ export default function App() {
         <section
           className={`flex min-h-0 flex-col gap-4 ${!wide && (report ? nodes.length > 0 : phase !== 'offline') ? 'hidden' : ''}`}
         >
-          {wide && <div className="flex items-center justify-end gap-2.5">{controls}</div>}
+          {wide && (
+            <div inert={guide.tab !== null} className="flex items-center justify-end gap-2.5">
+              {controls}
+            </div>
+          )}
           <div id="detail" className="min-h-0 flex-1 overflow-y-auto rounded-[28px]">
             {report ? (
               nodes.length > 0 ? (
                 wide && selected && <NodeDetail node={selected} />
               ) : (
                 <EmptyState title="No nodes to watch">
-                  Add a node to <code className={code}>firewatch.toml</code>, then restart{' '}
-                  <code className={code}>firewatch watch</code>.
+                  Add your node with <code className={code}>firewatch init</code>, then restart{' '}
+                  <code className={code}>firewatch watch</code>. {guideLink('See how')}.
                 </EmptyState>
               )
             ) : phase === 'offline' ? (
               <EmptyState title="Firewatch isn’t answering">
-                It retries every few seconds. Start it from the repo root with{' '}
-                <code className={code}>cargo run -- watch</code>, or{' '}
+                It retries every few seconds. Start it with{' '}
+                <code className={code}>firewatch watch</code>. New here?{' '}
+                {guideLink('See how to set it up')}, or{' '}
                 <a
                   href="?fixture=demo"
                   className="font-semibold text-ink underline underline-offset-4"
@@ -183,6 +206,14 @@ export default function App() {
         </section>
       </div>
       {!wide && <DetailSheet node={selected} onClose={close} beside={rail} />}
+      <Sheet
+        open={guide.tab !== null}
+        onClose={guide.close}
+        labelledBy="guide-title"
+        layer="z-[60]"
+      >
+        {guide.tab && <Guide tab={guide.tab} onTab={guide.show} />}
+      </Sheet>
       <Toasts />
       {showFonts && <FontPicker />}
     </MotionConfig>
