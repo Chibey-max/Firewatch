@@ -9,6 +9,11 @@ Every advisory shown is verified against the developers' own release notes or ad
 ## Before you go on stage
 
 1. **Polar:** open the `Firewatch-demo` network and click **Start**. It has five nodes: `old-cln` (Core Lightning 26.06.7), `current-cln` (26.06.9), `alice` (LND 0.20.0-beta), `lnd-old` (LND 0.18.5-beta) and `lnd-unofficial` (LND 0.20.0-beta built from an unofficial commit). To build it the first time, see [Building the network](#building-the-network).
+
+   Then check that no port is open to the venue network. This must print nothing (if it prints anything, see [Keep Docker's ports on this machine](#keep-dockers-ports-on-this-machine)):
+   ```sh
+   docker ps --filter name=polar- --format '{{.Names}} {{.Ports}}' | grep -E '0\.0\.0\.0|\[::\]'
+   ```
 2. **Reset the vulnerable node**, in case the last rehearsal left it upgraded:
    ```sh
    demo/reset.sh
@@ -51,6 +56,29 @@ The beats match [PITCH.md](PITCH.md). Alerts are one DM per node per check, so s
 ## Building the network
 
 Do this once per machine. Polar is a GUI, so the Polar steps are by hand.
+
+### Keep Docker's ports on this machine
+
+Do this first. Docker publishes container ports on all of the laptop's addresses (`0.0.0.0` and `[::]`) unless told otherwise ([Docker: port publishing](https://docs.docker.com/engine/network/port-publishing/)), and its rules skip ufw. Polar publishes every node's API ports, and bitcoind's RPC port 18443 with Polar's default login `polaruser`/`polarpass`. On the venue Wi-Fi, anyone could then reach the nodes and disrupt the demo: tested, bitcoind's RPC answered from the laptop's Wi-Fi address.
+
+On Linux (needs sudo):
+
+1. **Stop** the network in Polar.
+2. **Add these keys** to `/etc/docker/daemon.json` (create the file, or merge them into an existing one):
+   ```json
+   {
+     "ip": "127.0.0.1",
+     "default-network-opts": { "bridge": { "com.docker.network.bridge.host_binding_ipv4": "127.0.0.1" } }
+   }
+   ```
+   `ip` covers Docker's default network; `default-network-opts` covers networks created after this, like Polar's.
+3. **Restart Docker:** `sudo systemctl restart docker`. This stops every running container.
+4. **Start** the network in Polar. Polar recreates its Docker network on each start, so the new default applies.
+5. **Check:** the command in [Before you go on stage](#before-you-go-on-stage) step 1 prints nothing, and `docker ps` shows the node ports as `127.0.0.1:<port>->...`.
+
+This changes every container on the machine. One that must be reachable from other machines then needs an explicit address, e.g. `-p 0.0.0.0:8080:80`. Networks other projects created earlier keep their old setting until they're recreated. To undo, remove the two keys and restart Docker. Docker Desktop (macOS, Windows) takes the same keys under **Settings → Docker Engine**; not tested there.
+
+### Build the network
 
 1. **Build the images.** Polar's built-in lists stop at Core Lightning 25.12 and don't include an unofficial LND, so build three images:
    ```sh
