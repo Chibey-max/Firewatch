@@ -17,7 +17,7 @@ Six steps, about ten minutes. Firewatch only ever reads your node: nothing in th
   - **LND:** on by default, at `https://127.0.0.1:8080`.
   - **Core Lightning:** `clnrest` is off until it has a port. Add `clnrest-port=3010` to the node's config file (usually `~/.lightning/config`) and restart the node. It serves HTTPS with a self-signed certificate by default; Firewatch pins that certificate, and `firewatch init` sets it up.
 - **Umbrel or Start9:** SSH into the box first (for example `ssh umbrel@umbrel.local`) and run every command below there.
-- **For phone alerts (optional):** a Nostr app that shows NIP-17 private messages. On iPhone use **Nostur**; on Android, **Amethyst** or **0xchat**. Damus doesn't show these messages.
+- **For phone alerts (optional):** a Nostr app that shows NIP-17 private messages. On iPhone use **Nostur**; on Android, **Amethyst** or **0xchat**. Damus doesn't show these messages. Step 2 walks through it.
 
 ### 1. Install
 
@@ -48,9 +48,53 @@ firewatch --version      # firewatch 0.1.0-rc.2
 firewatch validate       # lists the built-in advisories
 ```
 
-### 2. Get your phone ready (optional)
+### 2. Set up your phone for alerts (optional)
 
-Install Nostur, Amethyst or 0xchat, create an account, and copy your public key: the long string starting with `npub1`. Firewatch encrypts every alert to that key, so only your phone can read it. Never share the private key (`nsec1…`), not even with Firewatch.
+Firewatch sends alerts as **encrypted Nostr direct messages** (NIP-17). Nostr has no accounts or passwords: your identity is a pair of keys that your phone app creates for you.
+
+| Key | Looks like | What it's for |
+|---|---|---|
+| **Public key** (npub) | `npub1…` | Your address. Give it to Firewatch: alerts are encrypted to it. Safe to share. |
+| **Private key** (nsec) | `nsec1…` | Opens your messages and proves you're you. **Never share it**, not with Firewatch, a teammate or a website. |
+
+**a. Install an app that shows NIP-17 messages**
+
+| Phone | App | |
+|---|---|---|
+| iPhone | **Nostur** (App Store) | Tested with Firewatch. |
+| Android | **Amethyst** (Play Store) or **0xchat** | |
+
+Damus doesn't show these messages, so alerts never appear there. Check you have the right app: it talks about Nostr, and it never asks for a phone number or password.
+
+**b. Create your keys**
+
+Open the app and choose **create a new account** (the wording varies by app). It generates your keys on the phone. A fresh account just for alerts is a good idea: it keeps node alerts separate from anything social.
+
+**c. Back up the private key**
+
+The app shows or lets you export your `nsec1…` key, usually under your profile, account or keys settings. Save it in a password manager. If you lose the phone without it, you lose the account, and you'd set up a new one and run `firewatch init --force` with the new npub.
+
+**d. Copy your public key**
+
+Open your profile. Your `npub1…` is shown there, usually with a copy button or a share or QR option. Copy the whole string.
+
+**e. Give it to Firewatch**
+
+Paste the npub when `firewatch init` asks (step 3). To change it later, edit `recipient` in `~/.config/firewatch/firewatch.toml`.
+
+**f. Accept the first message**
+
+After `firewatch test-alert` (step 4), the message arrives under **message requests**, because the app doesn't know the sender yet:
+
+1. Open it and tap **Accept message request**.
+2. Follow the sender. That's Firewatch's own key, which it created on first run in `~/.config/firewatch/firewatch.nsec`, and `test-alert` prints it.
+3. Optionally rename the contact to "Firewatch", so alerts are easy to spot.
+
+From then on, alerts land in your normal inbox.
+
+**Relays.** Messages travel through Nostr relays. Firewatch sends to `relay.damus.io`, `nos.lol` and `relay.primal.net`, and also to any DM relays your app has published for your key. Most apps use some of these by default. If `test-alert` succeeds but nothing arrives, add `wss://relay.damus.io` and `wss://nos.lol` in the app's relay settings and reopen your messages.
+
+**One recipient per config.** Firewatch sends to one npub. For a team, share one alerts account between the phones that need it, or run one Firewatch config per person.
 
 ### 3. Set up with `firewatch init`
 
@@ -86,7 +130,7 @@ If you gave an npub:
 firewatch test-alert
 ```
 
-The first message lands in your app's **message requests**. Tap **Accept message request**, and follow the sender so later alerts go straight to your inbox.
+The first message lands in your app's **message requests**. Tap **Accept message request**, and follow the sender so later alerts go straight to your inbox (step 2f).
 
 ### 5. Keep it running
 
