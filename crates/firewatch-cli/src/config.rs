@@ -56,7 +56,28 @@ impl Config {
         }
         let text =
             std::fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?;
-        toml::from_str(&text).with_context(|| format!("parsing {}", path.display()))
+        let config: Config =
+            toml::from_str(&text).with_context(|| format!("parsing {}", path.display()))?;
+        config
+            .check_names()
+            .with_context(|| format!("in {}", path.display()))?;
+        Ok(config)
+    }
+
+    /// Every node needs its own name: `watch` keeps each node's state, and
+    /// sends its alerts, by name.
+    fn check_names(&self) -> Result<()> {
+        let mut seen = std::collections::HashSet::new();
+        for (i, node) in self.nodes.iter().enumerate() {
+            let name = node.name();
+            if name.trim().is_empty() {
+                anyhow::bail!("node {} has no name", i + 1);
+            }
+            if !seen.insert(name) {
+                anyhow::bail!("two nodes are named \"{name}\"; give each its own name");
+            }
+        }
+        Ok(())
     }
 }
 
@@ -85,4 +106,28 @@ pub fn config_dir() -> PathBuf {
         .or_else(|| std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".config")))
         .unwrap_or_else(|| PathBuf::from("."))
         .join("firewatch")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn names(names: &[&str]) -> Result<()> {
+        let mut text = String::new();
+        for n in names {
+            text.push_str(&format!(
+                "[[nodes]]\nkind = \"cln\"\nname = \"{n}\"\nurl = \"http://127.0.0.1:1\"\nrune = \"x\"\n"
+            ));
+        }
+        toml::from_str::<Config>(&text).unwrap().check_names()
+    }
+
+    #[test]
+    fn node_names_must_be_set_and_unique() {
+        assert!(names(&["a", "b"]).is_ok());
+        let dup = names(&["a", "b", "a"]).unwrap_err().to_string();
+        assert!(dup.contains("two nodes are named \"a\""), "{dup}");
+        let empty = names(&["a", " "]).unwrap_err().to_string();
+        assert_eq!(empty, "node 2 has no name");
+    }
 }

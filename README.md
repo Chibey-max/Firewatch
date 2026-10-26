@@ -36,7 +36,7 @@ Advisories are built into each release, so update Firewatch (run the installer a
 
 ```sh
 scripts/demo-up.sh                              # build everything, check the nodes, start the demo
-cargo test --workspace                          # 121 tests: engine, connectors, alerts, one per advisory
+cargo test --workspace                          # 133 tests: engine, connectors, alerts, one per advisory
 cargo run -- validate                           # load and list every advisory
 cargo run -- check                              # check the live nodes in firewatch.toml once
 cargo run -- check --nodes examples/nodes.json  # check a JSON snapshot instead
