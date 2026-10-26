@@ -1,28 +1,10 @@
 import { AnimatePresence, motion } from 'motion/react'
 import { useState } from 'react'
+import { copyText } from '../lib/clipboard'
 import { helpText } from '../lib/helpText'
 import { EASE } from '../lib/motion'
 import { toast } from '../lib/toasts'
 import type { NodeReport } from '../types/report'
-
-async function copy(text: string): Promise<boolean> {
-  try {
-    await navigator.clipboard.writeText(text)
-    return true
-  } catch {
-    // No clipboard API (or it was refused): the old way, through a selection.
-    const area = document.createElement('textarea')
-    area.value = text
-    area.setAttribute('readonly', '')
-    area.style.position = 'fixed'
-    area.style.opacity = '0'
-    document.body.append(area)
-    area.select()
-    const ok = document.execCommand('copy')
-    area.remove()
-    return ok
-  }
-}
 
 /**
  * "Copy for help": the node's verdict and advisories as plain text, to paste
@@ -33,7 +15,7 @@ export function CopyHelp({ node }: { node: NodeReport }) {
   const [done, setDone] = useState(false)
 
   const click = async () => {
-    if (await copy(helpText(node, Math.floor(Date.now() / 1000)))) {
+    if (await copyText(helpText(node, Math.floor(Date.now() / 1000)))) {
       setDone(true)
       setTimeout(() => setDone(false), 1600)
       toast(
