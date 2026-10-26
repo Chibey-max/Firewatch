@@ -135,6 +135,7 @@ jobs:
           "node-version": 22
       - name: "Build the dashboard"
         run: |
+          cd dashboard
           npm ci
           npm run build
       - name: Install dist

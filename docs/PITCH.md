@@ -14,7 +14,7 @@ Say it in the first 20 seconds and again at the end.
 | Time | Beat | Dave says | On screen / who |
 |---|---|---|---|
 | 0:00–0:20 | **Hook** | "In its August release, Core Lightning wrote that 'increasingly capable AI models are being used to identify potential vulnerabilities in open-source code, significantly increasing the volume and pace of security reports.' In two months every major Lightning implementation shipped security fixes, and on October 2nd Core Lightning warned that attackers were going after nodes that hadn't upgraded. Would you have known your node was one of them?" | Slide 1 |
-| 0:20–0:40 | **Problem** | "Bugs get fixed in days. Nodes get patched in months. Operators hear late, from X. And 'am I affected?' is hard: some bugs need a feature switched on, some only hit mainnet. Firewatch closes that gap. Think of it as Dependabot for Lightning nodes." | Slide 2 |
+| 0:20–0:40 | **Problem** | "Bugs get fixed in days. But operators hear late, from X, if at all. And 'am I affected?' is hard: some bugs need a feature switched on, some only hit mainnet. Firewatch closes that gap. Think of it as Dependabot for Lightning nodes." | Slide 2 |
 | 0:40–1:05 | **Live: it finds the problem** | "This is a real Lightning network running real node software. Firewatch reads each node with a credential that can't spend or change anything, and checks it against advisories copied word for word from the developers." | **Isaac:** runs `scripts/demo-up.sh`. **Patrick:** dashboard up; `old-cln` red with *exploited in the wild*. Phone buzzes: hold it up. |
 | 1:05–1:20 | **It quotes, never invents** | "Red, two advisories. This is the developers' own sentence, and here's their link. We never write the fix ourselves." | **Patrick:** opens `old-cln`, points at *Developers say* and the source link. |
 | 1:20–1:35 | **Not every alarm is real** | "A version number alone gives false alarms. This LND bug only bites on mainnet. This node runs regtest, so Firewatch says *not affected*, and tells you why." | **Patrick:** FW-2026-009 on `alice`, green, with its reason. |
@@ -33,7 +33,7 @@ Rules for the script:
 The current `docs/firewatch-pitch.pdf` predates the build check, `lnd-unofficial` and the AI hook. Rebuild it to this outline and export it over the same file.
 
 1. **Hook.** The quote from Core Lightning's 26.06.7 release notes (above), attributed, and "Oct 2: attackers target unpatched Core Lightning nodes."
-2. **The gap.** "Bugs get fixed in days. Nodes get patched in months." Then the three gaps: operators hear late; "am I affected?" is hard; the right action changes.
+2. **The gap.** "Bugs get fixed in days. Operators hear late." (No "nodes get patched in months": we have no source for it.) Then the three gaps: operators hear late; "am I affected?" is hard; the right action changes.
 3. **Firewatch.** The one-liner, and the three verdicts as three coloured cards: Affected, Can't tell, Not affected. Caption: "Never green when unsure."
 4. **Live demo.** Title only, so Patrick can switch to the dashboard.
 5. **Why trust it.** Four short lines: read-only credentials it can't misuse; only developers' sources, audited word for word; build check (the version can't lie); private, encrypted alerts.

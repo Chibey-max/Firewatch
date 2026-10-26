@@ -4,9 +4,13 @@ description = "Private alerts for Firewatch (Nostr NIP-17 DMs)"
 edition.workspace = true
 license.workspace = true
 version.workspace = true
+repository.workspace = true
+homepage.workspace = true
+keywords = ["lightning", "bitcoin", "security", "lnd", "core-lightning"]
+categories = ["cryptography::cryptocurrencies"]
 
 [dependencies]
-firewatch-core = { path = "../firewatch-core" }
+firewatch-core.workspace = true
 nostr = { version = "0.45", features = ["std", "nip59", "os-rng"] }
 nostr-sdk = { version = "0.45", default-features = false, features = ["aws_lc_rs", "rustls-tls-webpki-roots"] }
 serde.workspace = true

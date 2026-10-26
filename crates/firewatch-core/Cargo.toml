@@ -4,6 +4,10 @@ description = "Shared types, version matching and verdict engine for Firewatch"
 edition.workspace = true
 license.workspace = true
 version.workspace = true
+repository.workspace = true
+homepage.workspace = true
+keywords = ["lightning", "bitcoin", "security", "lnd", "core-lightning"]
+categories = ["cryptography::cryptocurrencies"]
 
 [dependencies]
 serde.workspace = true
