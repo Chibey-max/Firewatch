@@ -8,7 +8,7 @@ Every advisory shown is verified against the developers' own release notes or ad
 
 ## Before you go on stage
 
-1. **Polar:** open the `Firewatch-demo` network and click **Start**. It has five nodes: `old-cln` (Core Lightning 26.06.7), `current-cln` (26.06.9), `alice` (LND 0.20.0-beta), `lnd-old` (LND 0.18.5-beta) and `lnd-unofficial` (LND 0.20.0-beta built from an unofficial commit; see below to add it).
+1. **Polar:** open the `Firewatch-demo` network and click **Start**. It has five nodes: `old-cln` (Core Lightning 26.06.7), `current-cln` (26.06.9), `alice` (LND 0.20.0-beta), `lnd-old` (LND 0.18.5-beta) and `lnd-unofficial` (LND 0.20.0-beta built from an unofficial commit). To build it the first time, see [Building the network](#building-the-network).
 2. **Reset the vulnerable node**, in case the last rehearsal left it upgraded:
    ```sh
    demo/reset.sh
@@ -28,7 +28,7 @@ Every advisory shown is verified against the developers' own release notes or ad
    scripts/verify-demo.py
    ```
    It must end with "All demo checks pass."
-6. **Screen:** a terminal in `~/Projects/Hackathon/Firewatch`, and a browser ready for `http://127.0.0.1:7070`. The phone goes on the projector.
+6. **Screen:** a terminal in your Firewatch clone, and a browser ready for `http://127.0.0.1:7070`. The phone goes on the projector.
 
 Do not start the daemon yet: starting it is what makes the phone buzz.
 
@@ -44,17 +44,50 @@ The beats match [PITCH.md](PITCH.md). Alerts are one DM per node per check, so s
 | 4 | 1:05 | It quotes, never invents | **Patrick:** open `old-cln`; point at *Developers say* and the source link. |
 | 5 | 1:20 | Not every alarm is real | **Patrick:** FW-2026-009 on `alice`: green, "it only applies on mainnet, and this node runs on regtest". |
 | 6 | 1:35 | Honest when unsure | **Patrick:** FW-2026-013 on `lnd-old`: amber, with its hand check. |
-| 7 | 1:50 | The version can't lie | **Patrick:** `lnd-unofficial`: every finding amber, "its build (fc472ef) is not the official v0.20.0-beta release (b9ea707)". |
+| 7 | 1:50 | The version can't lie | **Patrick:** `lnd-unofficial`: every finding amber, "its build (`<hash>`) is not the official v0.20.0-beta release (b9ea707)". The hash is your image's own: see [Building the network](#building-the-network). |
 | 8 | 2:05 | Fix it | **Isaac:** run `demo/upgrade.sh`. Within one check `old-cln` turns green, and the phone gets one "✅ old-cln is no longer affected by FW-2026-003, FW-2026-006". |
 | 9 | 2:30 | Why trust it | Slides 5–6. |
 
-## Adding `lnd-unofficial`
+## Building the network
 
-```sh
-docker build -f demo/polar/Dockerfile.lnd-unofficial -t firewatch/lnd:0.20.0-unofficial demo/polar
-```
+Do this once per machine. Polar is a GUI, so the Polar steps are by hand.
 
-In Polar: **Manage Images → Custom Nodes → Add**, implementation LND, image `firewatch/lnd:0.20.0-unofficial`, then drag it onto the network as `lnd-unofficial`. Rename it **while the network is stopped**, or Polar keeps running it under its first name. Add it to `firewatch.toml` like `lnd-old`, with its own REST port, `readonly.macaroon` and `tls.cert`.
+1. **Build the images.** Polar's built-in lists stop at Core Lightning 25.12 and don't include an unofficial LND, so build three images:
+   ```sh
+   for v in 26.06.7 26.06.9; do
+     docker build -f demo/polar/Dockerfile.cln --build-arg CLN_VERSION=v$v \
+       -t firewatch/clightning:$v demo/polar
+   done
+   docker build -f demo/polar/Dockerfile.lnd-unofficial -t firewatch/lnd:0.20.0-unofficial demo/polar
+   ```
+   The LND one compiles LND from source, so it's the slow one. Note its commit: it's the hash beat 7 shows, and it's different on every build.
+   ```sh
+   docker run --rm --entrypoint /opt/lnd/lnd firewatch/lnd:0.20.0-unofficial --version
+   # lnd version 0.20.0-beta commit=v0.20.0-beta-1-g<hash>
+   ```
+2. **Restart Polar** if it was open while the images built. It reads the image list when it starts, and otherwise refuses to start the network: *"custom node images that are not available on this machine"*.
+3. **Add the custom images:** **Manage Images → Custom Nodes → Add**, three times. Core Lightning `firewatch/clightning:26.06.7`, Core Lightning `firewatch/clightning:26.06.9`, and LND `firewatch/lnd:0.20.0-unofficial`. Keep the command Polar fills in.
+4. **Create the network** `Firewatch-demo` with one Bitcoin Core backend and no other nodes. Drag on five nodes and rename each one **before the first start**, or Polar keeps running it under its first name:
+
+   | Name | Node |
+   |---|---|
+   | `old-cln` | custom Core Lightning 26.06.7 |
+   | `current-cln` | custom Core Lightning 26.06.9 |
+   | `alice` | Polar's LND 0.20.0-beta |
+   | `lnd-old` | Polar's LND 0.18.5-beta |
+   | `lnd-unofficial` | custom LND 0.20.0-unofficial |
+
+5. **Start it** and wait until every node is green.
+6. **Write `firewatch.toml`** from [firewatch.example.toml](../firewatch.example.toml), one `[[nodes]]` entry per node:
+   - **Ports:** each node's REST port on the host, from Polar or `docker port polar-n<id>-<name>`. `<id>` is the network's number in `~/.polar/networks/`.
+   - **Core Lightning:** `url = "http://127.0.0.1:<port>"`, and a restricted rune made on each node:
+     ```sh
+     docker exec -u clightning polar-n<id>-old-cln lightning-cli --network=regtest \
+       createrune restrictions='[["method=getinfo","method=listconfigs"]]'
+     ```
+     Save the `rune` value to a file and point `rune_file` at it. `*.rune` is git-ignored.
+   - **LND:** `url = "https://127.0.0.1:<port>"`, `macaroon_file = "/home/<you>/.polar/networks/<id>/volumes/lnd/<name>/data/chain/bitcoin/regtest/readonly.macaroon"` and `tls_cert = "/home/<you>/.polar/networks/<id>/volumes/lnd/<name>/tls.cert"`.
+7. **Check it:** `scripts/verify-demo.py` must end with "All demo checks pass."
 
 ## After the demo
 
