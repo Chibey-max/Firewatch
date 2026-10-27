@@ -289,7 +289,7 @@ async fn plain_http_to_another_machine_is_refused_before_sending() {
     for (message, credential) in [
         (cln_error("http://192.0.2.1:3010".into()).await, "rune"),
         (
-            lnd_error("plain-http", "http://192.0.2.1:8080".into(), CERT_A).await,
+            lnd_error("plain-http-remote", "http://192.0.2.1:8080".into(), CERT_A).await,
             "macaroon",
         ),
     ] {
