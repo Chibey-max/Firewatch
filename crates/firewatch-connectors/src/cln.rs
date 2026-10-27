@@ -59,6 +59,11 @@ pub struct ClnConfig {
     /// network folder), trusted for this node only. Not needed over HTTP.
     #[serde(default)]
     pub tls_cert: Option<PathBuf>,
+    /// Allow plain `http://` to another machine. Off by default: the rune
+    /// would cross the network unencrypted. For a connection that is already
+    /// private, such as a Docker container on this machine or a VPN.
+    #[serde(default)]
+    pub allow_plain_http: bool,
 }
 
 pub struct ClnClient {
@@ -66,6 +71,8 @@ pub struct ClnClient {
     name: String,
     url: String,
     rune: String,
+    /// Set when `allow_plain_http` let a remote `http://` url through.
+    plain_http: Option<String>,
 }
 
 impl ClnClient {
@@ -95,11 +102,19 @@ impl ClnClient {
                     .map_err(|e| ConnectorError::Config(e.to_string()))?
             }
         };
+        let url = crate::node_url(&config.name, &config.url)?;
+        let plain_http = crate::plain_http_check(
+            &config.name,
+            &url,
+            Implementation::Cln,
+            config.allow_plain_http,
+        )?;
         Ok(ClnClient {
             http,
             name: config.name.clone(),
-            url: crate::node_url(&config.name, &config.url)?,
+            url,
             rune: rune.trim().to_string(),
+            plain_http,
         })
     }
 
@@ -160,7 +175,7 @@ impl ClnClient {
             .ok_or_else(|| ConnectorError::Unexpected("getinfo has no version".into()))?
             .to_string();
         let (options, refused) = self.read_options().await?;
-        let mut warnings = Vec::new();
+        let mut warnings: Vec<String> = self.plain_http.iter().cloned().collect();
         if self.rune_reads_every_option().await? {
             warnings.push(format!(
                 "the rune for '{}' can read every config option. On Core Lightning before 26.06.9 that includes \
@@ -350,6 +365,7 @@ mod tests {
             rune: None,
             rune_file: None,
             tls_cert: None,
+            allow_plain_http: false,
         };
         assert!(matches!(
             ClnClient::new(&config, reqwest::Client::new()),

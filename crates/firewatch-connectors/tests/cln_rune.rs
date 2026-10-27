@@ -139,6 +139,7 @@ async fn read(rune: Rune) -> (firewatch_core::NodeInfo, Vec<(String, Value)>) {
         rune: Some("test-rune".into()),
         rune_file: None,
         tls_cert: None,
+        allow_plain_http: false,
     });
     let info = fetch(&node, &http_client())
         .await

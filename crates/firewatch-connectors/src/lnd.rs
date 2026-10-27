@@ -31,6 +31,10 @@ pub struct LndConfig {
     /// its APIs listen over RPC. Read on this machine.
     #[serde(default)]
     pub lnd_conf: Option<PathBuf>,
+    /// Allow plain `http://` to another machine (LND with `no-rest-tls`).
+    /// Off by default: the macaroon would cross the network unencrypted.
+    #[serde(default)]
+    pub allow_plain_http: bool,
 }
 
 pub struct LndClient {
@@ -39,6 +43,8 @@ pub struct LndClient {
     url: String,
     macaroon: String,
     lnd_conf: Option<PathBuf>,
+    /// Set when `allow_plain_http` let a remote `http://` url through.
+    plain_http: Option<String>,
 }
 
 impl LndClient {
@@ -56,14 +62,22 @@ impl LndClient {
         if let Some(cert) = &config.tls_cert {
             http = http.tls_backend_preconfigured(tls::pinned_config(&read(cert)?)?);
         }
+        let url = crate::node_url(&config.name, &config.url)?;
+        let plain_http = crate::plain_http_check(
+            &config.name,
+            &url,
+            Implementation::Lnd,
+            config.allow_plain_http,
+        )?;
         Ok(LndClient {
             http: http
                 .build()
                 .map_err(|e| ConnectorError::Config(e.to_string()))?,
             name: config.name.clone(),
-            url: crate::node_url(&config.name, &config.url)?,
+            url,
             macaroon,
             lnd_conf: config.lnd_conf.clone(),
+            plain_http,
         })
     }
 
@@ -127,6 +141,7 @@ impl LndClient {
         self.ensure_read_only().await?;
         let mut node = parse_getinfo(&self.name, &info)?;
         node.apis = listen_from_conf(self.lnd_conf.as_deref());
+        node.warnings.extend(self.plain_http.iter().cloned());
         Ok(node)
     }
 }
