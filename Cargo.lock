@@ -647,7 +647,7 @@ checksum = "1c66915cc5391097de7a2b0b972e8505aa33c0df401fd3a6811dbdb32881ba48"
 
 [[package]]
 name = "firewatch"
-version = "0.1.0-rc.3"
+version = "0.1.0"
 dependencies = [
  "anyhow",
  "axum",
@@ -667,7 +667,7 @@ dependencies = [
 
 [[package]]
 name = "firewatch-alerts"
-version = "0.1.0-rc.3"
+version = "0.1.0"
 dependencies = [
  "firewatch-core",
  "nostr",
@@ -680,7 +680,7 @@ dependencies = [
 
 [[package]]
 name = "firewatch-connectors"
-version = "0.1.0-rc.3"
+version = "0.1.0"
 dependencies = [
  "firewatch-core",
  "futures",
@@ -695,7 +695,7 @@ dependencies = [
 
 [[package]]
 name = "firewatch-core"
-version = "0.1.0-rc.3"
+version = "0.1.0"
 dependencies = [
  "serde",
  "serde_json",

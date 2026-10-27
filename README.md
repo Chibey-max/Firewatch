@@ -24,12 +24,12 @@ Six steps, about ten minutes. Firewatch only ever reads your node: nothing in th
 **Option A: the installer.** No Rust or Node.js needed.
 
 ```sh
-curl --proto '=https' --tlsv1.2 -LsSf https://github.com/Chibey-max/Firewatch/releases/download/v0.1.0-rc.3/firewatch-installer.sh | sh
+curl --proto '=https' --tlsv1.2 -LsSf https://github.com/Chibey-max/Firewatch/releases/latest/download/firewatch-installer.sh | sh
 ```
 
 It downloads one `firewatch` binary into `~/.local/bin`, with the advisories, the LND release table and the dashboard built in. If your shell then says `firewatch: command not found`, open a new terminal, or run `source ~/.local/bin/env`.
 
-Once `v0.1.0` is out, the same command with `releases/latest/download/` in place of `releases/download/v0.1.0-rc.3/` always installs the newest release. Every release also has plain archives and SHA-256 checksums on the [releases page](https://github.com/Chibey-max/Firewatch/releases).
+This always installs the newest release. Every release also has plain archives and SHA-256 checksums on the [releases page](https://github.com/Chibey-max/Firewatch/releases).
 
 **Option B: from crates.io.** For people who already use Rust. It compiles for a few minutes.
 
@@ -37,14 +37,14 @@ Once `v0.1.0` is out, the same command with `releases/latest/download/` in place
 2. Make sure there's a C compiler: `sudo apt install build-essential` on Ubuntu or Debian, `xcode-select --install` on macOS.
 3. Install:
    ```sh
-   cargo install firewatch --version 0.1.0-rc.3 --locked
+   cargo install firewatch --locked
    ```
-   `--version` is needed while the release is a pre-release. `--locked` builds with the exact dependency versions we tested.
+   `--locked` builds with the exact dependency versions we tested.
 
 Either way, check it worked:
 
 ```sh
-firewatch --version      # firewatch 0.1.0-rc.3
+firewatch --version      # firewatch 0.1.0
 firewatch validate       # lists the built-in advisories
 ```
 
@@ -166,7 +166,7 @@ The dashboard only answers on the machine itself, because the report says which 
 
 ### 6. Update and uninstall
 
-Advisories are built into each release, so **update Firewatch to get new ones**: run the installer again, or `cargo install firewatch --locked --force` (add `--version` while releases are pre-releases). Your config stays.
+Advisories are built into each release, so **update Firewatch to get new ones**: run the installer again, or `cargo install firewatch --locked --force`. Your config stays.
 
 To uninstall: `rm ~/.local/bin/firewatch` (installer) or `cargo uninstall firewatch`. Then remove the config with `rm -r ~/.config/firewatch`, and the service, if you made one, with `systemctl --user disable --now firewatch` and `rm ~/.config/systemd/user/firewatch.service`.
 
