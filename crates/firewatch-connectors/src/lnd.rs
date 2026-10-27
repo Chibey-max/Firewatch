@@ -265,6 +265,7 @@ fn parse_getinfo(name: &str, info: &Value) -> Result<NodeInfo, ConnectorError> {
             .filter(|h| !h.is_empty())
             .map(str::to_string),
         apis: vec![],
+        warnings: vec![],
     })
 }
 

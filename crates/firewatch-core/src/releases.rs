@@ -240,6 +240,7 @@ mod tests {
             features: None,
             commit_hash: commit.map(str::to_string),
             apis: vec![],
+            warnings: vec![],
         }
     }
 

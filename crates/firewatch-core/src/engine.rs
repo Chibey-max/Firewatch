@@ -228,6 +228,7 @@ mod tests {
             features: None,
             commit_hash: None,
             apis: vec![],
+            warnings: vec![],
         }
     }
 

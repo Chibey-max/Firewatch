@@ -164,12 +164,15 @@ async fn run() -> Result<ExitCode> {
             include_unverified,
         } => {
             let advisories = select(advisories, include_unverified);
-            let report = match nodes {
-                Some(path) => Report::build(
-                    &load_snapshot(&path)?,
-                    &advisories,
-                    releases.as_ref(),
-                    now(),
+            let (report, warnings) = match nodes {
+                Some(path) => (
+                    Report::build(
+                        &load_snapshot(&path)?,
+                        &advisories,
+                        releases.as_ref(),
+                        now(),
+                    ),
+                    Vec::new(),
                 ),
                 None => {
                     check_live(
@@ -184,6 +187,11 @@ async fn run() -> Result<ExitCode> {
                 println!("{}", serde_json::to_string_pretty(&report)?);
             } else {
                 print_report(&report);
+            }
+            // After the report, so they're the last thing on screen; on
+            // stderr, so `--json` output stays clean.
+            for warning in warnings {
+                eprintln!("warning: {warning}");
             }
             Ok(ExitCode::from(match report.worst() {
                 Status::NotAffected => 0,
@@ -247,11 +255,12 @@ fn select(advisories: Vec<Advisory>, include_unverified: bool) -> Vec<Advisory> 
 
 /// Reads every configured node. A node that can't be read is reported as
 /// "Can't tell" with its error, so one dead node doesn't hide the others.
+/// Also returns the connectors' warnings, which are not part of the report.
 pub(crate) async fn check_live(
     configs: &[NodeConfig],
     advisories: &[Advisory],
     releases: Option<&ReleaseTable>,
-) -> Report {
+) -> (Report, Vec<String>) {
     let http = firewatch_connectors::http_client();
     // All nodes at once, so one node timing out doesn't delay the rest.
     let reads = futures::future::join_all(
@@ -260,18 +269,23 @@ pub(crate) async fn check_live(
             .map(|node| firewatch_connectors::fetch(node, &http)),
     )
     .await;
+    let mut warnings = Vec::new();
     let nodes = configs
         .iter()
         .zip(reads)
         .map(|(node, read)| match read {
-            Ok(info) => NodeReport::from_node(&info, advisories, releases),
+            Ok(info) => {
+                warnings.extend(info.warnings.iter().cloned());
+                NodeReport::from_node(&info, advisories, releases)
+            }
             Err(e) => NodeReport::unreachable(node.name(), node.implementation(), e.to_string()),
         })
         .collect();
-    Report {
+    let report = Report {
         checked_at: now(),
         nodes,
-    }
+    };
+    (report, warnings)
 }
 
 /// The release table. A missing file stops the run, as a missing advisory

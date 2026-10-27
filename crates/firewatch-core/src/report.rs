@@ -238,6 +238,7 @@ mod tests {
             features: None,
             commit_hash: Some(commit.into()),
             apis: vec![],
+            warnings: vec![],
         }
     }
 
@@ -317,6 +318,7 @@ mod tests {
             features: None,
             commit_hash: None,
             apis: vec![],
+            warnings: vec![],
         }
     }
 

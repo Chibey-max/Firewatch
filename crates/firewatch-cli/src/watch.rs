@@ -52,6 +52,8 @@ struct Tracker {
     known: HashMap<String, NodeReport>,
     down_streak: HashMap<String, u32>,
     down_alerted: HashSet<String>,
+    /// Connector warnings already logged, so each shows once, not every check.
+    warned: HashSet<String>,
 }
 
 impl Tracker {
@@ -107,7 +109,13 @@ impl Tracker {
 impl App {
     async fn run_check(&self) -> Report {
         let mut tracker = self.tracker.lock().await;
-        let report = check_live(&self.nodes, &self.advisories, self.releases.as_ref()).await;
+        let (report, warnings) =
+            check_live(&self.nodes, &self.advisories, self.releases.as_ref()).await;
+        for warning in warnings {
+            if tracker.warned.insert(warning.clone()) {
+                log(&format!("warning: {warning}"));
+            }
+        }
 
         for text in tracker.alerts(&report) {
             log(&text

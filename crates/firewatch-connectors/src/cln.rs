@@ -2,13 +2,15 @@
 //!
 //! Firewatch only calls `getinfo` and `listconfigs`, and refuses a rune that
 //! can call anything else, so a stolen Firewatch config cannot move funds or
-//! change settings. Create the rune on the node with:
+//! change settings. `listconfigs` is limited to the four options Firewatch
+//! reads: asked for every option, Core Lightning before 26.06.9 returns
+//! secrets such as bitcoind's RPC password and a `--recover` seed. Create the
+//! rune on the node with:
 //!
 //! ```sh
-//! lightning-cli createrune restrictions='[["method=getinfo","method=listconfigs"]]'
+//! lightning-cli createrune restrictions='[["method=getinfo","method=listconfigs"],["method/listconfigs","pnameconfig=clnrest-host","pnameconfig=clnrest-port","pnameconfig=grpc-host","pnameconfig=grpc-port"]]'
 //! ```
 
-use std::collections::BTreeMap;
 use std::path::PathBuf;
 
 use firewatch_core::{Api, ApiListen, Implementation, Listen, NodeInfo};
@@ -21,6 +23,22 @@ use crate::ConnectorError;
 const NOT_AUTHORIZED: i64 = 1501;
 /// CLN's error code for a call the rune does not permit.
 const NOT_PERMITTED: i64 = 1502;
+
+/// CLN's error code for an option the node doesn't have, e.g. `grpc-port`
+/// when cln-grpc is disabled.
+const UNKNOWN_OPTION: i64 = -32602;
+
+/// The rune Firewatch asks for: `getinfo`, and `listconfigs` for
+/// [`API_OPTIONS`] only. A rule on `pnameconfig` fails when `config` is
+/// missing, so a plain `listconfigs` (every option) is refused.
+pub const RUNE_RESTRICTIONS: &str = r#"[["method=getinfo","method=listconfigs"],["method/listconfigs","pnameconfig=clnrest-host","pnameconfig=clnrest-port","pnameconfig=grpc-host","pnameconfig=grpc-port"]]"#;
+
+/// The options Firewatch reads: where clnrest and cln-grpc listen.
+const API_OPTIONS: [&str; 4] = ["clnrest-host", "clnrest-port", "grpc-host", "grpc-port"];
+
+/// An option every node has and [`RUNE_RESTRICTIONS`] refuses. A rune that
+/// can read it can read every option: the older, wider rune.
+const WIDE_PROBE_OPTION: &str = "alias";
 
 /// A method the rune must NOT allow. Read-only itself, so probing it is
 /// harmless even when the rune turns out to be unrestricted.
@@ -86,11 +104,17 @@ impl ClnClient {
     }
 
     async fn call(&self, method: &str) -> Result<Value, ConnectorError> {
+        self.call_with(method, serde_json::json!({})).await
+    }
+
+    /// `params` is sent as JSON: clnrest ignores a body without that content
+    /// type, and the rune then sees no parameters.
+    async fn call_with(&self, method: &str, params: Value) -> Result<Value, ConnectorError> {
         let response = self
             .http
             .post(format!("{}/v1/{method}", self.url))
             .header("Rune", &self.rune)
-            .json(&serde_json::json!({}))
+            .json(&params)
             .send()
             .await
             .map_err(|e| crate::transport_error(e, &self.url, &self.name, Implementation::Cln))?;
@@ -135,60 +159,91 @@ impl ClnClient {
             .as_str()
             .ok_or_else(|| ConnectorError::Unexpected("getinfo has no version".into()))?
             .to_string();
-        // A config we fail to read is "unknown", never "all options off".
-        let (config, apis) = match self.call("listconfigs").await {
-            Ok(configs) => (Some(parse_configs(&configs)), parse_apis(&configs)),
-            Err(ConnectorError::Rpc { message, .. }) => (
-                None,
-                vec![ApiListen {
-                    api: Api::Rest,
-                    listen: Listen::Unknown {
-                        why: format!("listconfigs was refused ({message})"),
-                    },
-                }],
-            ),
-            Err(e) => return Err(e),
-        };
+        let (options, refused) = self.read_options().await?;
+        let mut warnings = Vec::new();
+        if self.rune_reads_every_option().await? {
+            warnings.push(format!(
+                "the rune for '{}' can read every config option. On Core Lightning before 26.06.9 that includes \
+                 bitcoind's RPC password and a --recover seed (Firewatch never reads them, but anyone who copies \
+                 the rune can). Create a narrower one with `lightning-cli createrune restrictions='{RUNE_RESTRICTIONS}'`, \
+                 put it in the config, then retire the old one with `lightning-cli blacklistrune start=<its unique_id>`",
+                self.name
+            ));
+        }
 
         Ok(NodeInfo {
             name: self.name.clone(),
             implementation: Implementation::Cln,
             version,
             network: info["network"].as_str().map(str::to_string),
-            config,
+            // Firewatch's rune can't read the node's flags, so a
+            // `config_enabled` condition is "Can't tell", never "off".
+            config: None,
             features: None,
             commit_hash: None,
-            apis,
+            apis: parse_apis(&options, &refused),
+            warnings,
         })
     }
-}
 
-/// Maps `listconfigs` to option -> enabled. Only flags (`set`) and boolean
-/// options (`value_bool`) are included; anything else is left out, so a
-/// condition on it comes back "Can't tell" rather than guessed.
-fn parse_configs(listconfigs: &Value) -> BTreeMap<String, bool> {
-    let Some(configs) = listconfigs["configs"].as_object() else {
-        return BTreeMap::new();
-    };
-    configs
-        .iter()
-        .filter_map(|(name, entry)| {
-            entry["set"]
-                .as_bool()
-                .or_else(|| entry["value_bool"].as_bool())
-                .map(|enabled| (name.clone(), enabled))
-        })
-        .collect()
+    /// Each of [`API_OPTIONS`], asked for by name. Returns what the node
+    /// reported, as one `listconfigs`-shaped object, and the options the rune
+    /// refused. An option the node doesn't have is simply left out.
+    async fn read_options(&self) -> Result<(Value, Vec<&'static str>), ConnectorError> {
+        let reads =
+            futures::future::join_all(API_OPTIONS.map(|option| {
+                self.call_with("listconfigs", serde_json::json!({ "config": option }))
+            }))
+            .await;
+        let mut configs = serde_json::Map::new();
+        let mut refused = Vec::new();
+        for (option, read) in API_OPTIONS.into_iter().zip(reads) {
+            match read {
+                Ok(body) => {
+                    if let Some(entry) = body["configs"].get(option) {
+                        configs.insert(option.to_string(), entry.clone());
+                    }
+                }
+                Err(ConnectorError::Rpc { code, .. }) if code == UNKNOWN_OPTION => {}
+                Err(ConnectorError::Rpc { .. }) => refused.push(option),
+                Err(e) => return Err(e),
+            }
+        }
+        Ok((serde_json::json!({ "configs": configs }), refused))
+    }
+
+    /// Whether the rune can read an option Firewatch's rune refuses. Only the
+    /// harmless `alias` is asked for, and its value is dropped.
+    async fn rune_reads_every_option(&self) -> Result<bool, ConnectorError> {
+        let probe = serde_json::json!({ "config": WIDE_PROBE_OPTION });
+        match self.call_with("listconfigs", probe).await {
+            Ok(_) => Ok(true),
+            Err(ConnectorError::Rpc { .. }) => Ok(false),
+            Err(e) => Err(e),
+        }
+    }
 }
 
 /// Where clnrest and cln-grpc listen, from their `listconfigs` options. REST
 /// is always there: Firewatch just read the node through it. gRPC is left
-/// out when it has no port, which means the plugin isn't serving.
-fn parse_apis(listconfigs: &Value) -> Vec<ApiListen> {
+/// out when it has no port, which means the plugin isn't serving. An API
+/// whose options the rune refused is "unknown".
+fn parse_apis(listconfigs: &Value, refused: &[&str]) -> Vec<ApiListen> {
     let configs = &listconfigs["configs"];
     [(Api::Rest, "clnrest"), (Api::Grpc, "grpc")]
         .into_iter()
         .filter_map(|(api, prefix)| {
+            let (host_option, port_option) = (format!("{prefix}-host"), format!("{prefix}-port"));
+            if refused.contains(&host_option.as_str()) || refused.contains(&port_option.as_str()) {
+                return Some(ApiListen {
+                    api,
+                    listen: Listen::Unknown {
+                        why: format!(
+                            "the rune doesn't allow reading {host_option} and {port_option}"
+                        ),
+                    },
+                });
+            }
             let host = configs[format!("{prefix}-host")]["value_str"].as_str();
             let port = configs[format!("{prefix}-port")]["value_int"].as_i64();
             let listen = match (host, port) {
@@ -220,31 +275,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn parses_flags_and_bools_only() {
-        let listconfigs = serde_json::json!({
-            "configs": {
-                "experimental-splicing": { "set": false, "source": "default" },
-                "developer": { "set": true, "source": "cmdline" },
-                "allow-deprecated-apis": { "value_bool": true, "source": "default" },
-                "alias": { "value_str": "old-cln", "source": "cmdline" },
-                "addr": { "values_str": ["old-cln"], "sources": ["cmdline"] }
-            }
-        });
-        let parsed = parse_configs(&listconfigs);
-        assert_eq!(
-            parsed,
-            BTreeMap::from([
-                ("allow-deprecated-apis".to_string(), true),
-                ("developer".to_string(), true),
-                ("experimental-splicing".to_string(), false),
-            ])
-        );
-    }
-
-    #[test]
     fn reads_where_clnrest_and_grpc_listen() {
-        // As Core Lightning 25.12 returned it to a getinfo/listconfigs rune,
-        // run with --clnrest-host=0.0.0.0 (as Polar does).
+        // As Core Lightning 25.12 returned these options, one call each, run
+        // with --clnrest-host=0.0.0.0 (as Polar does).
         let listconfigs = serde_json::json!({ "configs": {
             "clnrest-host": { "plugin": "/usr/local/libexec/c-lightning/plugins/clnrest", "source": "cmdline", "value_str": "0.0.0.0" },
             "clnrest-port": { "plugin": "/usr/local/libexec/c-lightning/plugins/clnrest", "source": "cmdline", "value_int": 8080 },
@@ -252,7 +285,7 @@ mod tests {
             "grpc-port": { "plugin": "/usr/local/libexec/c-lightning/plugins/cln-grpc", "source": "default", "value_int": 9736 }
         }});
         assert_eq!(
-            parse_apis(&listconfigs),
+            parse_apis(&listconfigs, &[]),
             vec![
                 ApiListen {
                     api: Api::Rest,
@@ -277,7 +310,7 @@ mod tests {
             "clnrest-port": { "value_int": 3010 }
         }});
         assert_eq!(
-            parse_apis(&listconfigs),
+            parse_apis(&listconfigs, &[]),
             vec![ApiListen {
                 api: Api::Rest,
                 listen: Listen::Read {
@@ -295,7 +328,7 @@ mod tests {
             "clnrest-port": { "value_int": 3010 }
         }});
         assert_eq!(
-            parse_apis(&listconfigs)[0].listen,
+            parse_apis(&listconfigs, &[])[0].listen,
             Listen::Read {
                 addresses: vec!["[::]:3010".into()]
             }
@@ -304,14 +337,9 @@ mod tests {
 
     #[test]
     fn missing_clnrest_options_are_unknown() {
-        let apis = parse_apis(&serde_json::json!({ "configs": {} }));
+        let apis = parse_apis(&serde_json::json!({ "configs": {} }), &[]);
         assert_eq!(apis.len(), 1);
         assert!(matches!(apis[0].listen, Listen::Unknown { .. }));
-    }
-
-    #[test]
-    fn missing_configs_key_gives_empty_map() {
-        assert!(parse_configs(&serde_json::json!({})).is_empty());
     }
 
     #[test]
@@ -327,5 +355,40 @@ mod tests {
             ClnClient::new(&config, reqwest::Client::new()),
             Err(ConnectorError::Config(_))
         ));
+    }
+
+    #[test]
+    fn a_refused_api_is_unknown() {
+        let listconfigs = serde_json::json!({ "configs": {
+            "clnrest-host": { "value_str": "127.0.0.1" },
+            "clnrest-port": { "value_int": 3010 }
+        }});
+        let apis = parse_apis(&listconfigs, &["grpc-host", "grpc-port"]);
+        assert_eq!(apis.len(), 2);
+        assert_eq!(
+            apis[1],
+            ApiListen {
+                api: Api::Grpc,
+                listen: Listen::Unknown {
+                    why: "the rune doesn't allow reading grpc-host and grpc-port".into()
+                }
+            }
+        );
+    }
+
+    #[test]
+    fn the_rune_allows_exactly_the_options_firewatch_reads() {
+        let rules: Vec<Vec<String>> = serde_json::from_str(RUNE_RESTRICTIONS).unwrap();
+        assert_eq!(rules[0], ["method=getinfo", "method=listconfigs"]);
+        let mut allowed: Vec<&str> = rules[1]
+            .iter()
+            .filter_map(|r| r.strip_prefix("pnameconfig="))
+            .collect();
+        allowed.sort();
+        let mut read = API_OPTIONS.to_vec();
+        read.sort();
+        assert_eq!(allowed, read);
+        assert!(!allowed.contains(&WIDE_PROBE_OPTION));
+        assert_eq!(rules.len(), 2);
     }
 }

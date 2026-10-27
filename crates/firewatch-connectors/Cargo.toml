@@ -10,6 +10,7 @@ keywords = ["lightning", "bitcoin", "security", "lnd", "core-lightning"]
 categories = ["cryptography::cryptocurrencies"]
 
 [dependencies]
+futures.workspace = true
 firewatch-core.workspace = true
 # Already compiled in through reqwest; named here only to classify its errors.
 hyper = { version = "1", default-features = false }
