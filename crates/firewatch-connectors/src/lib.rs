@@ -96,6 +96,53 @@ pub(crate) fn node_url(name: &str, url: &str) -> Result<String, ConnectorError> 
     }
 }
 
+/// Refuses a plain `http://` url to another machine. The credential goes out
+/// in a header with the very first request, before Firewatch knows anything
+/// about the node, so this runs before anything is sent. `allow` lets it
+/// through, and the warning returned says so on every report.
+pub(crate) fn plain_http_check(
+    name: &str,
+    url: &str,
+    implementation: Implementation,
+    allow: bool,
+) -> Result<Option<String>, ConnectorError> {
+    let Ok(parsed) = reqwest::Url::parse(url) else {
+        return Ok(None);
+    };
+    if parsed.scheme() != "http" || is_this_machine(&parsed) {
+        return Ok(None);
+    }
+    let host = parsed.host_str().unwrap_or_default();
+    let (credential, cert) = match implementation {
+        Implementation::Cln => ("rune", "clnrest's server.pem, in the node's network folder"),
+        _ => ("macaroon", "LND's tls.cert"),
+    };
+    if allow {
+        return Ok(Some(format!(
+            "'{name}' is read over plain http:// to {host}, so its {credential} crosses the network unencrypted on every check (allow_plain_http is set)"
+        )));
+    }
+    Err(ConnectorError::Config(format!(
+        "node '{name}': {url} is plain http:// to another machine, so the {credential} would cross the network unencrypted. \
+         Use https:// with tls_cert ({cert}), or set allow_plain_http = true for this node if the connection is already private \
+         (a Docker container on this machine, a VPN)"
+    )))
+}
+
+/// Whether the url's host is this machine: `localhost` or a loopback address,
+/// including IPv4 written as IPv6 (`::ffff:127.0.0.1`). A name that only
+/// resolves to loopback doesn't count: Firewatch can't see what it resolves to.
+fn is_this_machine(url: &reqwest::Url) -> bool {
+    let Some(host) = url.host_str() else {
+        return false;
+    };
+    let host = host.trim_start_matches('[').trim_end_matches(']');
+    host.eq_ignore_ascii_case("localhost")
+        || host
+            .parse::<std::net::IpAddr>()
+            .is_ok_and(|ip| ip.to_canonical().is_loopback())
+}
+
 /// What to check when an https:// url meets something that isn't TLS. LND's
 /// REST port is always TLS; Core Lightning's clnrest may run over plain HTTP.
 fn not_tls_hint(implementation: Implementation) -> &'static str {
@@ -241,4 +288,55 @@ fn error_chain(e: &reqwest::Error) -> String {
         source = cause.source();
     }
     out
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn check(url: &str, allow: bool) -> Result<Option<String>, ConnectorError> {
+        plain_http_check("n", url, Implementation::Cln, allow)
+    }
+
+    #[test]
+    fn this_machine_may_use_plain_http() {
+        for url in [
+            "http://127.0.0.1:3010",
+            "http://127.8.9.10:3010",
+            "http://localhost:3010",
+            "http://LOCALHOST:3010",
+            "http://[::1]:3010",
+            "http://[::ffff:127.0.0.1]:3010",
+        ] {
+            assert!(matches!(check(url, false), Ok(None)), "{url}");
+        }
+    }
+
+    #[test]
+    fn https_is_always_fine() {
+        assert!(matches!(
+            check("https://192.168.0.172:3010", false),
+            Ok(None)
+        ));
+        assert!(matches!(check("https://node.example.com", false), Ok(None)));
+    }
+
+    #[test]
+    fn plain_http_elsewhere_needs_allow_plain_http() {
+        for url in [
+            "http://192.168.0.172:3010",
+            "http://10.0.0.5:3010",
+            "http://0.0.0.0:3010",
+            "http://node.example.com:3010",
+            "http://[fe80::1]:3010",
+            "http://[::ffff:192.168.0.172]:3010",
+        ] {
+            assert!(
+                matches!(check(url, false), Err(ConnectorError::Config(_))),
+                "{url}"
+            );
+            let warning = check(url, true).unwrap().expect("a warning");
+            assert!(warning.contains("allow_plain_http is set"), "{warning}");
+        }
+    }
 }

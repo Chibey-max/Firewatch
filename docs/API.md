@@ -114,6 +114,7 @@ cargo run -- check --nodes examples/nodes.json --json --include-unverified > rep
 | Another node's macaroon or rune | `Credential rejected by the node (...)` |
 | A rune or macaroon that can do more than read | `Credential is not read-only: ...` |
 | A missing or unreadable credential file, or a `url` without `http://` or `https://` | `config: ...` |
+| A plain `http://` url to another machine, without `allow_plain_http = true` (nothing is sent) | `config: node '<name>': <url> is plain http:// to another machine, so the rune would cross the network unencrypted. ...` (`macaroon` for LND) |
 
 **Finding**
 
