@@ -132,6 +132,7 @@ demo/reset.sh            # old-cln back to 26.06.7 with its original data
 | `demo-up.sh` stops at "Checking every node" | It prints which node is down and why. Start the network in Polar, wait for every node to go green, and run it again. |
 | `old-cln` doesn't come back after `upgrade.sh` | `docker logs polar-n<id>-old-cln`, then `demo/reset.sh` and play the backup video. |
 | Polar network won't start | Play the backup video. |
+| After the laptop restarted, the LND nodes keep restarting and nothing can be read | Polar's bitcoind has no restart policy, so it stays off after a reboot while the Lightning nodes come back without it. Start the network again in Polar (or `docker start polar-n<id>-backend1`) and wait for every node to go green. |
 | A node card says "Could not read this node" | The node is stopped or restarting. Start it in Polar; the card recovers on the next check. If asked, it's also the honesty point: an unreadable node is never green. |
 
 ## Likely questions about the data

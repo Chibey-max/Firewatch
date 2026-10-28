@@ -7,6 +7,7 @@
 mod config;
 mod embedded;
 mod init;
+mod state;
 mod watch;
 
 use std::io::IsTerminal;
@@ -205,12 +206,14 @@ async fn run() -> Result<ExitCode> {
             allow_remote,
             dashboard,
         } => {
-            let mut config = Config::load(&config::resolve(config))?;
+            let config_path = config::resolve(config);
+            let mut config = Config::load(&config_path)?;
             if dashboard.is_some() {
                 config.watch.dashboard_dir = dashboard;
             }
             watch::run(
                 config,
+                &config_path,
                 select(advisories, include_unverified),
                 releases,
                 allow_remote,
@@ -220,14 +223,13 @@ async fn run() -> Result<ExitCode> {
         }
         Command::TestAlert { config } => {
             let config = Config::load(&config::resolve(config))?;
+            let text = test_alert_text(config.alerts.strings()?);
             let nostr = config
                 .alerts
                 .nostr
                 .context("no [alerts.nostr] section in the config")?;
             let alerter = NostrAlerter::connect(&nostr).await?;
-            let relays = alerter
-                .send("Firewatch test alert: if you can read this, alerts reach you.")
-                .await?;
+            let relays = alerter.send(&text).await?;
             println!(
                 "Sent from {} to {} relay(s): {}",
                 alerter.sender(),
@@ -313,15 +315,35 @@ fn now() -> u64 {
         .unwrap_or(0)
 }
 
-/// One timestamped line on stderr (UTC).
+/// The `test-alert` message, marked as a draft if the language isn't reviewed.
+fn test_alert_text(strings: &firewatch_alerts::Strings) -> String {
+    if strings.reviewed {
+        strings.test_alert.to_string()
+    } else {
+        format!(
+            "[Draft {} translation, not reviewed yet]\n{}",
+            strings.english_name, strings.test_alert
+        )
+    }
+}
+
+/// A Unix time as this machine's local time, short: `14:02` today, or
+/// `27 Oct 14:02` on another day.
+pub(crate) fn local_time(secs: u64) -> String {
+    use chrono::{Local, TimeZone};
+    let Some(at) = Local.timestamp_opt(secs as i64, 0).single() else {
+        return format!("{secs}");
+    };
+    if at.date_naive() == Local::now().date_naive() {
+        at.format("%H:%M").to_string()
+    } else {
+        at.format("%-d %b %H:%M").to_string()
+    }
+}
+
+/// One timestamped line on stderr, in local time like the alerts.
 pub(crate) fn log(line: &str) {
-    let secs = now() % 86_400;
-    eprintln!(
-        "[{:02}:{:02}:{:02}] {line}",
-        secs / 3600,
-        secs / 60 % 60,
-        secs % 60
-    );
+    eprintln!("[{}] {line}", chrono::Local::now().format("%H:%M:%S"));
 }
 
 fn print_report(report: &Report) {

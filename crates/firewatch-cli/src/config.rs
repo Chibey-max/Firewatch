@@ -3,7 +3,7 @@
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
-use firewatch_alerts::NostrConfig;
+use firewatch_alerts::{Language, NostrConfig, Strings};
 use firewatch_connectors::NodeConfig;
 use serde::Deserialize;
 
@@ -44,6 +44,30 @@ impl Default for WatchConfig {
 #[serde(deny_unknown_fields)]
 pub struct AlertsConfig {
     pub nostr: Option<NostrConfig>,
+    /// The language of the alerts' own words: en, ha, yo, ig or pcm. The
+    /// developers' fixes and the reasons stay in English.
+    #[serde(default)]
+    pub language: Language,
+    /// Allow a translation no native speaker has reviewed yet, for that
+    /// reviewer to try. Every alert then says it's a draft.
+    #[serde(default)]
+    pub allow_draft_language: bool,
+}
+
+impl AlertsConfig {
+    /// The alert words to use. A language no native speaker has reviewed is
+    /// refused unless `allow_draft_language` is set.
+    pub fn strings(&self) -> Result<&'static Strings> {
+        let strings = self.language.strings();
+        if !strings.reviewed && !self.allow_draft_language {
+            anyhow::bail!(
+                "the {} alert text hasn't been reviewed by a native speaker yet, so it isn't offered. \
+                 Use language = \"en\", or set allow_draft_language = true under [alerts] to try the draft",
+                strings.english_name
+            );
+        }
+        Ok(strings)
+    }
 }
 
 impl Config {
@@ -60,6 +84,10 @@ impl Config {
             toml::from_str(&text).with_context(|| format!("parsing {}", path.display()))?;
         config
             .check_names()
+            .with_context(|| format!("in {}", path.display()))?;
+        config
+            .alerts
+            .strings()
             .with_context(|| format!("in {}", path.display()))?;
         Ok(config)
     }
@@ -120,6 +148,26 @@ mod tests {
             ));
         }
         toml::from_str::<Config>(&text).unwrap().check_names()
+    }
+
+    #[test]
+    fn an_unreviewed_language_needs_allow_draft_language() {
+        let load = |alerts: &str| toml::from_str::<Config>(&format!("[alerts]\n{alerts}")).unwrap();
+        assert!(load("").alerts.strings().is_ok(), "English is the default");
+        let err = load("language = \"ha\"")
+            .alerts
+            .strings()
+            .unwrap_err()
+            .to_string();
+        assert!(
+            err.contains("Hausa alert text hasn't been reviewed"),
+            "{err}"
+        );
+        assert!(load("language = \"ha\"\nallow_draft_language = true")
+            .alerts
+            .strings()
+            .is_ok());
+        assert!(toml::from_str::<Config>("[alerts]\nlanguage = \"fr\"").is_err());
     }
 
     #[test]

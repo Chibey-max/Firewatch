@@ -11,6 +11,7 @@ use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
 use std::path::{Path, PathBuf};
 
 use anyhow::{bail, Context, Result};
+use firewatch_alerts::Language;
 use firewatch_connectors::cln::RUNE_RESTRICTIONS;
 use firewatch_connectors::NodeConfig;
 
@@ -89,7 +90,31 @@ pub async fn run(path: Option<PathBuf>, force: bool) -> Result<()> {
         }
     };
 
-    let text = render(&nodes, npub.as_deref(), &dir.join("firewatch.nsec"));
+    // Only languages a native speaker has reviewed are offered (B6).
+    let offered: Vec<Language> = Language::ALL
+        .into_iter()
+        .filter(|l| l.strings().reviewed)
+        .collect();
+    let language = if npub.is_some() && offered.len() > 1 {
+        let list = offered
+            .iter()
+            .map(|l| format!("{} ({})", l.code(), l.strings().name))
+            .collect::<Vec<_>>()
+            .join(", ");
+        let answer = ask.default(&format!("Alert language: {list}"), "en");
+        Language::parse(&answer)
+            .filter(|l| offered.contains(l))
+            .unwrap_or_default()
+    } else {
+        Language::En
+    };
+
+    let text = render(
+        &nodes,
+        npub.as_deref(),
+        language,
+        &dir.join("firewatch.nsec"),
+    );
     std::fs::create_dir_all(&dir).with_context(|| format!("creating {}", dir.display()))?;
     write_private(&path, &text)?;
 
@@ -490,12 +515,20 @@ fn cln_toml(name: &str, url: &str, rune: &str, tls_cert: Option<&Path>) -> Strin
 }
 
 /// The whole config file.
-fn render(nodes: &[String], npub: Option<&str>, secret_key_file: &Path) -> String {
+fn render(
+    nodes: &[String],
+    npub: Option<&str>,
+    language: Language,
+    secret_key_file: &Path,
+) -> String {
     let mut s = String::from(
         "# Written by `firewatch init`. Edit freely: see firewatch.example.toml in\n\
          # the repo for every option. Holds runes, so keep it private.\n\n\
          [watch]\ninterval_secs = 30\nlisten = \"127.0.0.1:7070\"\n",
     );
+    if language != Language::En {
+        s.push_str(&format!("\n[alerts]\nlanguage = \"{}\"\n", language.code()));
+    }
     if let Some(npub) = npub {
         s.push_str(&format!(
             "\n[alerts.nostr]\nrecipient = {}\nsecret_key_file = {}\nrelays = [{}]\n",
@@ -661,7 +694,12 @@ mod tests {
             ),
             cln_toml("b \"quoted\"", "http://127.0.0.1:3010", "abc=", None),
         ];
-        let text = render(&nodes, Some("npub1x"), Path::new("/k/firewatch.nsec"));
+        let text = render(
+            &nodes,
+            Some("npub1x"),
+            Language::En,
+            Path::new("/k/firewatch.nsec"),
+        );
         let config: config::Config = toml::from_str(&text).unwrap();
         assert_eq!(config.nodes.len(), 2);
         assert_eq!(config.nodes[1].name(), "b \"quoted\"");

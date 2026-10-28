@@ -9,7 +9,7 @@
 
 use std::collections::{HashMap, HashSet};
 use std::net::IpAddr;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -20,7 +20,7 @@ use axum::middleware::{self, Next};
 use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
 use axum::{Json, Router};
-use firewatch_alerts::{message, node_message, NostrAlerter};
+use firewatch_alerts::{fill, message_in, node_message_in, NostrAlerter, Strings, EN};
 use firewatch_connectors::NodeConfig;
 use firewatch_core::{changes, Advisory, Change, NodeReport, ReleaseTable, Report};
 use serde_json::json;
@@ -29,7 +29,8 @@ use tower_http::cors::{AllowOrigin, CorsLayer};
 use tower_http::services::ServeDir;
 
 use crate::config::Config;
-use crate::{check_live, log};
+use crate::state::{self, State as SavedState};
+use crate::{check_live, local_time, log};
 
 /// Failed reads in a row before "can't read this node" is sent. A node
 /// restarting for an upgrade is down for a few seconds; that is not news.
@@ -43,9 +44,10 @@ struct App {
     latest: RwLock<Option<Report>>,
     /// Behind a lock, so two checks never race on "what changed".
     tracker: Mutex<Tracker>,
+    /// Where the tracker is saved after every check (A4).
+    state_path: PathBuf,
 }
 
-#[derive(Default)]
 struct Tracker {
     /// Each node's last successful read, so findings are compared across a
     /// blip and "fixed" is still reported when a restart hides the change.
@@ -54,9 +56,53 @@ struct Tracker {
     down_alerted: HashSet<String>,
     /// Connector warnings already logged, so each shows once, not every check.
     warned: HashSet<String>,
+    /// The words alerts are written in.
+    strings: &'static Strings,
+    /// Set after a restart from saved state: the first check's messages say
+    /// they happened while Firewatch was off, since this time.
+    catch_up_since: Option<u64>,
+    /// Whether saving the state has failed and been logged already.
+    save_failed: bool,
+}
+
+impl Default for Tracker {
+    fn default() -> Self {
+        Tracker::new(&EN)
+    }
 }
 
 impl Tracker {
+    fn new(strings: &'static Strings) -> Self {
+        Tracker {
+            known: HashMap::new(),
+            down_streak: HashMap::new(),
+            down_alerted: HashSet::new(),
+            warned: HashSet::new(),
+            strings,
+            catch_up_since: None,
+            save_failed: false,
+        }
+    }
+
+    /// A tracker that remembers what was known before a restart. Its first
+    /// check reports only what changed since, as catch-up messages.
+    fn restored(state: SavedState, strings: &'static Strings) -> Self {
+        Tracker {
+            known: state.known,
+            down_alerted: state.down_alerted,
+            catch_up_since: Some(state.saved_at),
+            ..Tracker::new(strings)
+        }
+    }
+
+    fn state(&self, saved_at: u64) -> SavedState {
+        SavedState {
+            known: self.known.clone(),
+            down_alerted: self.down_alerted.clone(),
+            ..SavedState::new(saved_at)
+        }
+    }
+
     /// The alert texts for this check, updating what is known.
     fn alerts(&mut self, report: &Report) -> Vec<String> {
         let baseline = Report {
@@ -82,7 +128,7 @@ impl Tracker {
                         _ => false,
                     })
                     .collect();
-                (!mine.is_empty()).then(|| node_message(node, &mine))
+                (!mine.is_empty()).then(|| node_message_in(node, &mine, self.strings))
             })
             .collect();
 
@@ -91,15 +137,30 @@ impl Tracker {
                 let streak = self.down_streak.entry(node.name.clone()).or_default();
                 *streak += 1;
                 if *streak == UNREACHABLE_AFTER {
-                    texts.push(message(&Change::Unreachable { node }));
+                    texts.push(message_in(&Change::Unreachable { node }, self.strings));
                     self.down_alerted.insert(node.name.clone());
                 }
             } else {
                 self.down_streak.remove(&node.name);
                 if self.down_alerted.remove(&node.name) {
-                    texts.push(message(&Change::Reachable { node }));
+                    texts.push(message_in(&Change::Reachable { node }, self.strings));
                 }
                 self.known.insert(node.name.clone(), node.clone());
+            }
+        }
+        if let Some(since) = self.catch_up_since.take() {
+            let header = fill(self.strings.catch_up, &[("since", &local_time(since))]);
+            for text in &mut texts {
+                *text = format!("{header}\n{text}");
+            }
+        }
+        if !self.strings.reviewed {
+            let draft = format!(
+                "[Draft {} translation, not reviewed yet]",
+                self.strings.english_name
+            );
+            for text in &mut texts {
+                *text = format!("{draft}\n{text}");
             }
         }
         texts
@@ -132,6 +193,18 @@ impl App {
             }
         }
 
+        match state::save(&self.state_path, &tracker.state(report.checked_at)) {
+            Ok(()) => tracker.save_failed = false,
+            Err(e) if !tracker.save_failed => {
+                tracker.save_failed = true;
+                log(&format!(
+                    "warning: can't save {} ({e:#}); a restart will re-send current alerts",
+                    self.state_path.display()
+                ));
+            }
+            Err(_) => {}
+        }
+
         *self.latest.write().await = Some(report.clone());
         report
     }
@@ -139,6 +212,7 @@ impl App {
 
 pub async fn run(
     config: Config,
+    config_path: &Path,
     advisories: Vec<Advisory>,
     releases: Option<ReleaseTable>,
     allow_remote: bool,
@@ -165,13 +239,33 @@ pub async fn run(
         }
     };
 
+    let strings = config.alerts.strings()?;
+    let state_path = state::path_for(config_path);
+    let tracker = match state::load(&state_path) {
+        Ok(Some(saved)) => {
+            log(&format!(
+                "remembering {} node(s) from {} (last check {}): changes since then are sent as catch-up alerts",
+                saved.known.len(),
+                state_path.display(),
+                local_time(saved.saved_at)
+            ));
+            Tracker::restored(saved, strings)
+        }
+        Ok(None) => Tracker::new(strings),
+        Err(why) => {
+            log(&format!("warning: {why}; starting fresh"));
+            Tracker::new(strings)
+        }
+    };
+
     let app = Arc::new(App {
         nodes: config.nodes,
         advisories,
         releases,
         alerter,
         latest: RwLock::new(None),
-        tracker: Mutex::new(Tracker::default()),
+        tracker: Mutex::new(tracker),
+        state_path,
     });
 
     let interval = Duration::from_secs(config.watch.interval_secs.max(1));
@@ -430,6 +524,78 @@ mod tests {
         }
     }
 
+    /// What `watch` saves after a check, and starts from after a restart.
+    fn restart_after(report: &Report) -> Tracker {
+        let mut before = Tracker::default();
+        before.alerts(report);
+        let saved = before.state(1_800_000_000);
+        let json = serde_json::to_string(&saved).unwrap();
+        Tracker::restored(serde_json::from_str(&json).unwrap(), &EN)
+    }
+
+    #[test]
+    fn a_restart_with_nothing_changed_sends_nothing() {
+        let mut t = restart_after(&up(Status::Affected));
+        assert!(t.alerts(&up(Status::Affected)).is_empty());
+    }
+
+    #[test]
+    fn a_fix_while_off_is_one_catch_up_message() {
+        let mut t = restart_after(&up(Status::Affected));
+        let texts = t.alerts(&up(Status::NotAffected));
+        assert_eq!(texts.len(), 1, "{texts:?}");
+        let mut lines = texts[0].lines();
+        assert!(
+            lines
+                .next()
+                .unwrap()
+                .starts_with("While Firewatch was off (since "),
+            "{texts:?}"
+        );
+        assert!(lines
+            .next()
+            .unwrap()
+            .starts_with("✅ Firewatch: old-cln is no longer affected by FW-2026-003"));
+        // Only the first check after the restart is a catch-up.
+        assert!(t.alerts(&up(Status::NotAffected)).is_empty());
+        let again = t.alerts(&up(Status::Affected));
+        assert!(
+            !again[0].starts_with("While Firewatch was off"),
+            "{again:?}"
+        );
+    }
+
+    #[test]
+    fn a_node_down_across_a_restart_is_not_re_alerted() {
+        let mut before = Tracker::default();
+        before.alerts(&up(Status::Affected));
+        for _ in 0..UNREACHABLE_AFTER {
+            before.alerts(&down());
+        }
+        let saved = before.state(1_800_000_000);
+        let mut t = Tracker::restored(saved, &EN);
+        let back = t.alerts(&up(Status::Affected));
+        assert_eq!(back.len(), 1, "{back:?}");
+        assert!(back[0].contains("old-cln can be read again"), "{back:?}");
+    }
+
+    #[test]
+    fn alerts_use_the_configured_language_and_mark_drafts() {
+        let mut t = Tracker::new(firewatch_alerts::Language::Ha.strings());
+        let texts = t.alerts(&up(Status::Affected));
+        assert!(
+            texts[0].starts_with(
+                "[Draft Hausa translation, not reviewed yet]\n🔴 Firewatch: old-cln: 1 sun shafa"
+            ),
+            "{texts:?}"
+        );
+        // The developers' words and the reason stay in English.
+        assert!(
+            texts[0].contains("Masu haɓakawa sun ce: \"s\""),
+            "{texts:?}"
+        );
+    }
+
     #[test]
     fn restart_blip_is_silent_and_fix_is_still_reported() {
         let mut t = Tracker::default();
@@ -474,6 +640,7 @@ mod guard_tests {
             alerter: None,
             latest: RwLock::new(None),
             tracker: Mutex::new(Tracker::default()),
+            state_path: std::env::temp_dir().join("fw-watch-test-state.json"),
         })
     }
 
