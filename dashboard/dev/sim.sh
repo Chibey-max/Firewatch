@@ -31,5 +31,8 @@ python3 -I "$here/fake_cln.py" 18182 "$state/old-cln.version" 0.0.0.0 & pids+=($
 python3 -I "$here/fake_cln.py" 18183 "$state/current-cln.version" & pids+=($!)
 
 echo "Simulated nodes: old-cln (v26.06.7) on :18182, current-cln (v26.06.9) on :18183"
+# Run from a copy in the state folder: watch keeps its state.json next to its
+# config, and inside dashboard/ Vite would reload the page on every write.
+cp "$here/firewatch.sim.toml" "$state/firewatch.toml"
 cd "$repo"
-cargo run --quiet -- watch --config "$here/firewatch.sim.toml"
+cargo run --quiet -- watch --config "$state/firewatch.toml"

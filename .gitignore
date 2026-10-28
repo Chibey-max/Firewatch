@@ -12,5 +12,3 @@ __pycache__/
 # Filled by scripts/package-data.sh for crates.io only
 /crates/firewatch-cli/data/
 
-# The dev sim's state file (firewatch watch writes it next to its config).
-dashboard/dev/state.json
