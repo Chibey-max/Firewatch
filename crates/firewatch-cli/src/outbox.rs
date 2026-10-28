@@ -51,6 +51,10 @@ pub struct Entry {
     pub heard: Option<NodeReport>,
     /// Findings only: when the node went red while this waited.
     pub affected_since: Option<u64>,
+    /// Set once a try to send failed while this waited, so it says when it
+    /// happened: "Detected 14:02, sent 14:40 (no connection until then)."
+    #[serde(default)]
+    pub held: bool,
 }
 
 #[derive(Debug, Default, Serialize, Deserialize)]
@@ -113,6 +117,13 @@ impl Outbox {
         }
     }
 
+    /// Marks every waiting message as held back by a failed send.
+    pub fn hold_all(&mut self) {
+        for entry in &mut self.entries {
+            entry.held = true;
+        }
+    }
+
     /// When the longest-waiting message started waiting.
     pub fn oldest(&self) -> Option<u64> {
         self.entries.iter().map(|e| e.waiting_since).min()
@@ -133,6 +144,7 @@ mod tests {
             catch_up_since: None,
             heard: None,
             affected_since: None,
+            held: false,
         }
     }
 

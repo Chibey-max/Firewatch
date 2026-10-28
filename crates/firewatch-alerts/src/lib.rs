@@ -8,6 +8,8 @@ use std::fs::OpenOptions;
 use std::io::Write;
 use std::os::unix::fs::OpenOptionsExt;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Mutex;
 use std::time::Duration;
 
 use firewatch_core::{Change, Finding, NodeReport, Status};
@@ -21,6 +23,12 @@ use serde::Deserialize;
 use thiserror::Error;
 
 const TIMEOUT: Duration = Duration::from_secs(8);
+
+/// How often a dropped relay is retried. nostr-sdk's default waits longer
+/// after each failure, up to a minute, so after an outage the phone could
+/// wait that long once the internet is back. A fixed, short retry costs one
+/// failed connection every few seconds while offline.
+const RECONNECT: Duration = Duration::from_secs(5);
 
 #[derive(Debug, Error)]
 pub enum AlertError {
@@ -58,7 +66,13 @@ pub struct NostrAlerter {
     client: Client,
     keys: Keys,
     recipient: PublicKey,
-    targets: Vec<RelayUrl>,
+    /// The relays in the config, where the recipient's inbox list is looked up.
+    configured: Vec<RelayUrl>,
+    /// Where alerts go: the configured relays, then the recipient's inbox.
+    targets: Mutex<Vec<RelayUrl>>,
+    /// Whether a relay has answered the inbox lookup. Until one has (no
+    /// connection at start), it's tried again before each send.
+    inbox_checked: AtomicBool,
 }
 
 impl NostrAlerter {
@@ -75,38 +89,99 @@ impl NostrAlerter {
         let client = Client::builder()
             .authenticator(SignerAuthenticator::new(keys.clone()))
             .build();
-        let mut targets = Vec::new();
+        let mut configured = Vec::new();
         for relay in &config.relays {
             let url = RelayUrl::parse(relay)
                 .map_err(|e| AlertError::Config(format!("relay {relay}: {e}")))?;
-            client.add_relay(url.clone()).await.map_err(nostr_err)?;
-            targets.push(url);
+            add_relay(&client, &url).await?;
+            configured.push(url);
         }
         client.connect().and_wait(TIMEOUT).await;
 
-        // Deliver where the recipient reads DMs, if they published a list.
-        let inbox = Filter::new()
-            .author(recipient)
-            .kind(Kind::InboxRelays)
-            .limit(1);
-        if let Ok(events) = client.fetch_events(inbox).timeout(TIMEOUT).await {
-            if let Some(event) = events.iter().max_by_key(|e| e.created_at) {
-                for url in nip17::extract_relay_list(event) {
-                    if !targets.contains(&url) {
-                        client.add_relay(url.clone()).await.map_err(nostr_err)?;
-                        targets.push(url);
-                    }
-                }
-                client.connect().and_wait(TIMEOUT).await;
-            }
-        }
-
-        Ok(NostrAlerter {
+        let alerter = NostrAlerter {
             client,
             keys,
             recipient,
-            targets,
-        })
+            targets: Mutex::new(configured.clone()),
+            configured,
+            inbox_checked: AtomicBool::new(false),
+        };
+        alerter.find_inbox().await;
+        Ok(alerter)
+    }
+
+    /// Adds the relays where the recipient reads DMs (their NIP-17 inbox
+    /// list, kind 10050), once a relay has answered. Returns the relays
+    /// added; none if the lookup was done already, nobody answered yet, or
+    /// the recipient has no list. A listed relay that can't be added is
+    /// skipped, so it never stops an alert.
+    ///
+    /// nostr-sdk answers "no events" both when a relay has no list and when
+    /// it can't be reached, so only a relay connected before and after the
+    /// lookup counts as an answer.
+    pub async fn find_inbox(&self) -> Vec<RelayUrl> {
+        if self.inbox_checked.load(Ordering::Relaxed) {
+            return vec![];
+        }
+        let inbox = Filter::new()
+            .author(self.recipient)
+            .kind(Kind::InboxRelays)
+            .limit(1);
+        let mut answered = false;
+        let mut newest: Option<Event> = None;
+        for url in &self.configured {
+            let Ok(Some(relay)) = self.client.relay(url).await else {
+                continue;
+            };
+            if !relay.status().is_connected() {
+                continue;
+            }
+            let Ok(events) = relay.fetch_events(inbox.clone()).timeout(TIMEOUT).await else {
+                continue;
+            };
+            if !relay.status().is_connected() {
+                continue;
+            }
+            answered = true;
+            for event in events {
+                if newest
+                    .as_ref()
+                    .is_none_or(|n| event.created_at > n.created_at)
+                {
+                    newest = Some(event);
+                }
+            }
+        }
+        if !answered {
+            return vec![];
+        }
+        self.inbox_checked.store(true, Ordering::Relaxed);
+
+        let mut added = Vec::new();
+        if let Some(event) = newest {
+            for url in nip17::extract_relay_list(&event) {
+                if !self.relays().contains(&url) && add_relay(&self.client, &url).await.is_ok() {
+                    added.push(url);
+                }
+            }
+        }
+        if !added.is_empty() {
+            self.client.connect().and_wait(TIMEOUT).await;
+            self.targets
+                .lock()
+                .expect("targets lock")
+                .extend(added.iter().cloned());
+        }
+        added
+    }
+
+    async fn is_connected(&self, url: &RelayUrl) -> bool {
+        matches!(self.client.relay(url).await, Ok(Some(r)) if r.status().is_connected())
+    }
+
+    /// Whether the recipient's inbox list has been looked up yet.
+    pub fn inbox_checked(&self) -> bool {
+        self.inbox_checked.load(Ordering::Relaxed)
     }
 
     /// Firewatch's own public key, so the operator can recognise the sender.
@@ -117,19 +192,37 @@ impl NostrAlerter {
             .unwrap_or_else(|_| self.keys.public_key().to_hex())
     }
 
-    pub fn relays(&self) -> &[RelayUrl] {
-        &self.targets
+    pub fn relays(&self) -> Vec<RelayUrl> {
+        self.targets.lock().expect("targets lock").clone()
     }
 
     /// Sends one encrypted DM. Succeeds if at least one relay accepted it.
+    /// Looks up the recipient's inbox relays first if that hasn't worked yet.
+    ///
+    /// Only relays connected right now are used. nostr-sdk queues a message
+    /// for a relay that has just dropped, reports the send as failed, and
+    /// delivers the queued copy when the relay comes back; the caller, told
+    /// it failed, sends it again, and the phone gets it twice.
     pub async fn send(&self, text: &str) -> Result<usize, AlertError> {
+        self.find_inbox().await;
+        let mut connected = Vec::new();
+        for url in self.relays() {
+            if self.is_connected(&url).await {
+                connected.push(url);
+            }
+        }
+        if connected.is_empty() {
+            return Err(AlertError::Nostr(
+                "no relay connected (no internet, or the relays are down)".into(),
+            ));
+        }
         let event = PrivateDirectMessageBuilder::new(self.recipient, text)
             .finalize(&self.keys)
             .map_err(nostr_err)?;
         let output = self
             .client
             .send_event(&event)
-            .to(self.targets.iter().cloned())
+            .to(connected)
             .await
             .map_err(nostr_err)?;
         if output.success.is_empty() {
@@ -145,6 +238,17 @@ impl NostrAlerter {
         }
         Ok(output.success.len())
     }
+}
+
+/// Adds a relay that is retried every [`RECONNECT`] when it drops.
+async fn add_relay(client: &Client, url: &RelayUrl) -> Result<(), AlertError> {
+    client
+        .add_relay(url.clone())
+        .retry_interval(RECONNECT)
+        .adjust_retry_interval(false)
+        .await
+        .map(|_| ())
+        .map_err(nostr_err)
 }
 
 fn load_or_create_keys(path: &Path) -> Result<Keys, AlertError> {

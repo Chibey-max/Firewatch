@@ -331,14 +331,30 @@ fn test_alert_text(strings: &firewatch_alerts::Strings) -> String {
 /// A Unix time as this machine's local time, short: `14:02` today, or
 /// `27 Oct 14:02` on another day.
 pub(crate) fn local_time(secs: u64) -> String {
+    format_local(secs, false)
+}
+
+/// Two times as [`local_time`], with seconds when the minutes alone would
+/// read the same: "14:02:05" and "14:02:31", not "14:02" twice.
+pub(crate) fn local_times(a: u64, b: u64) -> (String, String) {
+    let (short_a, short_b) = (local_time(a), local_time(b));
+    if short_a == short_b {
+        (format_local(a, true), format_local(b, true))
+    } else {
+        (short_a, short_b)
+    }
+}
+
+fn format_local(secs: u64, seconds: bool) -> String {
     use chrono::{Local, TimeZone};
     let Some(at) = Local.timestamp_opt(secs as i64, 0).single() else {
         return format!("{secs}");
     };
+    let time = if seconds { "%H:%M:%S" } else { "%H:%M" };
     if at.date_naive() == Local::now().date_naive() {
-        at.format("%H:%M").to_string()
+        at.format(time).to_string()
     } else {
-        at.format("%-d %b %H:%M").to_string()
+        at.format(&format!("%-d %b {time}")).to_string()
     }
 }
 

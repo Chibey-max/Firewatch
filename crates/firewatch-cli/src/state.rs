@@ -35,6 +35,10 @@ pub struct State {
     /// Alerts that hadn't got through yet (A1), sent after the restart.
     #[serde(default)]
     pub outbox: Vec<Entry>,
+    /// Nodes not read since an earlier restart, with when Firewatch last
+    /// checked before that restart, so their catch-up keeps the right time.
+    #[serde(default)]
+    pub catch_up: HashMap<String, u64>,
 }
 
 /// `state.json` in the same folder as the config.
