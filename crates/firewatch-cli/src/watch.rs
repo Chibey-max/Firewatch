@@ -5,7 +5,7 @@
 //! - `GET  /api/report`     latest report (503 until the first check finishes)
 //! - `POST /api/check`      check now and return the new report
 //! - `GET  /api/advisories` the advisories being checked
-//! - `GET  /api/health`     liveness and alert status
+//! - `GET  /api/health`     liveness, and whether alerts are getting through
 
 use std::collections::{HashMap, HashSet};
 use std::net::IpAddr;
@@ -22,15 +22,17 @@ use axum::routing::{get, post};
 use axum::{Json, Router};
 use firewatch_alerts::{fill, message_in, node_message_in, NostrAlerter, Strings, EN};
 use firewatch_connectors::NodeConfig;
-use firewatch_core::{changes, Advisory, Change, NodeReport, ReleaseTable, Report};
+use firewatch_core::{changes, Advisory, Change, NodeReport, ReleaseTable, Report, Status};
+use serde::Serialize;
 use serde_json::json;
 use tokio::sync::{Mutex, RwLock};
 use tower_http::cors::{AllowOrigin, CorsLayer};
 use tower_http::services::ServeDir;
 
 use crate::config::Config;
+use crate::outbox::{Entry, Kind, Outbox};
 use crate::state::{self, State as SavedState};
-use crate::{check_live, local_time, log};
+use crate::{check_live, local_time, log, now};
 
 /// Failed reads in a row before "can't read this node" is sent. A node
 /// restarting for an upgrade is down for a few seconds; that is not news.
@@ -46,6 +48,10 @@ struct App {
     tracker: Mutex<Tracker>,
     /// Where the tracker is saved after every check (A4).
     state_path: PathBuf,
+    /// A message that waited longer than this says when it happened (A2).
+    interval_secs: u64,
+    /// Outside the tracker's lock, so `/api/health` never waits on a send.
+    delivery: RwLock<Delivery>,
 }
 
 struct Tracker {
@@ -63,6 +69,11 @@ struct Tracker {
     catch_up_since: Option<u64>,
     /// Whether saving the state has failed and been logged already.
     save_failed: bool,
+    /// Alerts not sent yet (A1).
+    outbox: Outbox,
+    /// When sending started failing, while it still fails.
+    offline_since: Option<u64>,
+    last_sent_at: Option<u64>,
 }
 
 impl Default for Tracker {
@@ -81,6 +92,9 @@ impl Tracker {
             strings,
             catch_up_since: None,
             save_failed: false,
+            outbox: Outbox::default(),
+            offline_since: None,
+            last_sent_at: None,
         }
     }
 
@@ -91,6 +105,7 @@ impl Tracker {
             known: state.known,
             down_alerted: state.down_alerted,
             catch_up_since: Some(state.saved_at),
+            outbox: Outbox::from_entries(state.outbox),
             ..Tracker::new(strings)
         }
     }
@@ -99,72 +114,181 @@ impl Tracker {
         SavedState {
             known: self.known.clone(),
             down_alerted: self.down_alerted.clone(),
+            outbox: self.outbox.entries().to_vec(),
             ..SavedState::new(saved_at)
         }
     }
 
-    /// The alert texts for this check, updating what is known.
-    fn alerts(&mut self, report: &Report) -> Vec<String> {
-        let baseline = Report {
-            checked_at: 0,
-            nodes: report
-                .nodes
-                .iter()
-                .filter_map(|n| self.known.get(&n.name).cloned())
-                .collect(),
+    /// Queues the alerts for this check, updating what is known. `now` is
+    /// when the changes were seen.
+    fn queue(&mut self, report: &Report, now: u64) {
+        let catch_up_since = self.catch_up_since.take();
+        let entry = |node: &NodeReport, kind, text| Entry {
+            node: node.name.clone(),
+            kind,
+            text,
+            detected_at: now,
+            waiting_since: now,
+            catch_up_since,
+            heard: None,
+            affected_since: None,
         };
-        // One message per node, in report order.
-        let changes = changes(Some(&baseline), report);
-        let mut texts: Vec<String> = report
-            .nodes
-            .iter()
-            .filter_map(|node| {
-                let mine: Vec<&Change> = changes
-                    .iter()
-                    .filter(|c| match c {
-                        Change::Raised { node: n, .. } | Change::Resolved { node: n, .. } => {
-                            n.name == node.name
-                        }
-                        _ => false,
-                    })
-                    .collect();
-                (!mine.is_empty()).then(|| node_message_in(node, &mine, self.strings))
-            })
-            .collect();
+
+        // Findings first, one message per node, in report order.
+        for node in report.nodes.iter().filter(|n| n.error.is_none()) {
+            let known = self.known.get(&node.name);
+            if node_changes(known, report, &node.name).is_empty() {
+                continue;
+            }
+            // Told against what the operator last heard, which is older than
+            // `known` if a message for this node is still waiting.
+            let waiting = self.outbox.waiting(&node.name, Kind::Findings);
+            let heard = match waiting {
+                Some(w) => w.heard.clone(),
+                None => known.cloned(),
+            };
+            let affected_since = waiting
+                .and_then(|w| w.affected_since)
+                .or((node.status == Status::Affected).then_some(now));
+            let told = node_changes(heard.as_ref(), report, &node.name);
+            let text = if !told.is_empty() {
+                node_message_in(node, &told.iter().collect::<Vec<_>>(), self.strings)
+            } else if let (Some(from), false) = (affected_since, node.status == Status::Affected) {
+                format!(
+                    "✅ Firewatch: {}",
+                    fill(
+                        self.strings.fixed_while_waiting,
+                        &[
+                            ("node", &node.name),
+                            ("from", &local_time(from)),
+                            ("to", &local_time(now)),
+                        ]
+                    )
+                )
+            } else {
+                // Back where the operator last heard it: nothing to say.
+                self.outbox.cancel(&node.name, Kind::Findings);
+                continue;
+            };
+            self.outbox.put(Entry {
+                heard,
+                affected_since,
+                ..entry(node, Kind::Findings, text)
+            });
+        }
 
         for node in &report.nodes {
             if node.error.is_some() {
                 let streak = self.down_streak.entry(node.name.clone()).or_default();
                 *streak += 1;
                 if *streak == UNREACHABLE_AFTER {
-                    texts.push(message_in(&Change::Unreachable { node }, self.strings));
+                    // A waiting "can be read again" means the operator last
+                    // heard "can't read": they needn't hear it twice.
+                    let told_down = self
+                        .outbox
+                        .waiting(&node.name, Kind::Reachable)
+                        .is_some_and(|w| w.kind == Kind::Reachable);
+                    if told_down {
+                        self.outbox.cancel(&node.name, Kind::Reachable);
+                    } else {
+                        let text = message_in(&Change::Unreachable { node }, self.strings);
+                        self.outbox.put(entry(node, Kind::Unreachable, text));
+                    }
                     self.down_alerted.insert(node.name.clone());
                 }
             } else {
                 self.down_streak.remove(&node.name);
                 if self.down_alerted.remove(&node.name) {
-                    texts.push(message_in(&Change::Reachable { node }, self.strings));
+                    let never_told = self
+                        .outbox
+                        .waiting(&node.name, Kind::Unreachable)
+                        .is_some_and(|w| w.kind == Kind::Unreachable);
+                    if never_told {
+                        self.outbox.cancel(&node.name, Kind::Unreachable);
+                    } else {
+                        let text = message_in(&Change::Reachable { node }, self.strings);
+                        self.outbox.put(entry(node, Kind::Reachable, text));
+                    }
                 }
                 self.known.insert(node.name.clone(), node.clone());
             }
         }
-        if let Some(since) = self.catch_up_since.take() {
+    }
+
+    /// A waiting message as it is sent at `sent_at`: marked as a draft
+    /// translation or a catch-up if it is one, and saying when it happened
+    /// if it waited longer than one check (A2).
+    fn render(&self, entry: &Entry, sent_at: u64, interval_secs: u64) -> String {
+        let mut text = entry.text.clone();
+        if let Some(since) = entry.catch_up_since {
             let header = fill(self.strings.catch_up, &[("since", &local_time(since))]);
-            for text in &mut texts {
-                *text = format!("{header}\n{text}");
-            }
+            text = format!("{header}\n{text}");
         }
         if !self.strings.reviewed {
-            let draft = format!(
-                "[Draft {} translation, not reviewed yet]",
+            text = format!(
+                "[Draft {} translation, not reviewed yet]\n{text}",
                 self.strings.english_name
             );
-            for text in &mut texts {
-                *text = format!("{draft}\n{text}");
-            }
+        }
+        if sent_at.saturating_sub(entry.detected_at) > interval_secs {
+            let line = fill(
+                self.strings.delayed,
+                &[
+                    ("detected", &local_time(entry.detected_at)),
+                    ("sent", &local_time(sent_at)),
+                ],
+            );
+            text = format!("{text}\n\n{line}");
+        }
+        text
+    }
+
+    /// The alerts for this check, as if every one was sent at once.
+    #[cfg(test)]
+    fn alerts(&mut self, report: &Report) -> Vec<String> {
+        self.queue(report, report.checked_at);
+        let mut texts = vec![];
+        while let Some(entry) = self.outbox.first() {
+            texts.push(self.render(entry, report.checked_at, 60));
+            self.outbox.sent();
         }
         texts
     }
+
+    fn delivery(&self) -> Delivery {
+        Delivery {
+            pending: self.outbox.len(),
+            oldest_pending_since: self.outbox.oldest(),
+            last_sent_at: self.last_sent_at,
+        }
+    }
+}
+
+/// What changed in the findings of `report`'s node `name` since `before`.
+fn node_changes<'a>(
+    before: Option<&NodeReport>,
+    report: &'a Report,
+    name: &str,
+) -> Vec<Change<'a>> {
+    let before = Report {
+        checked_at: 0,
+        nodes: before.cloned().into_iter().collect(),
+    };
+    changes(Some(&before), report)
+        .into_iter()
+        .filter(|c| match c {
+            Change::Raised { node, .. } | Change::Resolved { node, .. } => node.name == name,
+            _ => false,
+        })
+        .collect()
+}
+
+/// Delivery status for `/api/health` (A3).
+#[derive(Debug, Clone, Default, Serialize)]
+struct Delivery {
+    pending: usize,
+    oldest_pending_since: Option<u64>,
+    last_sent_at: Option<u64>,
 }
 
 impl App {
@@ -178,20 +302,54 @@ impl App {
             }
         }
 
-        for text in tracker.alerts(&report) {
-            log(&text
-                .lines()
-                .filter(|l| !l.is_empty())
-                .take(2)
-                .collect::<Vec<_>>()
-                .join(" — "));
-            if let Some(alerter) = &self.alerter {
-                match alerter.send(&text).await {
-                    Ok(relays) => log(&format!("  alert sent ({relays} relays)")),
-                    Err(e) => log(&format!("  ALERT FAILED: {e}")),
+        let before = tracker.outbox.entries().to_vec();
+        tracker.queue(&report, now());
+        for entry in tracker.outbox.entries() {
+            if !before.contains(entry) {
+                log(&entry
+                    .text
+                    .lines()
+                    .filter(|l| !l.is_empty())
+                    .take(2)
+                    .collect::<Vec<_>>()
+                    .join(" — "));
+            }
+        }
+
+        // Oldest first, stopping at the first failure: with no connection,
+        // one try per check is enough, and the rest wait their turn.
+        while let Some(entry) = tracker.outbox.first() {
+            let Some(alerter) = &self.alerter else {
+                tracker.outbox.sent();
+                continue;
+            };
+            let sent_at = now();
+            let text = tracker.render(entry, sent_at, self.interval_secs);
+            match alerter.send(&text).await {
+                Ok(relays) => {
+                    tracker.outbox.sent();
+                    tracker.last_sent_at = Some(sent_at);
+                    if let Some(since) = tracker.offline_since.take() {
+                        log(&format!(
+                            "  connection back (failing since {}): sending waiting alerts",
+                            local_time(since)
+                        ));
+                    }
+                    log(&format!("  alert sent ({relays} relays)"));
+                }
+                Err(e) => {
+                    if tracker.offline_since.is_none() {
+                        tracker.offline_since = Some(sent_at);
+                        log(&format!(
+                            "  ALERT FAILED: {e}; {} waiting, retrying every check",
+                            tracker.outbox.len()
+                        ));
+                    }
+                    break;
                 }
             }
         }
+        *self.delivery.write().await = tracker.delivery();
 
         match state::save(&self.state_path, &tracker.state(report.checked_at)) {
             Ok(()) => tracker.save_failed = false,
@@ -258,6 +416,8 @@ pub async fn run(
         }
     };
 
+    let interval = Duration::from_secs(config.watch.interval_secs.max(1));
+    let delivery = RwLock::new(tracker.delivery());
     let app = Arc::new(App {
         nodes: config.nodes,
         advisories,
@@ -266,9 +426,10 @@ pub async fn run(
         latest: RwLock::new(None),
         tracker: Mutex::new(tracker),
         state_path,
+        interval_secs: interval.as_secs(),
+        delivery,
     });
 
-    let interval = Duration::from_secs(config.watch.interval_secs.max(1));
     let looping = app.clone();
     tokio::spawn(async move {
         loop {
@@ -450,11 +611,15 @@ async fn get_advisories(State(app): State<Arc<App>>) -> Json<Vec<Advisory>> {
 }
 
 async fn get_health(State(app): State<Arc<App>>) -> Json<serde_json::Value> {
+    let delivery = app.delivery.read().await.clone();
     Json(json!({
         "ok": true,
         "nodes": app.nodes.len(),
         "advisories": app.advisories.len(),
         "alerts": if app.alerter.is_some() { "nostr" } else { "off" },
+        "alerts_pending": delivery.pending,
+        "oldest_pending_since": delivery.oldest_pending_since,
+        "last_sent_at": delivery.last_sent_at,
     }))
 }
 
@@ -522,6 +687,119 @@ mod tests {
             assert!(ensure_local(remote, false).await.is_err(), "{remote}");
             assert!(ensure_local(remote, true).await.is_ok(), "{remote}");
         }
+    }
+
+    const T: u64 = 1_800_000_000;
+
+    /// Sends everything waiting at `at`, as `run_check` does once the
+    /// connection is back.
+    fn deliver(tracker: &mut Tracker, at: u64) -> Vec<String> {
+        let mut texts = vec![];
+        while let Some(entry) = tracker.outbox.first() {
+            texts.push(tracker.render(entry, at, 10));
+            tracker.outbox.sent();
+        }
+        texts
+    }
+
+    #[test]
+    fn a_queued_alert_is_sent_once_and_says_when_it_happened() {
+        let mut tracker = Tracker::default();
+        tracker.queue(&up(Status::Affected), T);
+        // Still offline: later checks see no change and queue nothing more.
+        tracker.queue(&up(Status::Affected), T + 10);
+        tracker.queue(&up(Status::Affected), T + 20);
+        assert_eq!(tracker.delivery().pending, 1);
+        assert_eq!(tracker.delivery().oldest_pending_since, Some(T));
+
+        let sent = deliver(&mut tracker, T + 2400);
+        assert_eq!(sent.len(), 1);
+        assert!(sent[0].contains("old-cln: 1 affected"), "{}", sent[0]);
+        let last = sent[0].lines().last().unwrap();
+        assert!(
+            last.starts_with("Detected ") && last.ends_with("(no connection until then)."),
+            "{last}"
+        );
+        assert!(deliver(&mut tracker, T + 2410).is_empty());
+        assert!(tracker.alerts(&up(Status::Affected)).is_empty());
+    }
+
+    #[test]
+    fn an_alert_sent_on_time_does_not_say_when() {
+        let mut tracker = Tracker::default();
+        tracker.queue(&up(Status::Affected), T);
+        let sent = deliver(&mut tracker, T + 3);
+        assert!(!sent[0].contains("Detected"), "{}", sent[0]);
+    }
+
+    #[test]
+    fn red_then_fixed_before_anything_got_through_is_one_message() {
+        let mut tracker = Tracker::default();
+        tracker.alerts(&up(Status::NotAffected));
+        tracker.queue(&up(Status::Affected), T);
+        tracker.queue(&up(Status::NotAffected), T + 1080);
+        let sent = deliver(&mut tracker, T + 1200);
+        assert_eq!(sent.len(), 1, "{sent:?}");
+        assert!(
+            sent[0].starts_with("✅ Firewatch: old-cln was affected from ")
+                && sent[0].contains("; it's fixed now."),
+            "{}",
+            sent[0]
+        );
+    }
+
+    #[test]
+    fn a_newer_state_replaces_the_waiting_alert() {
+        let mut tracker = Tracker::default();
+        tracker.alerts(&up(Status::Affected));
+        // Amber while offline, then fixed: the operator, who last heard
+        // "red", gets only "no longer affected", never the stale amber.
+        tracker.queue(&up(Status::CantTell), T);
+        tracker.queue(&up(Status::NotAffected), T + 60);
+        let sent = deliver(&mut tracker, T + 120);
+        assert_eq!(sent.len(), 1, "{sent:?}");
+        assert!(
+            sent[0].starts_with("✅ Firewatch: old-cln is no longer affected by FW-2026-003"),
+            "{}",
+            sent[0]
+        );
+    }
+
+    #[test]
+    fn back_where_the_operator_last_heard_it_sends_nothing() {
+        let mut tracker = Tracker::default();
+        tracker.alerts(&up(Status::Affected));
+        tracker.queue(&up(Status::CantTell), T);
+        tracker.queue(&up(Status::Affected), T + 60);
+        assert!(deliver(&mut tracker, T + 120).is_empty());
+    }
+
+    #[test]
+    fn down_and_back_up_while_waiting_sends_nothing() {
+        let mut tracker = Tracker::default();
+        tracker.alerts(&up(Status::Affected));
+        for i in 0..UNREACHABLE_AFTER {
+            tracker.queue(&down(), T + u64::from(i) * 10);
+        }
+        assert_eq!(tracker.delivery().pending, 1);
+        tracker.queue(&up(Status::Affected), T + 100);
+        assert!(deliver(&mut tracker, T + 110).is_empty());
+    }
+
+    #[test]
+    fn waiting_alerts_survive_a_restart() {
+        let mut before = Tracker::default();
+        before.alerts(&up(Status::NotAffected));
+        before.queue(&up(Status::Affected), T);
+        let json = serde_json::to_string(&before.state(T)).unwrap();
+        let mut after = Tracker::restored(serde_json::from_str(&json).unwrap(), &EN);
+        assert_eq!(after.delivery().pending, 1);
+        // The first check after the restart sees no change from `known`.
+        after.queue(&up(Status::Affected), T + 600);
+        let sent = deliver(&mut after, T + 600);
+        assert_eq!(sent.len(), 1, "{sent:?}");
+        assert!(sent[0].contains("old-cln: 1 affected"), "{}", sent[0]);
+        assert!(sent[0].contains("Detected "), "{}", sent[0]);
     }
 
     /// What `watch` saves after a check, and starts from after a restart.
@@ -632,6 +910,20 @@ mod guard_tests {
 
     use super::*;
 
+    #[tokio::test]
+    async fn health_says_whether_alerts_are_getting_through() {
+        let app = app();
+        *app.delivery.write().await = Delivery {
+            pending: 2,
+            oldest_pending_since: Some(1_800_000_000),
+            last_sent_at: Some(1_799_999_940),
+        };
+        let health = get_health(State(app)).await.0;
+        assert_eq!(health["alerts_pending"], 2);
+        assert_eq!(health["oldest_pending_since"], 1_800_000_000u64);
+        assert_eq!(health["last_sent_at"], 1_799_999_940u64);
+    }
+
     fn app() -> Arc<App> {
         Arc::new(App {
             nodes: vec![],
@@ -641,6 +933,8 @@ mod guard_tests {
             latest: RwLock::new(None),
             tracker: Mutex::new(Tracker::default()),
             state_path: std::env::temp_dir().join("fw-watch-test-state.json"),
+            interval_secs: 10,
+            delivery: RwLock::new(Delivery::default()),
         })
     }
 

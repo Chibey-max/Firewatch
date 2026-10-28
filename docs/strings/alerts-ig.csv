@@ -20,3 +20,4 @@ key,english,where it appears,keep these placeholders,draft,reviewed (write the f
 "test_alert","Firewatch test alert: if you can read this, alerts reach you.","The whole message `firewatch test-alert` sends","","Nnwale Firewatch: ọ bụrụ na ị nwere ike ịgụ nke a, ọkwa na-eru gị aka.","",
 "catch_up","While Firewatch was off (since {since}):","First line after a restart, e.g. a power cut: {since} is a time like 14:02","{since}","Mgbe Firewatch gbanyụrụ (kemgbe {since}):","",
 "delayed","Detected {detected}, sent {sent} (no connection until then).","Last line of an alert that waited for a connection: times like 14:02","{detected} {sent}","Achọpụtara ya na {detected}, ezitere ya na {sent} (enweghị njikọ ruo mgbe ahụ).","",
+"fixed_while_waiting","{node} was affected from {from} to {to}; it's fixed now.","","{from} {node} {to}","{node} was affected from {from} to {to}; it's fixed now.","",

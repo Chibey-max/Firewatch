@@ -11,9 +11,21 @@
 | `GET` | `/api/report` | The latest report. `503 {"error": "..."}` until the first check finishes (a few seconds after start). |
 | `POST` | `/api/check` | Runs a check now and returns the new report. Use it for a "Re-check" button. |
 | `GET` | `/api/advisories` | Every advisory being checked, in the advisory file format. |
-| `GET` | `/api/health` | `{"ok": true, "nodes": 3, "advisories": 6, "alerts": "nostr" \| "off"}` |
+| `GET` | `/api/health` | `{"ok": true, "nodes": 3, "advisories": 6, "alerts": "nostr" \| "off", "alerts_pending": 0, "oldest_pending_since": null, "last_sent_at": 1792702526}` |
 
 The daemon re-checks every `interval_secs` (10 in the demo config), so polling `/api/report` every 2 to 5 seconds is enough.
+
+### Alert delivery
+
+`/api/health` also says whether alerts are getting through. An alert that can't be sent (no internet, relays down) waits in a queue and is retried every check.
+
+| Field | Type | Notes |
+|---|---|---|
+| `alerts_pending` | number | Alerts waiting to be sent. `0` when everything got through, or when alerts are off. |
+| `oldest_pending_since` | Unix seconds or null | When the longest-waiting alert started waiting: "offline since 14:02". `null` when nothing waits. |
+| `last_sent_at` | Unix seconds or null | When an alert last got through. `null` until one has, since this `watch` started. |
+
+When `alerts_pending` is above 0, show it next to the live status, for example "1 alert waiting to send · offline since 14:02". It clears on delivery.
 
 ## Running it without nodes
 
