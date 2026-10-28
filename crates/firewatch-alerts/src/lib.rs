@@ -13,6 +13,7 @@ use std::sync::Mutex;
 use std::time::Duration;
 
 use firewatch_core::{Change, Finding, NodeReport, Status};
+use futures::StreamExt;
 
 pub mod lang;
 
@@ -116,32 +117,19 @@ impl NostrAlerter {
     /// the recipient has no list. A listed relay that can't be added is
     /// skipped, so it never stops an alert.
     ///
-    /// nostr-sdk answers "no events" both when a relay has no list and when
-    /// it can't be reached, so only a relay connected before and after the
-    /// lookup counts as an answer.
+    /// nostr-sdk's own lookup answers "no events" both when a relay has no
+    /// list and when it can't be reached, so only a relay that finishes its
+    /// answer ([`ask`]) counts.
     pub async fn find_inbox(&self) -> Vec<RelayUrl> {
         if self.inbox_checked.load(Ordering::Relaxed) {
             return vec![];
         }
-        let inbox = Filter::new()
-            .author(self.recipient)
-            .kind(Kind::InboxRelays)
-            .limit(1);
         let mut answered = false;
         let mut newest: Option<Event> = None;
-        for url in &self.configured {
-            let Ok(Some(relay)) = self.client.relay(url).await else {
+        for answer in self.ask_all(&self.configured).await {
+            let Some(Answer::Events(events)) = answer.1 else {
                 continue;
             };
-            if !relay.status().is_connected() {
-                continue;
-            }
-            let Ok(events) = relay.fetch_events(inbox.clone()).timeout(TIMEOUT).await else {
-                continue;
-            };
-            if !relay.status().is_connected() {
-                continue;
-            }
             answered = true;
             for event in events {
                 if newest
@@ -175,8 +163,25 @@ impl NostrAlerter {
         added
     }
 
-    async fn is_connected(&self, url: &RelayUrl) -> bool {
-        matches!(self.client.relay(url).await, Ok(Some(r)) if r.status().is_connected())
+    /// Asks every relay in `urls` at once for the recipient's inbox list.
+    async fn ask_all(&self, urls: &[RelayUrl]) -> Vec<(RelayUrl, Option<Answer>)> {
+        let filter = Filter::new()
+            .author(self.recipient)
+            .kind(Kind::InboxRelays)
+            .limit(1);
+        let mut relays = Vec::new();
+        for url in urls {
+            if let Ok(Some(relay)) = self.client.relay(url).await {
+                relays.push((url.clone(), relay));
+            }
+        }
+        let answers =
+            futures::future::join_all(relays.iter().map(|(_, r)| ask(r, filter.clone()))).await;
+        relays
+            .into_iter()
+            .map(|(url, _)| url)
+            .zip(answers)
+            .collect()
     }
 
     /// Whether the recipient's inbox list has been looked up yet.
@@ -199,21 +204,22 @@ impl NostrAlerter {
     /// Sends one encrypted DM. Succeeds if at least one relay accepted it.
     /// Looks up the recipient's inbox relays first if that hasn't worked yet.
     ///
-    /// Only relays connected right now are used. nostr-sdk queues a message
-    /// for a relay that has just dropped, reports the send as failed, and
-    /// delivers the queued copy when the relay comes back; the caller, told
-    /// it failed, sends it again, and the phone gets it twice.
+    /// Only relays that answer right now ([`ask`]) get the message. When the
+    /// connection drops, a relay still looks connected until its socket times
+    /// out; nostr-sdk then queues the message, reports a timeout, and delivers
+    /// the queued copy once the connection is back. The caller, told it
+    /// failed, sends it again, and the phone gets it twice (seen on a phone).
     pub async fn send(&self, text: &str) -> Result<usize, AlertError> {
         self.find_inbox().await;
-        let mut connected = Vec::new();
-        for url in self.relays() {
-            if self.is_connected(&url).await {
-                connected.push(url);
-            }
-        }
+        let connected: Vec<RelayUrl> = self
+            .ask_all(&self.relays())
+            .await
+            .into_iter()
+            .filter_map(|(url, answer)| answer.map(|_| url))
+            .collect();
         if connected.is_empty() {
             return Err(AlertError::Nostr(
-                "no relay connected (no internet, or the relays are down)".into(),
+                "no relay answered (no internet, or the relays are down)".into(),
             ));
         }
         let event = PrivateDirectMessageBuilder::new(self.recipient, text)
@@ -237,6 +243,61 @@ impl NostrAlerter {
             )));
         }
         Ok(output.success.len())
+    }
+}
+
+/// How long a relay has to finish answering before it counts as unreachable.
+const ANSWER: Duration = Duration::from_secs(4);
+
+/// How a relay answered a request.
+enum Answer {
+    /// It sent these events, then said that was all (EOSE).
+    Events(Vec<Event>),
+    /// It refused the request (CLOSED), e.g. it wants a login first.
+    Refused,
+}
+
+/// Sends one request to `relay` and waits for it to finish answering.
+/// `None` if it doesn't within [`ANSWER`]: down, or a connection that died
+/// without closing, which still shows as connected.
+async fn ask(relay: &Relay, filter: Filter) -> Option<Answer> {
+    if !relay.status().is_connected() {
+        return None;
+    }
+    // Listening before asking, so the answer can't be missed.
+    let mut notes = relay.notifications();
+    let id = SubscriptionId::generate();
+    relay
+        .send_msg(ClientMessage::req(id.clone(), vec![filter]))
+        .await
+        .ok()?;
+    let mut events = Vec::new();
+    let answer = tokio::time::timeout(ANSWER, async {
+        while let Some(note) = notes.next().await {
+            match note {
+                RelayNotification::Event {
+                    subscription_id,
+                    event,
+                } if subscription_id == id => events.push(*event),
+                RelayNotification::Message { message } => match *message {
+                    RelayMessage::EndOfStoredEvents(sub) if *sub == id => return Some(true),
+                    RelayMessage::Closed {
+                        subscription_id, ..
+                    } if *subscription_id == id => return Some(false),
+                    _ => {}
+                },
+                _ => {}
+            }
+        }
+        None
+    })
+    .await
+    .ok()
+    .flatten();
+    let _ = relay.send_msg(ClientMessage::close(id)).await;
+    match answer? {
+        true => Some(Answer::Events(events)),
+        false => Some(Answer::Refused),
     }
 }
 

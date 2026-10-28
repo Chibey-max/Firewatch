@@ -697,6 +697,7 @@ name = "firewatch-alerts"
 version = "0.1.1"
 dependencies = [
  "firewatch-core",
+ "futures",
  "nostr",
  "nostr-sdk",
  "rustls",

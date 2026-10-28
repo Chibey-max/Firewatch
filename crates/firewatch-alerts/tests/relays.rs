@@ -1,6 +1,8 @@
 //! Delivery across a lost connection, against relays running in this process.
 
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use firewatch_alerts::{NostrAlerter, NostrConfig};
@@ -127,4 +129,79 @@ async fn a_send_that_failed_is_never_delivered_later() {
     send_until_delivered(&alerter, "retry").await;
     tokio::time::sleep(Duration::from_secs(2)).await;
     assert_eq!(messages(&recipient, port).await, ["retry"]);
+}
+
+/// Forwards `from` to `to` until paused, then holds every connection open
+/// and silent: what a relay looks like when the Wi-Fi drops. Nothing is
+/// closed, so the client still thinks it's connected.
+async fn pausable_proxy(from: u16, to: u16) -> Arc<AtomicBool> {
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    let paused = Arc::new(AtomicBool::new(false));
+    let listener = tokio::net::TcpListener::bind(("127.0.0.1", from))
+        .await
+        .unwrap();
+    let flag = paused.clone();
+    tokio::spawn(async move {
+        while let Ok((client, _)) = listener.accept().await {
+            let Ok(relay) = tokio::net::TcpStream::connect(("127.0.0.1", to)).await else {
+                continue;
+            };
+            let (cr, cw) = client.into_split();
+            let (rr, rw) = relay.into_split();
+            for (mut r, mut w, flag) in [
+                (
+                    Box::new(cr) as Box<dyn tokio::io::AsyncRead + Unpin + Send>,
+                    Box::new(rw) as Box<dyn tokio::io::AsyncWrite + Unpin + Send>,
+                    flag.clone(),
+                ),
+                (Box::new(rr), Box::new(cw), flag.clone()),
+            ] {
+                tokio::spawn(async move {
+                    let mut buf = vec![0u8; 64 * 1024];
+                    loop {
+                        while flag.load(Ordering::SeqCst) {
+                            tokio::time::sleep(Duration::from_millis(50)).await;
+                        }
+                        let n = match r.read(&mut buf).await {
+                            Ok(0) | Err(_) => return,
+                            Ok(n) => n,
+                        };
+                        // Read while paused: hold it until resumed, as a
+                        // network that drops packets and later retransmits.
+                        while flag.load(Ordering::SeqCst) {
+                            tokio::time::sleep(Duration::from_millis(50)).await;
+                        }
+                        if w.write_all(&buf[..n]).await.is_err() {
+                            return;
+                        }
+                    }
+                });
+            }
+        }
+    });
+    paused
+}
+
+#[tokio::test]
+async fn a_silent_drop_does_not_deliver_the_alert_twice() {
+    let recipient = Keys::generate();
+    let (relay_port, proxy_port) = (free_port(), free_port());
+    let _relay = relay_on(relay_port).await;
+    let paused = pausable_proxy(proxy_port, relay_port).await;
+    let alerter = NostrAlerter::connect(&config("silent", &recipient, &[proxy_port]))
+        .await
+        .unwrap();
+    alerter.send("before").await.unwrap();
+
+    // The Wi-Fi drops: the connection stays open but goes quiet.
+    paused.store(true, Ordering::SeqCst);
+    assert!(alerter.send("failed try").await.is_err());
+
+    // Back: only the retry may arrive.
+    paused.store(false, Ordering::SeqCst);
+    send_until_delivered(&alerter, "retry").await;
+    tokio::time::sleep(Duration::from_secs(2)).await;
+    let mut got = messages(&recipient, relay_port).await;
+    got.sort();
+    assert_eq!(got, ["before", "retry"]);
 }
