@@ -44,7 +44,7 @@ This always installs the newest release. Every release also has plain archives a
 Either way, check it worked:
 
 ```sh
-firewatch --version      # firewatch 0.1.0
+firewatch --version      # firewatch 0.1.1
 firewatch validate       # lists the built-in advisories
 ```
 

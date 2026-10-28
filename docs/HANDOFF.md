@@ -20,7 +20,7 @@ Firewatch is a read-only Rust tool that checks LND and Core Lightning nodes agai
   ```sh
   cargo install firewatch
   ```
-  or the shell installer on GitHub Releases (v0.1.0).
+  or the shell installer on GitHub Releases (v0.1.1 once tagged).
 
 ## Rules for anyone working on it
 
@@ -69,7 +69,7 @@ Key behaviour:
 
 ## Releases
 
-- **Versions:** v0.1.0 is out on GitHub Releases and crates.io, as all four crates. rc.2 is yanked on crates.io.
+- **Versions:** v0.1.0 is out on GitHub Releases and crates.io, as all four crates. v0.1.1 (A1–A4, draft languages) is bumped in PR "Release v0.1.1"; it ships once the tag is pushed and crates.io is published. rc.2 is yanked on crates.io.
 - **How a release works:** cargo-dist 0.32 builds when a `v<version>` tag is pushed. The tag must exactly match `version` in `Cargo.toml`, so bump the version in a PR first.
 - **Trap:** cargo-dist drops `working-directory` from the steps in `.github/build-setup.yml`, so those steps `cd dashboard` themselves.
 - **Moving or deleting a pushed tag:** Dave runs those git commands himself.
