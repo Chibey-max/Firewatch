@@ -6,6 +6,7 @@ import { FontPicker } from './components/FontPicker'
 import { Guide, GuideButton } from './components/Guide'
 import { Hero } from './components/Hero'
 import { NodeDetail } from './components/NodeDetail'
+import { AlertsWaiting } from './components/AlertsWaiting'
 import { ChangesBanner } from './components/ChangesBanner'
 import { NodeList } from './components/NodeList'
 import { Scene } from './components/Scene'
@@ -16,6 +17,7 @@ import { Brand, LiveChip, NavBar, RecheckButton, SideRail } from './components/T
 import { isFixtureName } from './fixtures'
 import { sortNodes, worstReading } from './lib/format'
 import { useGuide } from './lib/useGuide'
+import { useHealth } from './lib/useHealth'
 import { useMedia, useWide } from './lib/useMedia'
 import { useNow, useReport } from './lib/useReport'
 import { useSinceLastLook } from './lib/useSeen'
@@ -67,6 +69,7 @@ export default function App() {
   const showFonts = new URLSearchParams(window.location.search).has('fonts')
   const { report, phase, receivedAt, failures, checking, checkNow } = useReport(fixture)
   const seen = useSinceLastLook(report, fixture ? 'sample' : 'live')
+  const health = useHealth(!fixture)
   const now = useNow()
   const wide = useWide()
   const tablet = useMedia('(min-width: 640px)')
@@ -140,6 +143,7 @@ export default function App() {
               failures={failures}
               now={now}
             />
+            <AlertsWaiting health={health} now={now} />
           </div>
           <div className="flex min-h-0 flex-1 flex-col gap-7 overflow-y-auto p-5 sm:p-6 sm:pt-9">
             <ChangesBanner

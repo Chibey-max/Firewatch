@@ -119,6 +119,31 @@ export function clockTime(ms: number): string {
   return new Date(ms).toLocaleTimeString(undefined, { hour12: false })
 }
 
+/** A short time for "since 14:02"; with the day when it isn't today. */
+export function shortTime(secs: number, now: number): string {
+  const d = new Date(secs * 1000)
+  const time = d.toLocaleTimeString(undefined, {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  })
+  return d.toDateString() === new Date(now).toDateString()
+    ? time
+    : `${d.toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}, ${time}`
+}
+
+/** "1 alert waiting to send", and "offline since 14:02" when that's known. */
+export function pendingLabel(
+  count: number,
+  since: number | null | undefined,
+  now: number,
+): { waiting: string; since: string | null } {
+  return {
+    waiting: `${plural(count, 'alert', 'alerts')} waiting to send`,
+    since: since ? `offline since ${shortTime(since, now)}` : null,
+  }
+}
+
 const rank: Record<Reading, number> = { affected: 0, cant_tell: 1, not_affected: 2, none: 3 }
 
 function exploited(node: NodeReport): number {

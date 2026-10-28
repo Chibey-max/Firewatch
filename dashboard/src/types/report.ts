@@ -85,3 +85,17 @@ export interface Report {
   checked_at: number
   nodes: NodeReport[]
 }
+
+/** `GET /api/health`: whether the daemon is up, and whether alerts get through (docs/API.md). */
+export interface Health {
+  ok: boolean
+  nodes: number
+  advisories: number
+  alerts: 'nostr' | 'off'
+  /** alerts waiting to be sent; absent on daemons before v0.1.1 */
+  alerts_pending?: number
+  /** unix seconds the longest-waiting alert started waiting */
+  oldest_pending_since?: number | null
+  /** unix seconds an alert last got through, since this `watch` started */
+  last_sent_at?: number | null
+}

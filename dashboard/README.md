@@ -17,6 +17,7 @@ Motion uses the `motion` library and turns off under the system's reduced-motion
 - **API access.** When a node's REST or gRPC API listens beyond this machine (the report's `exposure`), the node shows a note apart from its findings, in no verdict colour, and its row says _API exposed_. A leaked macaroon or rune only works where the API can be reached.
 - **Since you last looked.** The shell opens with what changed since this browser last acknowledged the fleet: a verdict that moved, an advisory that newly applies, a new node. Changed rows say _Changed_. It stays until **Got it**, across visits. The memory is per browser (`localStorage`), one for live data and one shared by the samples, so `?fixture=demo` then `?fixture=demo-after` shows the upgrade.
 - **Copy for help.** Copies a node's verdict and advisories as plain text, with the developers' quotes and links, to paste into a community chat. It leaves out the node's name, URLs, IP addresses and credentials (`src/lib/helpText.ts`, tested).
+- **Alerts waiting to send.** When the internet or the relays are down, `watch` keeps alerts in an outbox and retries every check. The dashboard reads `alerts_pending` and `oldest_pending_since` from `/api/health` and shows “2 alerts waiting to send · offline since 14:02” beside the live status, then a toast when they go out. Nothing shows with sample data.
 - **Hand checks are remembered** in this browser, with the day each was ticked, per node, version and advisory: an upgrade starts them again. They never turn a finding green.
 
 ## Run it

@@ -9,6 +9,7 @@ import {
   fixedTarget,
   needsAction,
   nodeSummary,
+  pendingLabel,
   priorityLine,
   readingCounts,
   readingOf,
@@ -206,5 +207,20 @@ describe('checkedAgo', () => {
   })
   it('never counts backwards when the clocks disagree', () => {
     expect(checkedAgo(at, at * 1000 - 9000)).toBe('Checked just now')
+  })
+})
+
+describe('pendingLabel', () => {
+  const now = new Date(2026, 9, 28, 15, 0).getTime()
+  const at = (h: number, m: number, day = 28) => new Date(2026, 9, day, h, m).getTime() / 1000
+  it('counts the waiting alerts and says since when', () => {
+    expect(pendingLabel(1, at(14, 2), now)).toEqual({
+      waiting: '1 alert waiting to send',
+      since: 'offline since 14:02',
+    })
+    expect(pendingLabel(3, null, now)).toEqual({ waiting: '3 alerts waiting to send', since: null })
+  })
+  it('adds the day when the wait started before today', () => {
+    expect(pendingLabel(2, at(23, 40, 27), now).since).toMatch(/^offline since .*27.*, 23:40$/)
   })
 })

@@ -325,6 +325,12 @@ function Dashboard() {
         by hand. <b className="text-ink">Not affected:</b> with the reason. A node no advisory
         covers reads <i>No known advisories</i>, which isn't proof it's safe.
       </Feature>
+      <Feature title="Alerts waiting to send">
+        If the internet or the relays are down when something changes, the alert waits instead of
+        being lost. A note beside the live status says so (“1 alert waiting to send · offline since
+        14:02”). Firewatch retries every check, and the alert arrives saying when it was detected
+        and when it was sent. After a power cut, it also reports what changed while it was off.
+      </Feature>
       <Feature title="Re-check now">
         Checks every node straight away instead of waiting for the next round. The status beside the
         logo says when the last check ran; the logo's needle points at the worst verdict.
