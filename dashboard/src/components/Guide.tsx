@@ -8,7 +8,7 @@ import { StatusPill } from './StatusPill'
 // Everything the guide tells people to run, in one place. It mirrors the
 // README's "Getting started": when a release or a command changes there,
 // change it here too.
-const RELEASE = 'v0.1.0'
+const RELEASE = 'v0.1.1'
 const CMD = {
   install: `curl --proto '=https' --tlsv1.2 -LsSf https://github.com/Chibey-max/Firewatch/releases/download/${RELEASE}/firewatch-installer.sh | sh`,
   cargo: `cargo install firewatch --version ${RELEASE.slice(1)} --locked`,
