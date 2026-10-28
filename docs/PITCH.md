@@ -23,6 +23,18 @@ Say it in the first 20 seconds and again at the end.
 | 2:05–2:30 | **Fix it** | "The operator upgrades, by hand. Firewatch never touches the node." | **Isaac:** runs `demo/upgrade.sh`. Card turns green; phone gets ✅ *no longer affected*. Hold it up. |
 | 2:30–2:50 | **Why trust it, why here** | "Read-only by design. Only the developers' own sources, checked word for word. Private alerts, end-to-end encrypted. And an open advisory format, proposed upstream, that anyone can add to with a pull request. Kaduna's bootcamps are training new node operators right now. None of them should find out about an exploit from X after losing funds. Firewatch: Dependabot for Lightning nodes." | Slides 5–6, with the QR code to the repo |
 
+### The power-cut version of "Fix it" (C1)
+
+Use this in place of the 2:05–2:30 row once it's been rehearsed. Same 25 seconds, and it shows Firewatch surviving the power cuts operators here deal with.
+
+| Time | Beat | Dave says | On screen / who |
+|---|---|---|---|
+| 2:05–2:30 | **Power went; you still find out** | "Here, power goes. Watch: Firewatch is off, and while it's off, the operator upgrades. Power's back, Firewatch starts, and it remembers what it knew, so your phone still finds out what changed." | **Isaac:** stops `watch` (Ctrl+C, standing in for the power cut), runs `demo/upgrade.sh`, then starts `watch` again. Phone gets one message: *While Firewatch was off (since 14:02): ✅ old-cln is no longer affected by FW-2026-003, FW-2026-006*. Hold it up. |
+
+- **Measured:** the catch-up is sent on the first check after `watch` starts. On 28 Oct the message was ready the second the first check finished; with Nostr on, add the few seconds Firewatch takes to connect to the relays. Time it in rehearsal and write the number here: ____ s.
+- **"Data went" is still to come:** alerts that wait out a lost internet connection are Isaac's A1–A2. Until those ship, say "power went", not "data went".
+- **Fallback line** if the phone is slow: "It's on its way: it's sent the moment Firewatch is back up."
+
 Rules for the script:
 - Every claim matches what's on screen. Don't name an advisory that isn't in the demo.
 - If the phone doesn't buzz, keep going; the dashboard is the demo. Say "the alert's on its way" once, then move on.

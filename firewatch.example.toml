@@ -31,6 +31,15 @@ interval_secs = 10            # seconds between checks
 listen = "127.0.0.1:7070"     # dashboard API; keep it on localhost
 # dashboard_dir = "dashboard/dist"   # serve a built dashboard at /
 
+# The language of the alerts' own words: en (default), ha (Hausa), yo
+# (Yoruba), ig (Igbo) or pcm (Nigerian Pidgin). The developers' fixes, titles
+# and reasons always stay in English, word for word. A language is offered
+# once a native speaker has reviewed it; until then it's refused unless
+# allow_draft_language = true, and every alert says it's a draft.
+[alerts]
+language = "en"
+# allow_draft_language = true
+
 # Private alerts: NIP-17 encrypted DMs to the operator's Nostr key.
 [alerts.nostr]
 recipient = "npub1..."                 # your key; alerts go only here

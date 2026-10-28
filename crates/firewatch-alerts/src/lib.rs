@@ -11,6 +11,10 @@ use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use firewatch_core::{Change, Finding, NodeReport, Status};
+
+pub mod lang;
+
+pub use lang::{fill, Language, Strings, EN};
 use nostr::nips::nip17::{self, PrivateDirectMessageBuilder};
 use nostr_sdk::prelude::*;
 use serde::Deserialize;
@@ -167,29 +171,48 @@ fn load_or_create_keys(path: &Path) -> Result<Keys, AlertError> {
     }
 }
 
-/// The DM text for one change. Plain text, so every Nostr client shows it.
+/// The DM text for one change, in English.
 pub fn message(change: &Change) -> String {
+    message_in(change, &EN)
+}
+
+/// The DM text for one change, in `lang`'s words. Plain text, so every
+/// Nostr client shows it.
+pub fn message_in(change: &Change, lang: &Strings) -> String {
     match change {
-        Change::Raised { node, finding, .. } => raised(node, finding),
+        Change::Raised { node, finding, .. } => raised(node, finding, lang),
         Change::Resolved { node, finding, .. } => format!(
-            "✅ Firewatch: {} is no longer affected by {}\n{}\n\n{}",
-            node.name, finding.advisory_id, finding.title, finding.reason
+            "✅ Firewatch: {}\n{}\n\n{}",
+            fill(
+                lang.no_longer_affected,
+                &[("node", &node.name), ("ids", &finding.advisory_id)]
+            ),
+            finding.title,
+            finding.reason
         ),
         Change::Unreachable { node } => format!(
-            "⚠️ Firewatch: can't read {}, so it can't be checked.\n{}",
-            node.name,
+            "⚠️ Firewatch: {}\n{}",
+            fill(lang.cant_read, &[("node", &node.name)]),
             node.error.as_deref().unwrap_or("unknown error")
         ),
         Change::Reachable { node } => {
-            format!("Firewatch: {} can be read again.", node.name)
+            format!(
+                "Firewatch: {}",
+                fill(lang.readable_again, &[("node", &node.name)])
+            )
         }
     }
+}
+
+/// One DM for everything that changed on one node in one check, in English.
+pub fn node_message(node: &NodeReport, changes: &[&Change]) -> String {
+    node_message_in(node, changes, &EN)
 }
 
 /// One DM for everything that changed on one node in one check, so the
 /// operator's phone buzzes once per node, not once per advisory. `changes`
 /// are that node's `Raised` and `Resolved` changes, worst first.
-pub fn node_message(node: &NodeReport, changes: &[&Change]) -> String {
+pub fn node_message_in(node: &NodeReport, changes: &[&Change], lang: &Strings) -> String {
     let raised: Vec<&Finding> = changes
         .iter()
         .filter_map(|c| match c {
@@ -207,9 +230,11 @@ pub fn node_message(node: &NodeReport, changes: &[&Change]) -> String {
 
     let mut text = if raised.is_empty() {
         format!(
-            "✅ Firewatch: {} is no longer affected by {}",
-            node.name,
-            ids(&resolved)
+            "✅ Firewatch: {}",
+            fill(
+                lang.no_longer_affected,
+                &[("node", &node.name), ("ids", &ids(&resolved))]
+            )
         )
     } else {
         let affected = raised
@@ -220,30 +245,33 @@ pub fn node_message(node: &NodeReport, changes: &[&Change]) -> String {
         let icon = if affected > 0 { "🔴" } else { "🟠" };
         let mut counts = Vec::new();
         if affected > 0 {
-            counts.push(format!("{affected} affected"));
+            counts.push(fill(lang.affected_count, &[("n", &affected.to_string())]));
         }
         if cant_tell > 0 {
-            counts.push(format!("{cant_tell} can't tell"));
+            counts.push(fill(lang.cant_tell_count, &[("n", &cant_tell.to_string())]));
         }
         let mut text = format!("{icon} Firewatch: {}: {}", node.name, counts.join(", "));
         if let Some(shared) = shared_reason(&raised) {
             // e.g. an unofficial build: one reason covers every advisory.
             text.push_str(&format!("\n\n{}", shared.reason));
             for check in &shared.manual_checks {
-                text.push_str(&format!("\n\nCheck by hand: {check}"));
+                text.push_str(&format!("\n\n{}: {check}", lang.check_by_hand));
             }
-            text.push_str("\n\nAdvisories:");
+            text.push_str(&format!("\n\n{}:", lang.advisories));
             for f in &raised {
                 text.push_str(&format!("\n• {}: {}", f.advisory_id, f.title));
             }
         } else {
             for f in &raised {
                 text.push_str("\n\n");
-                text.push_str(&finding_details(f));
+                text.push_str(&finding_details(f, lang));
             }
         }
         if !resolved.is_empty() {
-            text.push_str(&format!("\n\n✅ No longer affected by {}", ids(&resolved)));
+            text.push_str(&format!(
+                "\n\n✅ {}",
+                fill(lang.also_no_longer, &[("ids", &ids(&resolved))])
+            ));
         }
         text
     };
@@ -276,58 +304,68 @@ fn ids(findings: &[&Finding]) -> String {
         .join(", ")
 }
 
-/// One finding's block inside a node message.
-fn finding_details(f: &Finding) -> String {
-    let mut flags = vec![format!("{:?}", f.severity).to_lowercase()];
+/// The severity and "exploited" words for a finding, in `lang`.
+fn flags(f: &Finding, lang: &Strings) -> String {
+    let mut flags = vec![lang.severity[f.severity as usize].to_string()];
     if f.exploited_in_wild {
-        flags.push("exploited in the wild".into());
+        flags.push(lang.exploited.to_string());
     }
-    let label = if f.status == Status::Affected {
-        "AFFECTED"
+    flags.join(", ")
+}
+
+fn label(f: &Finding, lang: &Strings) -> &'static str {
+    if f.status == Status::Affected {
+        lang.affected_label
     } else {
-        "CAN'T TELL"
-    };
+        lang.cant_tell_label
+    }
+}
+
+/// One finding's block inside a node message. The title, reason and the
+/// developers' words stay in English.
+fn finding_details(f: &Finding, lang: &Strings) -> String {
     let mut text = format!(
-        "{label}: {} ({}): {}\n{}",
+        "{}: {} ({}): {}\n{}",
+        label(f, lang),
         f.advisory_id,
-        flags.join(", "),
+        flags(f, lang),
         f.title,
         f.reason
     );
     if f.status == Status::Affected {
-        text.push_str(&format!("\nDevelopers say: \"{}\"", f.steps));
+        text.push_str(&format!("\n{}: \"{}\"", lang.developers_say, f.steps));
     }
     for check in &f.manual_checks {
-        text.push_str(&format!("\nCheck by hand: {check}"));
+        text.push_str(&format!("\n{}: {check}", lang.check_by_hand));
     }
-    text.push_str(&format!("\nSource: {}", f.source));
+    text.push_str(&format!("\n{}: {}", lang.source, f.source));
     text
 }
 
-fn raised(node: &NodeReport, f: &Finding) -> String {
-    let (icon, label) = match f.status {
-        Status::Affected => ("🔴", "AFFECTED"),
-        _ => ("🟠", "CAN'T TELL"),
+fn raised(node: &NodeReport, f: &Finding, lang: &Strings) -> String {
+    let icon = if f.status == Status::Affected {
+        "🔴"
+    } else {
+        "🟠"
     };
-    let mut flags = vec![format!("{:?}", f.severity).to_lowercase()];
-    if f.exploited_in_wild {
-        flags.push("exploited in the wild".into());
-    }
     let mut text = format!(
-        "{icon} Firewatch: {} is {label}\n{} ({}): {}\n\n{}",
-        node.name,
+        "{icon} Firewatch: {}\n{} ({}): {}\n\n{}",
+        fill(
+            lang.node_status,
+            &[("node", &node.name), ("label", label(f, lang))]
+        ),
         f.advisory_id,
-        flags.join(", "),
+        flags(f, lang),
         f.title,
         f.reason
     );
     if f.status == Status::Affected {
-        text.push_str(&format!("\n\nDevelopers say: \"{}\"", f.steps));
+        text.push_str(&format!("\n\n{}: \"{}\"", lang.developers_say, f.steps));
     }
     for check in &f.manual_checks {
-        text.push_str(&format!("\n\nCheck by hand: {check}"));
+        text.push_str(&format!("\n\n{}: {check}", lang.check_by_hand));
     }
-    text.push_str(&format!("\n\nSource: {}", f.source));
+    text.push_str(&format!("\n\n{}: {}", lang.source, f.source));
     text
 }
 
