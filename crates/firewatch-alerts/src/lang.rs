@@ -110,6 +110,9 @@ pub struct Strings {
     pub catch_up: &'static str,
     /// Last line of a message that waited for a connection (A2).
     pub delayed: &'static str,
+    /// Sent instead of a red alert and its fix when both waited for a
+    /// connection (A1): `{node}` was red `{from}` to `{to}`.
+    pub fixed_while_waiting: &'static str,
 }
 
 pub static EN: Strings = Strings {
@@ -135,6 +138,7 @@ pub static EN: Strings = Strings {
     test_alert: "Firewatch test alert: if you can read this, alerts reach you.",
     catch_up: "While Firewatch was off (since {since}):",
     delayed: "Detected {detected}, sent {sent} (no connection until then).",
+    fixed_while_waiting: "{node} was affected from {from} to {to}; it's fixed now.",
 };
 
 // The four drafts below are first drafts by Dave, waiting for a native
@@ -163,6 +167,8 @@ pub static HA: Strings = Strings {
     test_alert: "Gwajin Firewatch: idan kana iya karanta wannan, saƙonni suna isowa gare ka.",
     catch_up: "Lokacin da Firewatch ke kashe (tun {since}):",
     delayed: "An gano a {detected}, an aika a {sent} (babu haɗi har sai lokacin).",
+    // Not drafted yet: English until a reviewer translates it.
+    fixed_while_waiting: "{node} was affected from {from} to {to}; it's fixed now.",
 };
 
 pub static YO: Strings = Strings {
@@ -188,6 +194,8 @@ pub static YO: Strings = Strings {
     test_alert: "Ìdánwò Firewatch: tí o bá lè ka èyí, àwọn ìkìlọ̀ ń dé ọ̀dọ̀ rẹ.",
     catch_up: "Nígbà tí Firewatch wà ní pípa (láti {since}):",
     delayed: "A rí i ní {detected}, a fi ránṣẹ́ ní {sent} (kò sí ìsopọ̀ títí di ìgbà náà).",
+    // Not drafted yet: English until a reviewer translates it.
+    fixed_while_waiting: "{node} was affected from {from} to {to}; it's fixed now.",
 };
 
 pub static IG: Strings = Strings {
@@ -213,6 +221,8 @@ pub static IG: Strings = Strings {
     test_alert: "Nnwale Firewatch: ọ bụrụ na ị nwere ike ịgụ nke a, ọkwa na-eru gị aka.",
     catch_up: "Mgbe Firewatch gbanyụrụ (kemgbe {since}):",
     delayed: "Achọpụtara ya na {detected}, ezitere ya na {sent} (enweghị njikọ ruo mgbe ahụ).",
+    // Not drafted yet: English until a reviewer translates it.
+    fixed_while_waiting: "{node} was affected from {from} to {to}; it's fixed now.",
 };
 
 pub static PCM: Strings = Strings {
@@ -238,6 +248,8 @@ pub static PCM: Strings = Strings {
     test_alert: "Firewatch test: if you fit read dis one, alerts dey reach you.",
     catch_up: "When Firewatch off (since {since}):",
     delayed: "We see am {detected}, we send am {sent} (network no dey until then).",
+    // Not drafted yet: English until a reviewer translates it.
+    fixed_while_waiting: "{node} was affected from {from} to {to}; it's fixed now.",
 };
 
 /// Replaces each `{key}` in `template` with its value.
@@ -284,6 +296,7 @@ impl Strings {
             ("test_alert", self.test_alert.to_string()),
             ("catch_up", self.catch_up.to_string()),
             ("delayed", self.delayed.to_string()),
+            ("fixed_while_waiting", self.fixed_while_waiting.to_string()),
         ]);
         out
     }

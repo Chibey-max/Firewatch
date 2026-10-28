@@ -4,7 +4,7 @@
 //! `state.json`, next to the config. After a restart (a power cut, a reboot)
 //! the first check is compared with it, so a node that changed while
 //! Firewatch was off gets one catch-up message, and an unchanged node gets
-//! none. The file names vulnerable nodes, so it's readable only by its owner.
+//! none. Alerts still waiting for a connection are kept too. The file names vulnerable nodes, so it's readable only by its owner.
 //! A missing or unreadable file means a fresh start, never a crash.
 
 use std::collections::{HashMap, HashSet};
@@ -14,6 +14,8 @@ use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
 use firewatch_core::NodeReport;
+
+use crate::outbox::Entry;
 use serde::{Deserialize, Serialize};
 
 /// Bumped if the layout changes, so an old file is ignored, not misread.
@@ -30,6 +32,9 @@ pub struct State {
     /// "can be read again".
     #[serde(default)]
     pub down_alerted: HashSet<String>,
+    /// Alerts that hadn't got through yet (A1), sent after the restart.
+    #[serde(default)]
+    pub outbox: Vec<Entry>,
 }
 
 /// `state.json` in the same folder as the config.

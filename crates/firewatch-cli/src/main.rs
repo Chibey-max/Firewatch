@@ -7,6 +7,7 @@
 mod config;
 mod embedded;
 mod init;
+mod outbox;
 mod state;
 mod watch;
 

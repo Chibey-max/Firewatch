@@ -140,7 +140,9 @@ firewatch watch
 
 It checks every 30 seconds, sends one alert per node when something turns red or amber, and another when it's fixed. Open the dashboard at **http://127.0.0.1:7070**. Alerts only come while `watch` runs, so on a node that's always on, run it as a background service.
 
-**After a power cut or a restart, Firewatch catches up.** After every check it saves what it knows to `state.json`, next to the config, readable only by you. When `watch` starts again, it compares the first check with that, and each node that changed while it was off gets one message: *"While Firewatch was off (since 14:02): old-cln is no longer affected by FW-2026-003"*. Nodes that didn't change get nothing. If the file is missing or damaged, Firewatch starts fresh and says why.
+**When the internet drops, alerts wait.** An alert that can't be sent stays in a queue and goes out as soon as the connection is back, ending with when it happened: *"Detected 14:02, sent 14:40 (no connection until then)."* Only the latest news per node waits: if a node goes red and is fixed before anything gets through, you get one message, *"old-cln was affected from 14:02 to 14:20; it's fixed now."*
+
+**After a power cut or a restart, Firewatch catches up.** After every check it saves what it knows to `state.json`, next to the config, readable only by you, along with any alerts still waiting to be sent. When `watch` starts again, it compares the first check with that, and each node that changed while it was off gets one message: *"While Firewatch was off (since 14:02): old-cln is no longer affected by FW-2026-003"*. Nodes that didn't change get nothing. If the file is missing or damaged, Firewatch starts fresh and says why.
 
 **Alerts in your language.** Set `language` under `[alerts]` to `ha` (Hausa), `yo` (Yoruba), `ig` (Igbo) or `pcm` (Nigerian Pidgin). The developers' fixes and Firewatch's reasons stay in English, word for word. A language is offered once a native speaker has reviewed it; [docs/strings/](docs/strings/) shows where each one stands and how to review it.
 
@@ -191,7 +193,7 @@ To uninstall: `rm ~/.local/bin/firewatch` (installer) or `cargo uninstall firewa
 
 ```sh
 scripts/demo-up.sh                              # build everything, check the nodes, start the demo
-cargo test --workspace                          # 153 tests: engine, connectors, alerts, one per advisory
+cargo test --workspace                          # 164 tests: engine, connectors, alerts, one per advisory
 cargo run -- validate                           # load and list every advisory
 cargo run -- check                              # check the live nodes in firewatch.toml once
 cargo run -- check --nodes examples/nodes.json  # check a JSON snapshot instead
