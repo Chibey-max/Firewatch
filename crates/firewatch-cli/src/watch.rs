@@ -376,6 +376,16 @@ impl App {
                 }
             }
         }
+        // Alerts that went out while some relays were still silent: those
+        // relays get the same alert once they answer.
+        if let Some(alerter) = &self.alerter {
+            let relays = alerter.resend_skipped().await;
+            if relays > 0 {
+                log(&format!(
+                    "  sent an earlier alert to {relays} more relay(s) now back"
+                ));
+            }
+        }
         *self.delivery.write().await = tracker.delivery();
 
         match state::save(&self.state_path, &tracker.state(report.checked_at)) {

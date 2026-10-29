@@ -205,3 +205,82 @@ async fn a_silent_drop_does_not_deliver_the_alert_twice() {
     got.sort();
     assert_eq!(got, ["before", "retry"]);
 }
+
+/// The recipient as a profile code (`nprofile`) naming `relays`, the way
+/// Amethyst's share button gives it.
+fn profile_code(recipient: &Keys, relays: &[u16]) -> String {
+    Nip19Profile::new(
+        recipient.public_key(),
+        relays.iter().map(|p| RelayUrl::parse(&url(*p)).unwrap()),
+    )
+    .to_bech32()
+    .unwrap()
+}
+
+#[tokio::test]
+async fn a_profile_code_finds_the_phones_relays() {
+    // Amethyst keeps the DM inbox list only on the account's own relays,
+    // which Firewatch isn't configured with.
+    let recipient = Keys::generate();
+    let (configured, own, inbox) = (free_port(), free_port(), free_port());
+    let _configured = relay_on(configured).await;
+    let _own = relay_on(own).await;
+    let _inbox = relay_on(inbox).await;
+    publish_inbox(&recipient, own, inbox).await;
+
+    let mut config = config("profile", &recipient, &[configured]);
+    config.recipient = format!("https://njump.to/{}", profile_code(&recipient, &[own]));
+    let alerter = NostrAlerter::connect(&config).await.unwrap();
+    alerter.send("found you").await.unwrap();
+    assert_eq!(messages(&recipient, inbox).await, ["found you"]);
+}
+
+#[tokio::test]
+async fn a_relay_skipped_during_a_send_gets_the_same_alert_later() {
+    let recipient = Keys::generate();
+    let (a, b, b_proxy) = (free_port(), free_port(), free_port());
+    let _a = relay_on(a).await;
+    let _b = relay_on(b).await;
+    let paused = pausable_proxy(b_proxy, b).await;
+    let alerter = NostrAlerter::connect(&config("skipped", &recipient, &[a, b_proxy]))
+        .await
+        .unwrap();
+
+    // b is silent while the alert goes out, so only a takes it.
+    paused.store(true, Ordering::SeqCst);
+    assert_eq!(alerter.send("late relay").await.unwrap(), 1);
+    assert!(messages(&recipient, b).await.is_empty());
+
+    // b is back: the same alert reaches it, so the phone still sees one.
+    paused.store(false, Ordering::SeqCst);
+    let start = Instant::now();
+    while alerter.resend_skipped().await == 0 {
+        assert!(start.elapsed() < Duration::from_secs(30), "never re-sent");
+        tokio::time::sleep(Duration::from_millis(500)).await;
+    }
+    assert_eq!(messages(&recipient, b).await, ["late relay"]);
+    assert_eq!(
+        gift_wrap_ids(&recipient, a).await,
+        gift_wrap_ids(&recipient, b).await,
+        "a different event would show twice"
+    );
+    // Nothing left to re-send.
+    assert_eq!(alerter.resend_skipped().await, 0);
+}
+
+/// The ids of the gift wraps a relay holds for the recipient.
+async fn gift_wrap_ids(recipient: &Keys, port: u16) -> Vec<EventId> {
+    let client = Client::default();
+    client.add_relay(url(port)).await.unwrap();
+    client.connect().and_wait(Duration::from_secs(3)).await;
+    let wraps = client
+        .fetch_events(
+            Filter::new()
+                .kind(Kind::GiftWrap)
+                .pubkey(recipient.public_key()),
+        )
+        .timeout(Duration::from_secs(3))
+        .await
+        .unwrap();
+    wraps.iter().map(|e| e.id).collect()
+}
