@@ -17,7 +17,7 @@ Six steps, about ten minutes. Firewatch only ever reads your node: nothing in th
   - **LND:** on by default, at `https://127.0.0.1:8080`.
   - **Core Lightning:** `clnrest` is off until it has a port. Add `clnrest-port=3010` to the node's config file (usually `~/.lightning/config`) and restart the node. It serves HTTPS with a self-signed certificate by default; Firewatch pins that certificate, and `firewatch init` sets it up.
 - **Umbrel or Start9:** SSH into the box first (for example `ssh umbrel@umbrel.local`) and run every command below there.
-- **For phone alerts (optional):** a Nostr app that shows NIP-17 private messages. On iPhone use **Nostur**; on Android, **Amethyst** or **0xchat**. Damus doesn't show these messages. Step 2 walks through it.
+- **For phone alerts (optional):** a Nostr app that shows NIP-17 private messages. On iPhone use **Nostur**; on Android, **Amethyst**. Damus doesn't show these messages. Step 2 walks through it.
 
 ### 1. Install
 
@@ -113,7 +113,7 @@ It looks for your node in the usual places: LND in `~/.lnd` (or `$LND_DIR`, or U
   Run it in another terminal and paste the `rune` value it prints. `init` won't show the rune back on screen.
 - **A node it didn't find,** or one on another machine: answer yes to "Add a node by hand?" and give the address and credential paths.
 
-Then paste your npub, or press Enter to skip alerts.
+Then paste your npub (Amethyst: the share link from step 2d), or press Enter to skip alerts.
 
 `init` writes `~/.config/firewatch/firewatch.toml`, readable only by you, since it holds runes. Run `firewatch init --force` to start over, or edit the file: [firewatch.example.toml](firewatch.example.toml) shows every option.
 
@@ -188,7 +188,7 @@ To uninstall: `rm ~/.local/bin/firewatch` (installer) or `cargo uninstall firewa
 | `TLS certificate not trusted` | `tls_cert` must point at the node's own certificate: LND's `tls.cert`, or Core Lightning's `server.pem` in its network folder (e.g. `~/.lightning/bitcoin/server.pem`). |
 | `Credential rejected by the node` | The rune or macaroon belongs to another node. Make a new one on this node and run `firewatch init --force`. |
 | `Credential is not read-only` | Firewatch refuses credentials that can do more than read. Use LND's `readonly.macaroon`, or a rune made with the restrictions above. |
-| No message on the phone | Use Nostur, Amethyst or 0xchat (not Damus), look in message requests, and make sure this machine has internet. `firewatch test-alert` prints which relays took the message. |
+| No message on the phone | Use Nostur or Amethyst (not Damus); on Amethyst, give Firewatch the share link, not the npub (step 2d), look in message requests, and make sure this machine has internet. `firewatch test-alert` prints which relays took the message. |
 
 ## Working on Firewatch
 
@@ -266,7 +266,7 @@ A version number is only text a binary prints. LND also reports the commit it wa
 
 Refresh the table with `scripts/lnd-releases.sh`; it only replaces the file when the fetch succeeds. `--releases <file>` points at another one. The table is required: Firewatch stops if it's missing, rather than giving an unofficial build normal verdicts.
 
-**Alerts** are NIP-17 encrypted Nostr DMs to the operator's key. Set `recipient` to your npub, or your app's profile code (`nprofile1…`, which also names your relays), under `[alerts.nostr]`. Firewatch creates its own key in `secret_key_file` on first run and delivers to your NIP-17 inbox relays (kind 10050) as well as the relays listed. Any NIP-17 client can read them, for example 0xchat, Amethyst or Primal. To read them in a terminal:
+**Alerts** are NIP-17 encrypted Nostr DMs to the operator's key. Set `recipient` to your npub, or your app's profile code (`nprofile1…`, which also names your relays), under `[alerts.nostr]`. Firewatch creates its own key in `secret_key_file` on first run and delivers to your NIP-17 inbox relays (kind 10050) as well as the relays listed. Any NIP-17 client can read them, for example Nostur or Amethyst. To read them in a terminal:
 
 ```sh
 cargo run -p firewatch-alerts --example inbox -- --new          # make a test key

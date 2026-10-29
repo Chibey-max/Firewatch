@@ -134,8 +134,8 @@ function SetUp() {
         <Step n={2} title="Connect it to your node">
           <code className={c}>init</code> finds LND in <code className={c}>~/.lnd</code> (or
           Umbrel's folder), Core Lightning in <code className={c}>~/.lightning</code>, and Polar
-          networks, tests each connection, and asks for your npub for phone alerts (see the Phone
-          alerts tab; press Enter to skip).
+          networks, tests each connection, and asks for your Nostr key for phone alerts (see the
+          Phone alerts tab; press Enter to skip).
           <Cmd>{CMD.init}</Cmd>
           <p className="mt-2.5">
             <b className="text-ink">LND</b> needs nothing else: it uses the{' '}
