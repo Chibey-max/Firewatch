@@ -13,9 +13,13 @@ categories = ["cryptography::cryptocurrencies"]
 firewatch-core.workspace = true
 nostr = { version = "0.45", features = ["std", "nip59", "os-rng"] }
 nostr-sdk = { version = "0.45", default-features = false, features = ["aws_lc_rs", "rustls-tls-webpki-roots"] }
+futures.workspace = true
 serde.workspace = true
 thiserror.workspace = true
+tokio = { workspace = true, features = ["time"] }
 
 [dev-dependencies]
+# A relay in the test process, to test delivery across a lost connection.
+nostr-sdk = { version = "0.45", default-features = false, features = ["aws_lc_rs", "rustls-tls-webpki-roots", "local-relay"] }
 rustls = { version = "0.23", default-features = false, features = ["aws_lc_rs", "std"] }
 tokio.workspace = true

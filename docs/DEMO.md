@@ -20,7 +20,7 @@ Every advisory shown is verified against the developers' own release notes or ad
    ```
 3. **Phone:** a Nostr app that shows NIP-17 private messages, logged in with the key whose npub is `recipient` in `firewatch.toml`.
    - **iPhone: Nostur.** Tested and working. Damus does *not* show these messages.
-   - **Android:** Amethyst or 0xchat.
+   - **Android:** Amethyst (paste the link from the profile share button).
 
    Send a test alert and confirm it arrives:
    ```sh

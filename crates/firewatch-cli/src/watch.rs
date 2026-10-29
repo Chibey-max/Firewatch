@@ -32,7 +32,7 @@ use tower_http::services::ServeDir;
 use crate::config::Config;
 use crate::outbox::{Entry, Kind, Outbox};
 use crate::state::{self, State as SavedState};
-use crate::{check_live, local_time, log, now};
+use crate::{check_live, local_time, local_times, log, now};
 
 /// Failed reads in a row before "can't read this node" is sent. A node
 /// restarting for an upgrade is down for a few seconds; that is not news.
@@ -48,8 +48,6 @@ struct App {
     tracker: Mutex<Tracker>,
     /// Where the tracker is saved after every check (A4).
     state_path: PathBuf,
-    /// A message that waited longer than this says when it happened (A2).
-    interval_secs: u64,
     /// Outside the tracker's lock, so `/api/health` never waits on a send.
     delivery: RwLock<Delivery>,
 }
@@ -64,9 +62,11 @@ struct Tracker {
     warned: HashSet<String>,
     /// The words alerts are written in.
     strings: &'static Strings,
-    /// Set after a restart from saved state: the first check's messages say
-    /// they happened while Firewatch was off, since this time.
-    catch_up_since: Option<u64>,
+    /// After a restart from saved state: the nodes not read since, each with
+    /// when Firewatch last checked before it stopped. Each one's first good
+    /// read says what changed while Firewatch was off, even if the node
+    /// boots after Firewatch, as it often does after a power cut.
+    catch_up: HashMap<String, u64>,
     /// Whether saving the state has failed and been logged already.
     save_failed: bool,
     /// Alerts not sent yet (A1).
@@ -90,7 +90,7 @@ impl Tracker {
             down_alerted: HashSet::new(),
             warned: HashSet::new(),
             strings,
-            catch_up_since: None,
+            catch_up: HashMap::new(),
             save_failed: false,
             outbox: Outbox::default(),
             offline_since: None,
@@ -98,14 +98,23 @@ impl Tracker {
         }
     }
 
-    /// A tracker that remembers what was known before a restart. Its first
-    /// check reports only what changed since, as catch-up messages.
+    /// A tracker that remembers what was known before a restart. Each
+    /// node's first good read reports only what changed since, as a catch-up
+    /// message.
     fn restored(state: SavedState, strings: &'static Strings) -> Self {
+        // A node still waiting from an earlier restart keeps that earlier time.
+        let mut catch_up = state.catch_up;
+        for name in state.known.keys().chain(&state.down_alerted) {
+            catch_up.entry(name.clone()).or_insert(state.saved_at);
+        }
+        let mut outbox = Outbox::from_entries(state.outbox);
+        // Saved only because sending failed, so each one has waited.
+        outbox.hold_all();
         Tracker {
             known: state.known,
             down_alerted: state.down_alerted,
-            catch_up_since: Some(state.saved_at),
-            outbox: Outbox::from_entries(state.outbox),
+            catch_up,
+            outbox,
             ..Tracker::new(strings)
         }
     }
@@ -115,6 +124,7 @@ impl Tracker {
             known: self.known.clone(),
             down_alerted: self.down_alerted.clone(),
             outbox: self.outbox.entries().to_vec(),
+            catch_up: self.catch_up.clone(),
             ..SavedState::new(saved_at)
         }
     }
@@ -122,16 +132,26 @@ impl Tracker {
     /// Queues the alerts for this check, updating what is known. `now` is
     /// when the changes were seen.
     fn queue(&mut self, report: &Report, now: u64) {
-        let catch_up_since = self.catch_up_since.take();
+        // A node's first good read since the restart is its catch-up; a node
+        // that can't be read yet keeps waiting for its own.
+        self.catch_up
+            .retain(|name, _| report.nodes.iter().any(|n| &n.name == name));
+        let caught_up: HashMap<String, u64> = report
+            .nodes
+            .iter()
+            .filter(|n| n.error.is_none())
+            .filter_map(|n| Some((n.name.clone(), self.catch_up.remove(&n.name)?)))
+            .collect();
         let entry = |node: &NodeReport, kind, text| Entry {
             node: node.name.clone(),
             kind,
             text,
             detected_at: now,
             waiting_since: now,
-            catch_up_since,
+            catch_up_since: caught_up.get(&node.name).copied(),
             heard: None,
             affected_since: None,
+            held: false,
         };
 
         // Findings first, one message per node, in report order.
@@ -154,15 +174,12 @@ impl Tracker {
             let text = if !told.is_empty() {
                 node_message_in(node, &told.iter().collect::<Vec<_>>(), self.strings)
             } else if let (Some(from), false) = (affected_since, node.status == Status::Affected) {
+                let (from, to) = local_times(from, now);
                 format!(
                     "✅ Firewatch: {}",
                     fill(
                         self.strings.fixed_while_waiting,
-                        &[
-                            ("node", &node.name),
-                            ("from", &local_time(from)),
-                            ("to", &local_time(now)),
-                        ]
+                        &[("node", &node.name), ("from", &from), ("to", &to)]
                     )
                 )
             } else {
@@ -217,8 +234,8 @@ impl Tracker {
 
     /// A waiting message as it is sent at `sent_at`: marked as a draft
     /// translation or a catch-up if it is one, and saying when it happened
-    /// if it waited longer than one check (A2).
-    fn render(&self, entry: &Entry, sent_at: u64, interval_secs: u64) -> String {
+    /// if an earlier try to send it failed (A2).
+    fn render(&self, entry: &Entry, sent_at: u64) -> String {
         let mut text = entry.text.clone();
         if let Some(since) = entry.catch_up_since {
             let header = fill(self.strings.catch_up, &[("since", &local_time(since))]);
@@ -230,13 +247,13 @@ impl Tracker {
                 self.strings.english_name
             );
         }
-        if sent_at.saturating_sub(entry.detected_at) > interval_secs {
+        // Only after a failed try: a slow send, or a queue of several
+        // messages, is not "no connection".
+        if entry.held {
+            let (detected, sent) = local_times(entry.detected_at, sent_at);
             let line = fill(
                 self.strings.delayed,
-                &[
-                    ("detected", &local_time(entry.detected_at)),
-                    ("sent", &local_time(sent_at)),
-                ],
+                &[("detected", &detected), ("sent", &sent)],
             );
             text = format!("{text}\n\n{line}");
         }
@@ -249,7 +266,7 @@ impl Tracker {
         self.queue(report, report.checked_at);
         let mut texts = vec![];
         while let Some(entry) = self.outbox.first() {
-            texts.push(self.render(entry, report.checked_at, 60));
+            texts.push(self.render(entry, report.checked_at));
             self.outbox.sent();
         }
         texts
@@ -324,8 +341,16 @@ impl App {
                 continue;
             };
             let sent_at = now();
-            let text = tracker.render(entry, sent_at, self.interval_secs);
-            match alerter.send(&text).await {
+            let text = tracker.render(entry, sent_at);
+            let looked_up = alerter.inbox_checked();
+            let result = alerter.send(&text).await;
+            if !looked_up && alerter.inbox_checked() {
+                log(&format!(
+                    "  found where your phone reads: now sending via {} relays",
+                    alerter.relays().len()
+                ));
+            }
+            match result {
                 Ok(relays) => {
                     tracker.outbox.sent();
                     tracker.last_sent_at = Some(sent_at);
@@ -338,6 +363,8 @@ impl App {
                     log(&format!("  alert sent ({relays} relays)"));
                 }
                 Err(e) => {
+                    // Everything still queued now waits for the connection.
+                    tracker.outbox.hold_all();
                     if tracker.offline_since.is_none() {
                         tracker.offline_since = Some(sent_at);
                         log(&format!(
@@ -347,6 +374,16 @@ impl App {
                     }
                     break;
                 }
+            }
+        }
+        // Alerts that went out while some relays were still silent: those
+        // relays get the same alert once they answer.
+        if let Some(alerter) = &self.alerter {
+            let relays = alerter.resend_skipped().await;
+            if relays > 0 {
+                log(&format!(
+                    "  sent an earlier alert to {relays} more relay(s) now back"
+                ));
             }
         }
         *self.delivery.write().await = tracker.delivery();
@@ -389,6 +426,12 @@ pub async fn run(
                 alerter.sender(),
                 alerter.relays().len()
             ));
+            if !alerter.inbox_checked() {
+                log(
+                    "  no relay answered yet, so the relays your phone reads from aren't known; \
+                     looking again before each alert",
+                );
+            }
             Some(alerter)
         }
         None => {
@@ -426,7 +469,6 @@ pub async fn run(
         latest: RwLock::new(None),
         tracker: Mutex::new(tracker),
         state_path,
-        interval_secs: interval.as_secs(),
         delivery,
     });
 
@@ -696,40 +738,92 @@ mod tests {
     fn deliver(tracker: &mut Tracker, at: u64) -> Vec<String> {
         let mut texts = vec![];
         while let Some(entry) = tracker.outbox.first() {
-            texts.push(tracker.render(entry, at, 10));
+            texts.push(tracker.render(entry, at));
             tracker.outbox.sent();
         }
         texts
+    }
+
+    /// A try to send that fails, as in `run_check` with no connection.
+    fn send_fails(tracker: &mut Tracker) {
+        tracker.outbox.hold_all();
+    }
+
+    /// The times in a "Detected …, sent … (no connection until then)." line.
+    fn delay_times(text: &str) -> (String, String) {
+        let last = text.lines().last().unwrap();
+        let (detected, sent) = last
+            .strip_prefix("Detected ")
+            .and_then(|l| l.split_once(", sent "))
+            .unwrap_or_else(|| panic!("no delay line: {last}"));
+        let sent = sent.strip_suffix(" (no connection until then).").unwrap();
+        (detected.to_string(), sent.to_string())
     }
 
     #[test]
     fn a_queued_alert_is_sent_once_and_says_when_it_happened() {
         let mut tracker = Tracker::default();
         tracker.queue(&up(Status::Affected), T);
+        send_fails(&mut tracker);
         // Still offline: later checks see no change and queue nothing more.
         tracker.queue(&up(Status::Affected), T + 10);
+        send_fails(&mut tracker);
         tracker.queue(&up(Status::Affected), T + 20);
+        send_fails(&mut tracker);
         assert_eq!(tracker.delivery().pending, 1);
         assert_eq!(tracker.delivery().oldest_pending_since, Some(T));
 
         let sent = deliver(&mut tracker, T + 2400);
         assert_eq!(sent.len(), 1);
         assert!(sent[0].contains("old-cln: 1 affected"), "{}", sent[0]);
-        let last = sent[0].lines().last().unwrap();
-        assert!(
-            last.starts_with("Detected ") && last.ends_with("(no connection until then)."),
-            "{last}"
-        );
+        let (detected, sent_at) = delay_times(&sent[0]);
+        assert_ne!(detected, sent_at);
         assert!(deliver(&mut tracker, T + 2410).is_empty());
         assert!(tracker.alerts(&up(Status::Affected)).is_empty());
     }
 
     #[test]
-    fn an_alert_sent_on_time_does_not_say_when() {
+    fn a_short_outage_shows_seconds_so_the_times_differ() {
+        let mut tracker = Tracker::default();
+        tracker.queue(&up(Status::Affected), T);
+        send_fails(&mut tracker);
+        let sent = deliver(&mut tracker, T + 20);
+        let (detected, sent_at) = delay_times(&sent[0]);
+        assert_ne!(detected, sent_at, "{}", sent[0]);
+        assert!(
+            detected.ends_with(":00") && sent_at.ends_with(":20"),
+            "{}",
+            sent[0]
+        );
+    }
+
+    #[test]
+    fn only_a_failed_send_adds_the_delay_line() {
+        // On time.
         let mut tracker = Tracker::default();
         tracker.queue(&up(Status::Affected), T);
         let sent = deliver(&mut tracker, T + 3);
         assert!(!sent[0].contains("Detected"), "{}", sent[0]);
+        // Late, behind slow sends, but never failed: there was a connection.
+        let mut tracker = Tracker::default();
+        tracker.queue(&up(Status::Affected), T);
+        let sent = deliver(&mut tracker, T + 40);
+        assert!(!sent[0].contains("Detected"), "{}", sent[0]);
+    }
+
+    #[test]
+    fn a_fix_while_waiting_shows_seconds_in_a_short_outage() {
+        let mut tracker = Tracker::default();
+        tracker.alerts(&up(Status::NotAffected));
+        tracker.queue(&up(Status::Affected), T);
+        send_fails(&mut tracker);
+        tracker.queue(&up(Status::NotAffected), T + 15);
+        let sent = deliver(&mut tracker, T + 20);
+        assert!(
+            sent[0].contains(":00 to ") && sent[0].contains(":15; it's fixed now."),
+            "{}",
+            sent[0]
+        );
     }
 
     #[test]
@@ -858,6 +952,51 @@ mod tests {
     }
 
     #[test]
+    fn a_node_that_boots_after_firewatch_still_gets_its_catch_up() {
+        // After a power cut the node often starts after Firewatch.
+        let mut t = restart_after(&up(Status::Affected));
+        assert!(t.alerts(&down()).is_empty());
+        assert!(t.alerts(&down()).is_empty());
+        let texts = t.alerts(&up(Status::NotAffected));
+        assert_eq!(texts.len(), 1, "{texts:?}");
+        assert!(
+            texts[0].starts_with("While Firewatch was off (since ")
+                && texts[0].contains("old-cln is no longer affected"),
+            "{texts:?}"
+        );
+        // Once read, it's caught up.
+        let again = t.alerts(&up(Status::Affected));
+        assert!(
+            !again[0].starts_with("While Firewatch was off"),
+            "{again:?}"
+        );
+    }
+
+    #[test]
+    fn a_node_added_after_a_restart_is_not_a_catch_up() {
+        let mut t = restart_after(&up(Status::NotAffected));
+        let mut report = up(Status::Affected);
+        report.nodes[0].name = "new-node".into();
+        let texts = t.alerts(&report);
+        assert!(texts[0].starts_with("🔴 Firewatch: new-node"), "{texts:?}");
+    }
+
+    #[test]
+    fn a_second_restart_before_the_node_is_read_keeps_the_first_time() {
+        let mut t = restart_after(&up(Status::Affected));
+        t.alerts(&down());
+        // Saved again later, then restarted again.
+        let json = serde_json::to_string(&t.state(T + 3600)).unwrap();
+        let mut t = Tracker::restored(serde_json::from_str(&json).unwrap(), &EN);
+        let texts = t.alerts(&up(Status::NotAffected));
+        let first = local_time(1_800_000_000);
+        assert!(
+            texts[0].starts_with(&format!("While Firewatch was off (since {first}):")),
+            "{texts:?}"
+        );
+    }
+
+    #[test]
     fn alerts_use_the_configured_language_and_mark_drafts() {
         let mut t = Tracker::new(firewatch_alerts::Language::Ha.strings());
         let texts = t.alerts(&up(Status::Affected));
@@ -933,7 +1072,6 @@ mod guard_tests {
             latest: RwLock::new(None),
             tracker: Mutex::new(Tracker::default()),
             state_path: std::env::temp_dir().join("fw-watch-test-state.json"),
-            interval_secs: 10,
             delivery: RwLock::new(Delivery::default()),
         })
     }

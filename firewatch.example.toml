@@ -42,6 +42,7 @@ language = "en"
 
 # Private alerts: NIP-17 encrypted DMs to the operator's Nostr key.
 [alerts.nostr]
-recipient = "npub1..."                 # your key; alerts go only here
+recipient = "npub1..."                 # your key; alerts go only here. Amethyst:
+                                       # paste the nprofile1... from Share profile
 secret_key_file = "firewatch.nsec"     # Firewatch's own key, created on first run
 relays = ["wss://relay.damus.io", "wss://nos.lol", "wss://relay.primal.net"]
