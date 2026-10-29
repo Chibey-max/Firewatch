@@ -20,7 +20,7 @@ Firewatch is a read-only Rust tool that checks LND and Core Lightning nodes agai
   ```sh
   cargo install firewatch
   ```
-  or the shell installer on GitHub Releases (v0.1.1 once tagged).
+  or the shell installer on GitHub Releases.
 
 ## Rules for anyone working on it
 
@@ -69,7 +69,7 @@ Key behaviour:
 
 ## Releases
 
-- **Versions:** v0.1.0 is out on GitHub Releases and crates.io, as all four crates. v0.1.1 (A1–A4, draft languages) is bumped in PR "Release v0.1.1"; it ships once the tag is pushed and crates.io is published. rc.2 is yanked on crates.io.
+- **Versions:** v0.1.0 is out on GitHub Releases and crates.io, as all four crates. v0.1.1 (A1–A4, draft languages) is out too: tagged 28 Oct (PR #33), 13 release assets, all four crates on crates.io. rc.2 is yanked on crates.io.
 - **How a release works:** cargo-dist 0.32 builds when a `v<version>` tag is pushed. The tag must exactly match `version` in `Cargo.toml`, so bump the version in a PR first.
 - **Trap:** cargo-dist drops `working-directory` from the steps in `.github/build-setup.yml`, so those steps `cd dashboard` themselves.
 - **Moving or deleting a pushed tag:** Dave runs those git commands himself.
@@ -99,7 +99,7 @@ The network is `Firewatch-demo` (Polar network 2).
 
 ## Phone alerts
 
-- **App:** use Nostur on iPhone. Damus doesn't show NIP-17 DMs.
+- **App:** Nostur on iPhone (paste the npub), Amethyst on Android (paste the link from the profile's share button; PR #35). Damus doesn't show NIP-17 DMs.
 - **Dave's Nostur npub:** `npub1d06e93lahjrmxspq0gsal3d2elp8alctye2chj9ef5kyemclwrkqrdaxzw`
 - **Firewatch's sender npub:** `npub18t9qd5qczhg3533vqzhmzwlwnnpnnuhplje6fvyx9ty3mer85gdqc78aas`. Its secret key stays local and is never committed.
 - **Draft test alerts (28 Oct):** all four arrived. Yoruba and Igbo special letters display correctly. Still to check: whether the Hausa ƙ in "saƙonni" displays on the phone or shows as a plain k.
@@ -120,6 +120,9 @@ The network is `Firewatch-demo` (Polar network 2).
    - Reviewer sheets in `docs/strings/alerts-*.csv`, with instructions in `docs/strings/README.md`.
    - A power-cut version of the "Fix it" pitch beat.
    - All of it tested live on Polar. 153 tests pass.
+10. **PR #32, merged 28 Oct (Dave):** A1–A3, the outbox, the "Detected … sent …" line and delivery status in `/api/health`. Released as v0.1.1 (PR #33).
+11. **PR #34, open (Isaac):** five fixes to alerts across an outage or a power cut, found by testing A1–A3 live, and A5: three Wi-Fi-off runs on a real phone, written into `docs/PITCH.md`. The alert went out 12–25 s after the Wi-Fi was switched back on, once each time.
+12. **PR #35, open (Isaac), stacked on #34:** Firewatch finds an Amethyst phone's DM relays from the profile share link, and re-sends an alert to a relay that missed it while reconnecting.
 
 ## What is left
 
@@ -129,10 +132,9 @@ The network is `Firewatch-demo` (Polar network 2).
 | B0/G1: native-speaker reviewers per language | Dave | Unknown whether any agreed. Only reviewed languages can be switched on. |
 | B7: put the reviewed text in | Dave, once the reviewed CSVs return | Follow `docs/strings/README.md`. In `lang.rs`, set `reviewed: true` and fill in `reviewer`. |
 | B8: language-related dashboard work | Patrick, with the reviewers | |
-| A1–A3: outbox, "Detected … sent …" line, delivery status in `/api/health` | Dave (was Isaac's) | Built on branch `dave/a1-outbox`, tested against a local relay. Needs a review and merge. Tell Isaac so the work isn't done twice. |
-| A5: outage runs with the Wi-Fi off | Dave and Isaac | The power-cut run is done. The Wi-Fi-off runs can start once A1 merges: Wi-Fi off, `demo/upgrade.sh`, Wi-Fi on, time until the phone buzzes. Three times; write the times in `docs/PITCH.md`. |
+| Review and merge #34, then #35 | Dave | `main` needs one approval. Merge #34 first; GitHub then retargets #35 to `main`. |
 | A6: dashboard shows waiting alerts | Patrick | Reads `alerts_pending` and `oldest_pending_since` from `/api/health` (see `docs/API.md`). |
-| G2: tag v0.1.1 (28 Oct, 18:00) | Dave | Version-bump PR, then approval, then Dave pushes the tag, then a crates.io publish once Dave says yes. |
+| A7: run on a Raspberry Pi | Anyone with a Pi | README and the dashboard Guide say a Pi works, but nobody has run Firewatch on one. Test it, or soften the wording. |
 | Docker lockdown from #28 | Dave | Needs sudo on Dave's machine. |
 | Rehearsals and a backup demo video | Team | Time the pitch. Fill in the time blank in the C1 beat. |
 | Ask the organizers for the judging criteria; line up real Kaduna node operators | Dave | |
