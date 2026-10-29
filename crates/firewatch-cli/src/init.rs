@@ -78,14 +78,15 @@ pub async fn run(path: Option<PathBuf>, force: bool) -> Result<()> {
         .unwrap_or_else(|| PathBuf::from("."));
     let npub = loop {
         let answer = ask.line(
-            "\nYour Nostr npub, for encrypted alerts on your phone (Enter to skip). \
-             On iPhone use Nostur; on Android, Amethyst or 0xchat:\n> ",
+            "\nYour Nostr key, for encrypted alerts on your phone (Enter to skip). \
+             On iPhone use Nostur: paste your npub. On Android use Amethyst: open your \
+             profile, tap share, and paste the link (it names your relays):\n> ",
         );
         if answer.is_empty() {
             break None;
         }
         match firewatch_alerts::check_recipient(&answer) {
-            Ok(()) => break Some(answer),
+            Ok(recipient) => break Some(recipient),
             Err(e) => println!("  {e}. Try again, or press Enter to skip."),
         }
     };

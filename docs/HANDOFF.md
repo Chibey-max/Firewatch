@@ -141,7 +141,7 @@ The network is `Firewatch-demo` (Polar network 2).
 
 ```sh
 cargo fmt --check && cargo clippy --workspace --all-targets -- -D warnings
-cargo test --workspace                  # 172 tests
+cargo test --workspace                  # 175 tests
 python3 scripts/verify-demo.py          # needs the Polar network running
 python3 scripts/audit-quotes.py
 ```

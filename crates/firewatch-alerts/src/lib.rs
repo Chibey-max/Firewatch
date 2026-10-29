@@ -10,7 +10,7 @@ use std::os::unix::fs::OpenOptionsExt;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use firewatch_core::{Change, Finding, NodeReport, Status};
 use futures::StreamExt;
@@ -31,6 +31,9 @@ const TIMEOUT: Duration = Duration::from_secs(8);
 /// failed connection every few seconds while offline.
 const RECONNECT: Duration = Duration::from_secs(5);
 
+/// How long an alert is kept for relays that didn't answer when it went out.
+const RESEND_FOR: Duration = Duration::from_secs(10 * 60);
+
 #[derive(Debug, Error)]
 pub enum AlertError {
     #[error("nostr config: {0}")]
@@ -46,7 +49,9 @@ fn nostr_err(e: impl std::fmt::Display) -> AlertError {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct NostrConfig {
-    /// The operator's public key (npub or hex). Alerts go only to this key.
+    /// The operator's public key: an npub, or the profile code (`nprofile`)
+    /// from the phone app's share button, which also names the account's own
+    /// relays. Alerts go only to this key.
     pub recipient: String,
     /// Firewatch's own secret key. Generated on first run if missing.
     pub secret_key_file: PathBuf,
@@ -55,12 +60,42 @@ pub struct NostrConfig {
     pub relays: Vec<String>,
 }
 
-/// Checks that `recipient` is a Nostr public key (npub or hex) before it's
-/// written to a config.
-pub fn check_recipient(recipient: &str) -> Result<(), AlertError> {
-    PublicKey::parse(recipient.trim())
-        .map(|_| ())
-        .map_err(|e| AlertError::Config(format!("not a Nostr public key: {e}")))
+/// Checks `recipient` before it's written to a config, and returns it as it
+/// should be written: the key or profile code, without a web link around it.
+pub fn check_recipient(recipient: &str) -> Result<String, AlertError> {
+    parse_recipient(recipient)?;
+    Ok(unwrap_link(recipient).to_string())
+}
+
+/// The recipient's key, and the relays named with it in a profile code.
+///
+/// Takes an npub, a hex key, an `nprofile`, a `nostr:` link, or a web link
+/// ending in one of these. Amethyst's share button gives a link such as
+/// `https://njump.to/nprofile1…`, whose relays are the account's own. That's
+/// where Amethyst keeps the list of relays the phone reads DMs from, and a
+/// plain npub doesn't say where to look.
+pub fn parse_recipient(recipient: &str) -> Result<(PublicKey, Vec<RelayUrl>), AlertError> {
+    let code = unwrap_link(recipient);
+    let bad = |e: String| AlertError::Config(format!("not a Nostr public key: {e}"));
+    if code.starts_with("nprofile1") {
+        let profile = Nip19Profile::from_bech32(code).map_err(|e| bad(e.to_string()))?;
+        Ok((profile.public_key, profile.relays))
+    } else {
+        PublicKey::parse(code)
+            .map(|key| (key, vec![]))
+            .map_err(|e| bad(e.to_string()))
+    }
+}
+
+/// The key or profile code inside a web or `nostr:` link.
+fn unwrap_link(recipient: &str) -> &str {
+    let s = recipient.trim();
+    let s = if s.starts_with("https://") || s.starts_with("http://") {
+        s.trim_end_matches('/').rsplit('/').next().unwrap_or(s)
+    } else {
+        s
+    };
+    s.strip_prefix("nostr:").unwrap_or(s)
 }
 
 pub struct NostrAlerter {
@@ -69,16 +104,30 @@ pub struct NostrAlerter {
     recipient: PublicKey,
     /// The relays in the config, where the recipient's inbox list is looked up.
     configured: Vec<RelayUrl>,
+    /// Relays named in the recipient's profile code. The inbox list is looked
+    /// up there too; alerts aren't sent there.
+    hints: Vec<RelayUrl>,
     /// Where alerts go: the configured relays, then the recipient's inbox.
     targets: Mutex<Vec<RelayUrl>>,
     /// Whether a relay has answered the inbox lookup. Until one has (no
     /// connection at start), it's tried again before each send.
     inbox_checked: AtomicBool,
+    /// Alerts sent while some relays didn't answer, for those relays.
+    skipped: Mutex<Vec<Skipped>>,
+}
+
+/// An alert that some relays didn't take because they didn't answer.
+#[derive(Clone)]
+struct Skipped {
+    /// The signed event itself: sending the same one again can't show twice.
+    event: Event,
+    relays: Vec<RelayUrl>,
+    sent_at: Instant,
 }
 
 impl NostrAlerter {
     pub async fn connect(config: &NostrConfig) -> Result<Self, AlertError> {
-        let recipient = PublicKey::parse(&config.recipient)
+        let (recipient, hints) = parse_recipient(&config.recipient)
             .map_err(|e| AlertError::Config(format!("recipient: {e}")))?;
         let keys = load_or_create_keys(&config.secret_key_file)?;
         if config.relays.is_empty() {
@@ -97,6 +146,13 @@ impl NostrAlerter {
             add_relay(&client, &url).await?;
             configured.push(url);
         }
+        let hints: Vec<RelayUrl> = hints
+            .into_iter()
+            .filter(|url| !configured.contains(url))
+            .collect();
+        for url in &hints {
+            add_relay(&client, url).await?;
+        }
         client.connect().and_wait(TIMEOUT).await;
 
         let alerter = NostrAlerter {
@@ -105,7 +161,9 @@ impl NostrAlerter {
             recipient,
             targets: Mutex::new(configured.clone()),
             configured,
+            hints,
             inbox_checked: AtomicBool::new(false),
+            skipped: Mutex::new(Vec::new()),
         };
         alerter.find_inbox().await;
         Ok(alerter)
@@ -126,7 +184,8 @@ impl NostrAlerter {
         }
         let mut answered = false;
         let mut newest: Option<Event> = None;
-        for answer in self.ask_all(&self.configured).await {
+        let lookup: Vec<RelayUrl> = self.configured.iter().chain(&self.hints).cloned().collect();
+        for answer in self.ask_all(&lookup).await {
             let Some(Answer::Events(events)) = answer.1 else {
                 continue;
             };
@@ -211,8 +270,9 @@ impl NostrAlerter {
     /// failed, sends it again, and the phone gets it twice (seen on a phone).
     pub async fn send(&self, text: &str) -> Result<usize, AlertError> {
         self.find_inbox().await;
+        let targets = self.relays();
         let connected: Vec<RelayUrl> = self
-            .ask_all(&self.relays())
+            .ask_all(&targets)
             .await
             .into_iter()
             .filter_map(|(url, answer)| answer.map(|_| url))
@@ -228,9 +288,20 @@ impl NostrAlerter {
         let output = self
             .client
             .send_event(&event)
-            .to(connected)
+            .to(connected.clone())
             .await
             .map_err(nostr_err)?;
+        let silent: Vec<RelayUrl> = targets
+            .into_iter()
+            .filter(|url| !connected.contains(url))
+            .collect();
+        if !output.success.is_empty() && !silent.is_empty() {
+            self.skipped.lock().expect("skipped lock").push(Skipped {
+                event,
+                relays: silent,
+                sent_at: Instant::now(),
+            });
+        }
         if output.success.is_empty() {
             let reasons: Vec<String> = output
                 .failed
@@ -243,6 +314,49 @@ impl NostrAlerter {
             )));
         }
         Ok(output.success.len())
+    }
+
+    /// Sends earlier alerts to the relays that didn't answer when they went
+    /// out and answer now: the same signed event, so the phone still shows
+    /// it once. A relay that comes back after the alert went out may be the
+    /// one the phone reads from. Each relay gets one try once it answers, for
+    /// up to [`RESEND_FOR`]. Returns how many relays took an alert.
+    pub async fn resend_skipped(&self) -> usize {
+        let pending: Vec<Skipped> = {
+            let mut skipped = self.skipped.lock().expect("skipped lock");
+            skipped.retain(|s| s.sent_at.elapsed() < RESEND_FOR);
+            skipped.clone()
+        };
+        let mut delivered = 0;
+        let mut left = Vec::new();
+        for mut item in pending.iter().cloned() {
+            let answered: Vec<RelayUrl> = self
+                .ask_all(&item.relays)
+                .await
+                .into_iter()
+                .filter_map(|(url, answer)| answer.map(|_| url))
+                .collect();
+            if !answered.is_empty() {
+                if let Ok(output) = self
+                    .client
+                    .send_event(&item.event)
+                    .to(answered.clone())
+                    .await
+                {
+                    delivered += output.success.len();
+                }
+                item.relays.retain(|url| !answered.contains(url));
+            }
+            if !item.relays.is_empty() {
+                left.push(item);
+            }
+        }
+        // Keep what was added meanwhile, replace what was just tried.
+        let tried: Vec<EventId> = pending.iter().map(|s| s.event.id).collect();
+        let mut skipped = self.skipped.lock().expect("skipped lock");
+        skipped.retain(|s| !tried.contains(&s.event.id));
+        skipped.extend(left);
+        delivered
     }
 }
 
@@ -539,6 +653,39 @@ mod tests {
     use firewatch_core::{Action, Implementation, Severity};
 
     use super::*;
+
+    #[test]
+    fn a_recipient_can_be_a_key_or_a_profile_code_with_relays() {
+        let key = Keys::generate().public_key();
+        let relays = vec![
+            RelayUrl::parse("wss://nostr.mom").unwrap(),
+            RelayUrl::parse("wss://nos.lol").unwrap(),
+        ];
+        let npub = key.to_bech32().unwrap();
+        let nprofile = Nip19Profile::new(key, relays.clone()).to_bech32().unwrap();
+
+        assert_eq!(parse_recipient(&npub).unwrap(), (key, vec![]));
+        assert_eq!(parse_recipient(&key.to_hex()).unwrap(), (key, vec![]));
+        for form in [
+            nprofile.clone(),
+            format!("nostr:{nprofile}"),
+            format!("  https://njump.to/{nprofile}/ "),
+        ] {
+            assert_eq!(
+                parse_recipient(&form).unwrap(),
+                (key, relays.clone()),
+                "{form}"
+            );
+        }
+        // Written to the config without the link around it.
+        assert_eq!(
+            check_recipient(&format!("https://njump.to/{nprofile}")).unwrap(),
+            nprofile
+        );
+        for bad in ["", "npub1nope", "https://njump.to/", "nsec1abc"] {
+            assert!(parse_recipient(bad).is_err(), "{bad}");
+        }
+    }
 
     fn node() -> NodeReport {
         NodeReport {

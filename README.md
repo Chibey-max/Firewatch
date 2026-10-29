@@ -62,7 +62,7 @@ Firewatch sends alerts as **encrypted Nostr direct messages** (NIP-17). Nostr ha
 | Phone | App | |
 |---|---|---|
 | iPhone | **Nostur** (App Store) | Tested with Firewatch. |
-| Android | **Amethyst** (Play Store) or **0xchat** | |
+| Android | **Amethyst** (Play Store) | Tested with Firewatch. |
 
 Damus doesn't show these messages, so alerts never appear there. Check you have the right app: it talks about Nostr, and it never asks for a phone number or password.
 
@@ -76,11 +76,12 @@ The app shows or lets you export your `nsec1…` key, usually under your profile
 
 **d. Copy your public key**
 
-Open your profile. Your `npub1…` is shown there, usually with a copy button or a share or QR option. Copy the whole string.
+- **Amethyst:** open your profile, tap **share**, and copy the link. It looks like `https://njump.to/nprofile1…`: your public key plus the relays your account uses. Firewatch needs those relays, because that's where Amethyst keeps the list of relays your phone reads messages from. With a bare npub, Firewatch may not find it, and alerts can arrive late.
+- **Nostur:** open your profile and copy your `npub1…`.
 
 **e. Give it to Firewatch**
 
-Paste the npub when `firewatch init` asks (step 3). To change it later, edit `recipient` in `~/.config/firewatch/firewatch.toml`.
+Paste it when `firewatch init` asks (step 3); Firewatch keeps the `nprofile1…` or `npub1…` part. To change it later, edit `recipient` in `~/.config/firewatch/firewatch.toml`.
 
 **f. Accept the first message**
 
@@ -92,9 +93,9 @@ After `firewatch test-alert` (step 4), the message arrives under **message reque
 
 From then on, alerts land in your normal inbox.
 
-**Relays.** Messages travel through Nostr relays. Firewatch sends to `relay.damus.io`, `nos.lol` and `relay.primal.net`, and also to any DM relays your app has published for your key. Most apps use some of these by default. If `test-alert` succeeds but nothing arrives, add `wss://relay.damus.io` and `wss://nos.lol` in the app's relay settings and reopen your messages.
+**Relays.** Messages travel through Nostr relays. Firewatch sends to `relay.damus.io`, `nos.lol` and `relay.primal.net`, and also to the DM relays your app has published for your key. It looks for that list on those three relays and, if you gave the share link, on your account's own relays. A relay that's still reconnecting when an alert goes out gets the same alert once it's back, for up to 10 minutes. If `test-alert` succeeds but nothing arrives, add `wss://relay.damus.io` and `wss://nos.lol` in the app's relay settings and reopen your messages.
 
-**One recipient per config.** Firewatch sends to one npub. For a team, share one alerts account between the phones that need it, or run one Firewatch config per person.
+**One recipient per config.** Firewatch sends to one key. For a team, share one alerts account between the phones that need it, or run one Firewatch config per person.
 
 ### 3. Set up with `firewatch init`
 
@@ -193,7 +194,7 @@ To uninstall: `rm ~/.local/bin/firewatch` (installer) or `cargo uninstall firewa
 
 ```sh
 scripts/demo-up.sh                              # build everything, check the nodes, start the demo
-cargo test --workspace                          # 172 tests: engine, connectors, alerts, one per advisory
+cargo test --workspace                          # 175 tests: engine, connectors, alerts, one per advisory
 cargo run -- validate                           # load and list every advisory
 cargo run -- check                              # check the live nodes in firewatch.toml once
 cargo run -- check --nodes examples/nodes.json  # check a JSON snapshot instead
@@ -265,7 +266,7 @@ A version number is only text a binary prints. LND also reports the commit it wa
 
 Refresh the table with `scripts/lnd-releases.sh`; it only replaces the file when the fetch succeeds. `--releases <file>` points at another one. The table is required: Firewatch stops if it's missing, rather than giving an unofficial build normal verdicts.
 
-**Alerts** are NIP-17 encrypted Nostr DMs to the operator's key. Set `recipient` to your npub under `[alerts.nostr]`. Firewatch creates its own key in `secret_key_file` on first run and delivers to your NIP-17 inbox relays (kind 10050) as well as the relays listed. Any NIP-17 client can read them, for example 0xchat, Amethyst or Primal. To read them in a terminal:
+**Alerts** are NIP-17 encrypted Nostr DMs to the operator's key. Set `recipient` to your npub, or your app's profile code (`nprofile1…`, which also names your relays), under `[alerts.nostr]`. Firewatch creates its own key in `secret_key_file` on first run and delivers to your NIP-17 inbox relays (kind 10050) as well as the relays listed. Any NIP-17 client can read them, for example 0xchat, Amethyst or Primal. To read them in a terminal:
 
 ```sh
 cargo run -p firewatch-alerts --example inbox -- --new          # make a test key

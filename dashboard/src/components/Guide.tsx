@@ -252,8 +252,8 @@ function Alerts() {
               </>
             ) : (
               <>
-                Use <b className="text-ink">Amethyst</b> from the Play Store, or{' '}
-                <b className="font-mono text-[0.92em] text-ink">0xchat</b>.
+                Use <b className="text-ink">Amethyst</b> from the Play Store: it's tested with
+                Firewatch.
               </>
             )}{' '}
             Not Damus: it doesn't show these messages. The right app talks about Nostr and never
@@ -270,12 +270,22 @@ function Alerts() {
               teammate or a website.
             </Step>
             <Step n={3} title="Copy your public key">
-              Open your profile in {app} and copy your <code className={c}>npub1…</code>. It's your
-              address, and it's safe to share.
+              {phone === 'ios' ? (
+                <>
+                  Open your profile in Nostur and copy your <code className={c}>npub1…</code>.
+                </>
+              ) : (
+                <>
+                  Open your profile in Amethyst, tap <b className="text-ink">share</b> and copy the
+                  link (<code className={c}>https://njump.to/nprofile1…</code>). It names the relays
+                  where Amethyst keeps the list Firewatch delivers to.
+                </>
+              )}{' '}
+              It's your address, and it's safe to share.
             </Step>
             <Step n={4} title="Give it to Firewatch">
-              Paste the npub when <code className={c}>firewatch init</code> asks. To change it
-              later, edit <code className={c}>recipient</code> in{' '}
+              Paste it when <code className={c}>firewatch init</code> asks. To change it later, edit{' '}
+              <code className={c}>recipient</code> in{' '}
               <code className={c}>~/.config/firewatch/firewatch.toml</code>.
             </Step>
             <Step n={5} title="Send a test alert">
